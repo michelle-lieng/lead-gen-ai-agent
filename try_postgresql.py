@@ -14,14 +14,7 @@ DB_NAME = config.get("postgresql_database")
 
 load_dotenv()
 
-# Connect to an existing database (usually 'postgres')
-
-POSTGRESQL_HOST = 'localhost'
-POSTGRESQL_PORT = 5432
-POSTGRESQL_INITIAL_DATABASE = 'postgres'
-POSTGRESQL_USER = 'postgres'
-POSTGRESQL_PASSWORD = 'hello123'
-
+# Connect to an existing database
 conn = psycopg2.connect(
     host=os.getenv("POSTGRESQL_HOST"),
     port=os.getenv("POSTGRESQL_PORT"),
