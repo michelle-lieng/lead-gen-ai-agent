@@ -54,5 +54,29 @@ if not exists:
 else:
     print(f"Database '{DB_NAME}' already exists.")
 
+# Close the initial connection
 cur.close()
 conn.close()
+
+# ---- 🔥 Now connect to the new database ----
+conn2 = psycopg2.connect(
+    host=os.getenv("POSTGRESQL_HOST"),
+    port=os.getenv("POSTGRESQL_PORT"),
+    database=DB_NAME,
+    user=os.getenv("POSTGRESQL_USER"),
+    password=os.getenv("POSTGRESQL_PASSWORD")
+)
+cur2 = conn2.cursor()
+
+# create table for initial collection with 1 column to collect website urls
+cur2.execute("""
+CREATE TABLE IF NOT EXISTS initial_collection (
+    website TEXT
+);
+""")
+conn2.commit()
+
+print(f"📦 Connected to '{DB_NAME}' and created table successfully.")
+
+cur2.close()
+conn2.close()
