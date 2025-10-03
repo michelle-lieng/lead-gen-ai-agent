@@ -12,6 +12,10 @@ import os
 import yaml
 import logging
 import sys
+from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- Configure logging ---
 logging.basicConfig(
@@ -134,6 +138,68 @@ for item in organic:
 
 conn2.commit()
 logging.info(f"✅ Upserted {rows} rows for query: {query}")
+
+# Create leads table if not exists
+cur2.execute("""
+CREATE TABLE IF NOT EXISTS leads (
+    id SERIAL PRIMARY KEY,
+    serpapi_url_id INTEGER REFERENCES serpapi_urls(id),
+    lead_info TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+""")
+conn2.commit()
+
+# Add status column to serpapi_urls if not exists
+cur2.execute("""
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='serpapi_urls' AND column_name='status') THEN
+        ALTER TABLE serpapi_urls ADD COLUMN status TEXT DEFAULT 'pending';
+    END IF;
+END$$;
+""")
+conn2.commit()
+
+# Fetch rows with status 'pending'
+cur2.execute("SELECT id, query, title, snippet FROM serpapi_urls WHERE status = 'pending';")
+rows = cur2.fetchall()
+
+client = OpenAI()
+
+for row in rows:
+    row_id, query, title, snippet = row
+    prompt = f"""
+Given the following search result, extract any lead information (such as company names, contacts, or relevant details). If no lead is present, reply "NO LEAD".
+
+Query: {query}
+Title: {title}
+Snippet: {snippet}
+"""
+    response = client.responses.create(
+        model="gpt-3.5-turbo",
+        input=[{"role": "user", "content": prompt}]
+    )
+    output = response.output_text.strip()
+
+    if output and output.upper() != "NO LEAD":
+        # Insert lead into leads table
+        cur2.execute(
+            "INSERT INTO leads (serpapi_url_id, lead_info) VALUES (%s, %s);",
+            (row_id, output)
+        )
+        # Update status to 'lead_found'
+        cur2.execute(
+            "UPDATE serpapi_urls SET status = 'lead_found' WHERE id = %s;",
+            (row_id,)
+        )
+    else:
+        # Update status to 'no_lead'
+        cur2.execute(
+            "UPDATE serpapi_urls SET status = 'no_lead' WHERE id = %s;",
+            (row_id,)
+        )
+    conn2.commit()
 
 cur2.close()
 conn2.close()
