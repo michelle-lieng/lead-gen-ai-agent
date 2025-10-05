@@ -14,6 +14,13 @@ import logging
 import sys
 from openai import OpenAI
 from dotenv import load_dotenv
+from DatabaseManager import DatabaseManager
+from SerpApiManager import SerpApiManager
+from LLMManager import LLMManager
+
+# Load variables
+with open("config.yaml", "r") as file:
+    config = yaml.safe_load(file)
 
 load_dotenv()
 
@@ -23,183 +30,78 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-# Load variables
-with open("config.yaml", "r") as file:
-    config = yaml.safe_load(file)
-load_dotenv()
+class AILeadGenerator():
+    db = DatabaseManager()
+    sm = SerpApiManager()
+    lm = LLMManager()
 
-# add logging here if database is none
-DB_NAME = config.get("postgresql_database")
-if DB_NAME is None:
-    logging.error(f"❌ Add database name to config.yaml")
-    sys.exit(1)
+    def __init__(self):
+        pass
 
-try:
-    # Connect to existing database
-    conn = psycopg2.connect(
-        host=os.getenv("POSTGRESQL_HOST"),
-        port=os.getenv("POSTGRESQL_PORT"),
-        database=os.getenv("POSTGRESQL_INITIAL_DATABASE"),     # connect to postgres default DB first
-        user=os.getenv("POSTGRESQL_USER"),         # user that has CREATEDB or SUPERUSER
-        password=os.getenv("POSTGRESQL_PASSWORD")
-    )
-    logging.info("✅ Connected to PostgreSQL successfully.")
+    def setup(self):
+        """
+        Here we connect to db and set up all the tables.
+        """
+        # connect to db set in config
+        self.db.connect_to_db()
 
-except psycopg2.OperationalError as e:
-    logging.error(f"❌ Could not connect to PostgreSQL: {e}")
-    sys.exit(1)
+        # create all tables in db if not already exist
+        self.db.create_tables()
+    
+    def collect_initial_urls(self, queries: list):
+        """
+        Step 1 of the AI lead gen. 
+        
+        Given a list of queries loop through each query and 
+        for each pull 100 results and feed into
+        the postgres table: "initial_urls".
+        """
+        for query in queries:
+            # serpapi_results = self.sm.call_api(query=query)
+            # temporary to save api costs
+            serpapi_results = self.sm.load_from_json()
+            self.db.upsert_initial_urls(
+                query=query,
+                serpapi_results=serpapi_results
+            )
 
-except Exception as e:
-    logging.exception("❌ Unexpected error occurred while connecting to PostgreSQL")
-    sys.exit(1)
+    def collect_initial_leads(self):
+        """
+        Step 2 of AI Lead gen.
 
-conn.autocommit = True  # CREATE DATABASE can't be in a transaction
-cur = conn.cursor()
+        Now that "initial_urls" table has been populated
+        we go down each row and extract the title, url, snippet
+        and query and ask an AI Agent to:
+        1. If it can extract leads from snippet does so.
+        2. If it needs more info scrapes the url and extracts leads.
+        3. If it sees the page is not aligned to the profile we want
+        to extract skip.
+        
+        Will update status of "initial_urls" from "unprocessed" to 
+        "processed" or "skip" and if it scrapes a page then 
+        will update the "website_scraped" column. 
 
-# Check if the database already exists
-cur.execute("SELECT 1 FROM pg_database WHERE datname = %s;", (DB_NAME,))
-exists = cur.fetchone()
+        Will update the "leads" table.
+        """
+        rows = self.db.fetch_unprocessed_urls()
+        for row in rows:
+            row_id, query, title, link, snippet = row
+            final_output, scraped_content = self.lm.lead_extractor(query, title, snippet, link)
+            self.db.upsert_leads(row_id, final_output, scraped_content)
 
-if not exists:
-    cur.execute(f'CREATE DATABASE "{DB_NAME}";')
-    print(f"Database '{DB_NAME}' created!")
-else:
-    print(f"Database '{DB_NAME}' already exists.")
+    def close_connection(self):
+        self.db.close()
 
-# Close the initial connection
-cur.close()
-conn.close()
+    def main(self):
+        # First connect to db + create tables
+        self.setup()
+        queries = ["what are the top environmental corporates in australia"]
+        self.collect_initial_urls(queries)
+        self.collect_initial_leads()
+        self.close_connection()
 
-# ---- 🔥 Now connect to the new database ----
-conn2 = psycopg2.connect(
-    host=os.getenv("POSTGRESQL_HOST"),
-    port=os.getenv("POSTGRESQL_PORT"),
-    database=DB_NAME,
-    user=os.getenv("POSTGRESQL_USER"),
-    password=os.getenv("POSTGRESQL_PASSWORD")
-)
-cur2 = conn2.cursor()
+if __name__ == "__main__":
+    alg = AILeadGenerator()
+    alg.main()
 
-# create table for initial collection of website urls
-cur2.execute("""
-CREATE TABLE IF NOT EXISTS serpapi_urls (
-    id SERIAL PRIMARY KEY,            -- auto-incrementing unique ID
-    query TEXT NOT NULL,              -- original search query
-    title TEXT,                       -- title of the result
-    link TEXT UNIQUE,                        -- final URL
-    snippet TEXT,                     -- snippet/description from search
-    source TEXT                      -- domain or source field
-);
-""")
-conn2.commit()
-
-print(f"📦 Connected to '{DB_NAME}' and created table successfully.")
-
-# load_dotenv()
-query = "what are the top environmental corporates in australia"
-# params = {
-#   "engine": "google",
-#   "q": query,
-#   "location": "Sydney, New South Wales, Australia",
-#   "hl": "en",
-#   "gl": "au",
-#   "google_domain": "google.com.au",
-#   "num": "100",
-#   "start": "0",
-#   "safe": "active",
-#   "api_key": os.getenv("SERP_API_KEY")
-# }
-
-# search = GoogleSearch(params)
-# results = search.get_dict()
-
-import json 
-with open('learning/output.json', 'r') as f:
-    # Load the JSON data from the file
-    results = json.load(f)
-organic = results.get("organic_results", [])
-rows = 0
-
-for item in organic:
-    link = item.get("link") or item.get("redirect_link")
-    title   = item.get("title")
-    snippet = item.get("snippet")
-    source  = item.get("source")
-
-    cur2.execute("""
-        INSERT INTO serpapi_urls (query, title, link, snippet, source)
-        VALUES (%s, %s, %s, %s, %s)
-        ON CONFLICT (link) DO UPDATE
-          SET title    = COALESCE(EXCLUDED.title,   serpapi_urls.title),
-              snippet  = COALESCE(EXCLUDED.snippet, serpapi_urls.snippet),
-              source   = COALESCE(EXCLUDED.source,  serpapi_urls.source)
-    """, (query, title, link, snippet, source))
-    rows += 1
-
-conn2.commit()
-logging.info(f"✅ Upserted {rows} rows for query: {query}")
-
-# Create leads table if not exists
-cur2.execute("""
-CREATE TABLE IF NOT EXISTS leads (
-    id SERIAL PRIMARY KEY,
-    serpapi_url_id INTEGER REFERENCES serpapi_urls(id),
-    lead_info TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-""")
-conn2.commit()
-
-# Add status column to serpapi_urls if not exists
-cur2.execute("""
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='serpapi_urls' AND column_name='status') THEN
-        ALTER TABLE serpapi_urls ADD COLUMN status TEXT DEFAULT 'pending';
-    END IF;
-END$$;
-""")
-conn2.commit()
-
-# Fetch rows with status 'pending'
-cur2.execute("SELECT id, query, title, snippet FROM serpapi_urls WHERE status = 'pending';")
-rows = cur2.fetchall()
-
-client = OpenAI()
-
-for row in rows:
-    row_id, query, title, snippet = row
-    prompt = f"""
-Given the following search result, extract any lead information (such as company names, contacts, or relevant details). If no lead is present, reply "NO LEAD".
-
-Query: {query}
-Title: {title}
-Snippet: {snippet}
-"""
-    response = client.responses.create(
-        model="gpt-3.5-turbo",
-        input=[{"role": "user", "content": prompt}]
-    )
-    output = response.output_text.strip()
-
-    if output and output.upper() != "NO LEAD":
-        # Insert lead into leads table
-        cur2.execute(
-            "INSERT INTO leads (serpapi_url_id, lead_info) VALUES (%s, %s);",
-            (row_id, output)
-        )
-        # Update status to 'lead_found'
-        cur2.execute(
-            "UPDATE serpapi_urls SET status = 'lead_found' WHERE id = %s;",
-            (row_id,)
-        )
-    else:
-        # Update status to 'no_lead'
-        cur2.execute(
-            "UPDATE serpapi_urls SET status = 'no_lead' WHERE id = %s;",
-            (row_id,)
-        )
-    conn2.commit()
-
-cur2.close()
-conn2.close()
+        
