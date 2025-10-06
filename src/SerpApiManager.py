@@ -5,7 +5,7 @@ from serpapi import GoogleSearch
 
 load_dotenv()
 
-class SerpApiManager:
+class SerpAPIManager:
     def __init__(self):
         pass
 
@@ -35,5 +35,5 @@ class SerpApiManager:
         return results.get("organic_results", [])
 
 if __name__ == "__main__":
-    sm = SerpApiManager()
+    sm = SerpAPIManager()
     print(sm.load_from_json())

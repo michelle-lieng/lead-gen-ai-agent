@@ -15,8 +15,8 @@ import sys
 from openai import OpenAI
 from dotenv import load_dotenv
 from DatabaseManager import DatabaseManager
-from SerpApiManager import SerpApiManager
 from LLMManager import LLMManager
+from SerpAPIManager import SerpAPIManager
 
 # Load variables
 with open("config.yaml", "r") as file:
