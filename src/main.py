@@ -57,7 +57,7 @@ class AILeadGenerator():
                 serpapi_results=serpapi_results
             )
 
-    def collect_initial_leads(self):
+    async def collect_initial_leads(self):
         """
         Step 2 of AI Lead gen.
 
@@ -75,25 +75,31 @@ class AILeadGenerator():
 
         Will update the "leads" table.
         """
-        rows = self.db.fetch_unprocessed_urls()
-        for row in rows:
-            row_id, query, title, link, snippet = row
-            final_output, scraped_content = self.lm.lead_extractor(query, title, snippet, link)
-            self.db.upsert_leads(row_id, final_output, scraped_content)
+        rows = self.DatabaseManager.fetch_unprocessed_urls()
+        
+        # run all lead_extractor calls in parallel
+        tasks = [
+            self.InitialLeadAgent.lead_extractor(query, title, snippet, link)
+            for (row_id, query, title, link, snippet) in rows
+        ]
+        results = await asyncio.gather(*tasks)
+
+        for (row_id, _, _, _, _), (leads, scraped) in zip(rows, results):
+            self.DatabaseManager.upsert_leads(row_id, leads, scraped)
 
     def close_connection(self):
         self.DatabaseManager.close()
 
-    def main(self):
+    async def main(self):
         # First connect to db + create tables
         self.setup()
         queries = ["what are the top environmental corporates in australia"]
         self.collect_initial_urls(queries)
-        self.collect_initial_leads()
+        await self.collect_initial_leads()
         self.close_connection()
 
 if __name__ == "__main__":
-    alg = AILeadGenerator()
-    alg.main()
+    AILeadGenerator = AILeadGenerator()
+    asyncio.run(AILeadGenerator.main())
 
         
