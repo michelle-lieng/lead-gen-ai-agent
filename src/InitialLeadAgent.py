@@ -65,6 +65,11 @@ class InitialLeadAgent:
                 4. **If the result is relevant but the snippet/title doesn’t contain enough names → call the `scrape_url` tool** to load the page and then extract company names.
                 5. **If the result is irrelevant or is about polluters/greenwashing rankings or does not align with sustainability partnerships → return an empty list and DO NOT call `scrape_url`.**
 
+                Important rules:**
+                - Only return **specific company names** (legal entity names such as “Orica”, “Acciona Energy”, “BHP Group”).
+                - Do **not** return industries, sectors, general terms (e.g., “renewable energy companies”, “the mining industry”) or trade groups.
+                - Do **not** return product names or government agencies.
+
                 Output:
                 - Always return **a valid Python list of company names**: e.g. `["Company A", "Company B"]`.
                 - If no suitable companies: return `[]`.
