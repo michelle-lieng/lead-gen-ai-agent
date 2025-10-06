@@ -27,7 +27,7 @@ params = {
 search = GoogleSearch(params)
 results = search.get_dict()
 
-with open("learning/output.json", "w") as f:
+with open("learning/serpapi_example_output.json", "w") as f:
     json.dump(results, f, indent=4)
 # pprint(results)
 

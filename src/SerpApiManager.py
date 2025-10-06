@@ -28,7 +28,7 @@ class SerpApiManager:
         return results.get("organic_results", [])
     
     def load_from_json(self, 
-                       json_path: str = 'learning/output.json') -> dict:
+                       json_path: str = 'learning/serpapi_example_output.json') -> dict:
         with open(json_path, 'r') as f:
             # Load the JSON data from the file
             results = json.load(f)
