@@ -3,12 +3,12 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from agents import Agent, Runner, function_tool
 import asyncio
-from dotenv import load_dotenv
 from pprint import pprint
 import json
 import re
 import logging
-import ast
+import requests
+import os
 
 load_dotenv()
 
@@ -23,20 +23,13 @@ logging.getLogger("openai").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-import requests
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
-
-load_dotenv()
-
-class LLMManager:
+class InitialLeadAgent:
     client = OpenAI()
 
     def __init__(self):
         pass
-
+    
+    @staticmethod
     @function_tool
     def scrape_url(url: str) -> str:
         """
@@ -60,19 +53,24 @@ class LLMManager:
     @staticmethod
     def system_prompt():
         return f"""
-                You are an AI assistant helping a sustainability company (Seabin Foundation) find potential corporate leads.
+                You are an AI assistant helping a sustainability organisation (Seabin Foundation) discover **potential corporate partners/leads that take real environmental or sustainability action**.
 
                 Your task:
-                - Read the following Google search result (query, title, snippet).
-                - Extract all company names that could be potential leads for Seabin's sustainability initiative.
-                - Only include company names that are relevant to sustainability or environmental action.
-                - If search result seems irrelevant e.g. companies that are not sustainable, return an empty list.
-                - If you cannot extract any company names directly from the snippet and title, and the search result appears relevant, call the "scrape_url" tool with the URL from the search result.
 
-                Return your answer as a Python list of strings, e.g. ["Company A", "Company B"]
+                1. **Analyse the Google search result** (query, title, snippet).
+                2. Decide if the result is likely to list or mention **genuinely sustainability-focused companies**:
+                - Companies with clear environmental initiatives, ESG reports, renewable energy adoption, ocean/river cleanup, waste reduction, decarbonisation, etc.
+                - Avoid companies only mentioned in a negative context (e.g., "most polluting", "greenwashing", "biggest carbon emitters").
+                3. **If the result is relevant and contains company names in the snippet/title → extract them directly.**
+                4. **If the result is relevant but the snippet/title doesn’t contain enough names → call the `scrape_url` tool** to load the page and then extract company names.
+                5. **If the result is irrelevant or is about polluters/greenwashing rankings or does not align with sustainability partnerships → return an empty list and DO NOT call `scrape_url`.**
+
+                Output:
+                - Always return **a valid Python list of company names**: e.g. `["Company A", "Company B"]`.
+                - If no suitable companies: return `[]`.
                 """
     
-    def lead_extractor(self, query, title, snippet, url) -> tuple[list, str | None]:
+    async def lead_extractor(self, query, title, snippet, url) -> tuple[list, str | None]:
         agent = Agent(
             name="Lead Generator",
             instructions=self.system_prompt(),
@@ -80,32 +78,33 @@ class LLMManager:
             output_type=List[str], # Specify the output type as a list of strings
         )
 
-        async def main():
-            result = await Runner.run(agent, 
-                                    input=f"""
-                                        Search Result:
-                                        Query: {query}
-                                        Title: {title}
-                                        Snippet: {snippet}
-                                        URL: {url}
-                                    """)
-            scraped_content = None #initial value
-            for item in result.new_items:
-                if getattr(item, "type", None) == "tool_call_output_item":
-                    scraped_content = getattr(item, "output", None)
+        result = await Runner.run(agent, 
+                                input=f"""
+                                    Search Result:
+                                    Query: {query}
+                                    Title: {title}
+                                    Snippet: {snippet}
+                                    URL: {url}
+                                """)
+        scraped_content = None #initial value
+        for item in result.new_items:
+            if getattr(item, "type", None) == "tool_call_output_item":
+                scraped_content = getattr(item, "output", None)
 
-                    # clean scraped content
+                # clean scraped content
+                if scraped_content:
+                    # remove newlines + normalise spaces + strip weird bytes
+                    scraped_content = re.sub(r'[\r\n]+', ' ', scraped_content)
                     scraped_content = re.sub(r'\s+', ' ', scraped_content).strip()
-                    logging.info("Tool output (scraped content) found.")
-            logging.info(f"Final output (company names): {result.final_output}")
-            # enforce list type for leads
-            leads = result.final_output
-            return leads, scraped_content
-
-        return asyncio.run(main())
+                    scraped_content = scraped_content.encode("utf-8", "ignore").decode("utf-8")
+                logging.info("Tool output (scraped content) found.")
+        logging.info(f"Final output (company names): {result.final_output}")
+        # enforce list type for leads
+        leads = result.final_output
+        return leads, scraped_content
 
 if __name__ == "__main__":
-    lm = LLMManager()
+    lead_agent = InitialLeadAgent()
 
     # CASE 1: Easy company extraction
     # query = "what are the top environmental corporates in australia"
@@ -125,6 +124,6 @@ if __name__ == "__main__":
     # url = "https://www.theecoexperts.co.uk"
     # snippet = "5 June 2025 — The Top 10 Most Polluting Companies · 1. Saudi Aramco · 2. Chevron · 3. Gazprom · 4. ExxonMobil · 5. National Iranian Oil Company (NIOC) · 6. BP · 7."
 
-    final_output, scraped_content = lm.lead_extractor(query, title, snippet, url)
+    final_output, scraped_content = asyncio.run(lead_agent.lead_extractor(query, title, snippet, url))
     print(scraped_content)
     print(final_output)
