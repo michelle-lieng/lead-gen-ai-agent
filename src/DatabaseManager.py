@@ -3,13 +3,12 @@ This class manages all connections to my postgre db.
 """
 from dotenv import load_dotenv
 import os
-from typing import Optional
-import json
 import psycopg2
 import yaml
 import logging
 import sys
-from dotenv import load_dotenv
+from pathlib import Path
+from datetime import datetime
 
 # --- Configure logging ---
 logging.basicConfig(
@@ -17,7 +16,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 load_dotenv()
-
 
 class DatabaseManager:
     def __init__(self, config_path="config.yaml"):
@@ -168,6 +166,28 @@ class DatabaseManager:
                 
         self.conn.commit()
     
+    def download_csv(self):
+        filename_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        outdir = Path(fr"C:\Users\Michelle\data-science\lead-gen-ai-agent\output\{self.db_name}\{filename_ts}")
+        outdir.mkdir(parents=True, exist_ok=True)  # make folder if it doesn’t exist
+
+        # export initial_urls
+        with open(outdir / "initial_urls.csv", "w", newline="", encoding="utf-8-sig") as f:
+            self.cur.copy_expert(
+                "COPY (SELECT * FROM initial_urls) TO STDOUT WITH (FORMAT CSV, HEADER TRUE, DELIMITER ',');",
+                f,
+            )
+
+        # export leads
+        with open(outdir / "leads.csv", "w", newline="", encoding="utf-8-sig") as f:
+            self.cur.copy_expert(
+                "COPY (SELECT * FROM leads) TO STDOUT WITH (FORMAT CSV, HEADER TRUE, DELIMITER ',');",
+                f,
+            )
+
+        self.conn.commit()
+        print(f"✅ CSVs saved to {outdir}")
+
     def close(self):
         if self.cur:
             self.cur.close()
@@ -177,3 +197,4 @@ class DatabaseManager:
 if __name__ == "__main__":
     dm = DatabaseManager()
     dm.connect_to_db()
+    dm.download_csv()
