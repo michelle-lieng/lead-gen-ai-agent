@@ -87,16 +87,26 @@ class AILeadGenerator():
         for (row_id, _, _, _, _), (leads, scraped) in zip(rows, results):
             self.DatabaseManager.upsert_leads(row_id, leads, scraped)
 
-    def close_connection(self):
+    def end_lead_gen(self):
+        """
+        Save DB and close connection to DB.
+        """
+        self.DatabaseManager.download_csv()
         self.DatabaseManager.close()
 
     async def main(self):
-        # First connect to db + create tables
+        # 1. Connect to db + create tables
         self.setup()
+
+        # 2. Collect all initial google search results from query
         queries = ["what are the top environmental corporates in australia"]
         self.collect_initial_urls(queries)
+
+        # 3. For each search result we take the title, URL, snippet and query and extract leads
         await self.collect_initial_leads()
-        self.close_connection()
+
+        # End step: Save all DB and close connection
+        self.end_lead_gen()
 
 if __name__ == "__main__":
     AILeadGenerator = AILeadGenerator()
