@@ -1,22 +1,14 @@
-# STEP 1: USER HAS A SCOPE + WRITES IT OUT 
-# FOR NOW USER WILL GENERATE 1 QUESTION TO SEARCH 
-# WE WILL GET 100 RESULTS AND SAVE INTO POSTGRESQL TABLE
-
-from serpapi import GoogleSearch
+"""
+Main file where AI Lead Gen runs
+"""
+import asyncio
 from dotenv import load_dotenv
-import os
-import json
-import psycopg2
-from dotenv import load_dotenv
-import os
 import yaml
 import logging
-import sys
-from openai import OpenAI
-from dotenv import load_dotenv
+
 from DatabaseManager import DatabaseManager
-from LLMManager import LLMManager
 from SerpAPIManager import SerpAPIManager
+from InitialLeadAgent import InitialLeadAgent
 
 # Load variables
 with open("config.yaml", "r") as file:
@@ -26,14 +18,14 @@ load_dotenv()
 
 # --- Configure logging ---
 logging.basicConfig(
-    level=logging.INFO,           # can be DEBUG/INFO/WARNING/ERROR
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
 class AILeadGenerator():
-    db = DatabaseManager()
-    sm = SerpApiManager()
-    lm = LLMManager()
+    DatabaseManager = DatabaseManager()
+    SerpAPIManager = SerpAPIManager()
+    InitialLeadAgent = InitialLeadAgent()
 
     def __init__(self):
         pass
@@ -43,10 +35,10 @@ class AILeadGenerator():
         Here we connect to db and set up all the tables.
         """
         # connect to db set in config
-        self.db.connect_to_db()
+        self.DatabaseManager.connect_to_db()
 
         # create all tables in db if not already exist
-        self.db.create_tables()
+        self.DatabaseManager.create_tables()
     
     def collect_initial_urls(self, queries: list):
         """
@@ -57,10 +49,10 @@ class AILeadGenerator():
         the postgres table: "initial_urls".
         """
         for query in queries:
-            # serpapi_results = self.sm.call_api(query=query)
+            # serpapi_results = self.SerpAPIManager.call_api(query=query)
             # temporary to save api costs
-            serpapi_results = self.sm.load_from_json()
-            self.db.upsert_initial_urls(
+            serpapi_results = self.SerpAPIManager.load_from_json()
+            self.DatabaseManager.upsert_initial_urls(
                 query=query,
                 serpapi_results=serpapi_results
             )
@@ -90,7 +82,7 @@ class AILeadGenerator():
             self.db.upsert_leads(row_id, final_output, scraped_content)
 
     def close_connection(self):
-        self.db.close()
+        self.DatabaseManager.close()
 
     def main(self):
         # First connect to db + create tables
