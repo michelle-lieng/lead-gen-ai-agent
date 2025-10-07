@@ -195,6 +195,6 @@ class DatabaseManager:
             self.conn.close()
 
 if __name__ == "__main__":
-    dm = DatabaseManager()
-    dm.connect_to_db()
-    dm.download_csv()
+    DatabaseManager = DatabaseManager()
+    DatabaseManager.connect_to_db()
+    DatabaseManager.download_csv()

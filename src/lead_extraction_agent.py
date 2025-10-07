@@ -3,8 +3,6 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from agents import Agent, Runner, function_tool
 import asyncio
-from pprint import pprint
-import json
 import re
 import logging
 import requests
@@ -13,21 +11,16 @@ import os
 load_dotenv()
 
 # --- Configure logging ---
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
-
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 # filter logs so only show when WARNING or higher
 logging.getLogger("openai").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-class InitialLeadAgent:
-    client = OpenAI()
-
-    def __init__(self):
-        pass
+class LeadExtractionAgent:
+    
+    def __init__(self, client: OpenAI = None):
+        self.client = client if client else OpenAI()
     
     @staticmethod
     @function_tool
@@ -109,7 +102,7 @@ class InitialLeadAgent:
         return leads, scraped_content
 
 if __name__ == "__main__":
-    lead_agent = InitialLeadAgent()
+    lead_agent = LeadExtractionAgent()
 
     # CASE 1: Easy company extraction
     # query = "what are the top environmental corporates in australia"

@@ -35,5 +35,5 @@ class SerpAPIManager:
         return results.get("organic_results", [])
 
 if __name__ == "__main__":
-    sm = SerpAPIManager()
-    print(sm.load_from_json())
+    search = SerpAPIManager()
+    print(search.load_from_json())
