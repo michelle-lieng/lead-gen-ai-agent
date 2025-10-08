@@ -55,9 +55,9 @@ class DatabaseManager:
 
         if not exists:
             cur.execute(f'CREATE DATABASE "{self.db_name}";')
-            print(f"Database '{self.db_name}' created!")
+            logging.info(f"Database '{self.db_name}' created!")
         else:
-            print(f"Database '{self.db_name}' already exists.")
+            logging.info(f"Database '{self.db_name}' already exists.")
 
         # Close the initial connection
         cur.close()
@@ -181,7 +181,8 @@ class DatabaseManager:
     
     def download_csv(self):
         filename_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        outdir = Path(fr"C:\Users\Michelle\data-science\lead-gen-ai-agent\output\{self.db_name}\{filename_ts}")
+        # Save under project working directory to keep path portable across OSes
+        outdir = Path.cwd() / "output" / self.db_name / filename_ts
         outdir.mkdir(parents=True, exist_ok=True)  # make folder if it doesn’t exist
 
         # export initial_urls
@@ -199,7 +200,7 @@ class DatabaseManager:
             )
 
         self.conn.commit()
-        print(f"✅ CSVs saved to {outdir}")
+        logging.info(f"✅ CSVs saved to {outdir}")
 
     def close(self):
         if self.cur:
