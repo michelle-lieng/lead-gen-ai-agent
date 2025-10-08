@@ -6,12 +6,15 @@ import asyncio
 from .database_manager import DatabaseManager
 from .serpapi_manager import SerpAPIManager
 from .lead_extraction_agent import LeadExtractionAgent
+from .settings import load_settings
 
 class AILeadGenerator():
     def __init__(self,
                  database_manager: DatabaseManager = None,
                  serpapi_manager: SerpAPIManager = None,
                  initial_lead_agent: LeadExtractionAgent = None):
+        # Build typed settings once at startup
+        self.settings = load_settings()
         self.db = database_manager if database_manager else DatabaseManager()
         self.serp = serpapi_manager if serpapi_manager else SerpAPIManager()
         self.extraction_agent = initial_lead_agent if initial_lead_agent else LeadExtractionAgent()

@@ -1,7 +1,6 @@
 """
 This class manages all connections to my postgre db.
 """
-from dotenv import load_dotenv
 import os
 import psycopg2
 import yaml
@@ -15,7 +14,6 @@ logging.basicConfig(
     level=logging.INFO,           # can be DEBUG/INFO/WARNING/ERROR
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
-load_dotenv()
 
 class DatabaseManager:
     def __init__(self, config_path="config.yaml"):

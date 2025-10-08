@@ -1,6 +1,5 @@
 from typing import List
 from openai import OpenAI
-from dotenv import load_dotenv
 from agents import Agent, Runner, function_tool
 import asyncio
 import re
@@ -8,7 +7,6 @@ import logging
 import requests
 import os
 
-load_dotenv()
 
 # --- Configure logging ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")

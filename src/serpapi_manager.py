@@ -1,9 +1,6 @@
 import json
 import os
-from dotenv import load_dotenv
 from serpapi import GoogleSearch
-
-load_dotenv()
 
 class SerpAPIManager:
     def __init__(self):
