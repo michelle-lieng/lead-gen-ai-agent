@@ -4,7 +4,8 @@ from agents import Agent, Runner, function_tool
 import asyncio
 import re
 import logging
-import requests
+import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import os
 
 
@@ -22,9 +23,9 @@ class LeadExtractionAgent:
     
     @staticmethod
     @function_tool
-    def scrape_url(url: str) -> str:
+    async def scrape_url(url: str) -> str:
         """
-        This tool scrapes the url provided and returns a string of the website scraped.
+        This tool asynchronously scrapes the url provided and returns a string of the website scraped.
         Use this tool when the search result seems to provide relevant leads e.g. 
         "Top 100 environmental companies" and you need more information than what is provided in the
         snippet and title to extract leads.
@@ -37,9 +38,27 @@ class LeadExtractionAgent:
         "X-Retain-Images": "none"
         }
         logging.info(f"Scraping URL: {url}")
-        response = requests.get(jina_url, headers=headers)
-        logging.info(f"Scrape status code: {response.status_code}")
-        return response.text
+
+        @retry(
+            reraise=True,
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
+            retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
+        )
+        async def _fetch_with_retry() -> str:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(20.0)) as client:
+                response = await client.get(jina_url, headers=headers)
+                # Raise for 4xx/5xx to trigger retry on 5xx/timeouts
+                response.raise_for_status()
+                return response.text
+
+        try:
+            text = await _fetch_with_retry()
+            logging.info("Scrape succeeded")
+            return text
+        except Exception as exc:
+            logging.warning(f"Scrape failed after retries for {url}: {exc}")
+            return "scrape_failed"
 
     @staticmethod
     def system_prompt():

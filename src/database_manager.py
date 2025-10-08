@@ -146,7 +146,17 @@ class DatabaseManager:
         return self.cur.fetchall() #these are all the rows we have to go through
 
     def upsert_leads(self, initial_url_id: int, leads: list, scraped_page: str | None = None):
-        if len(leads) == 0:
+        # Detect explicit scrape failure: attempted scrape but got empty content
+        scrape_failed = scraped_page == "scrape_failed"
+
+        if scrape_failed:
+            # Mark failure status and flag in website_scraped
+            self.cur.execute(
+                "UPDATE initial_urls SET status = 'scrape_failed', website_scraped = 'scrape_failed' WHERE id = %s;",
+                (initial_url_id,)
+            )
+
+        elif len(leads) == 0:
             self.cur.execute(
                 "UPDATE initial_urls SET status = 'no_leads' WHERE id = %s;",
                 (initial_url_id,)
