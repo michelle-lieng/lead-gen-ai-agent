@@ -25,10 +25,14 @@ class SerpAPIManager:
         return results.get("organic_results", [])
     
     def load_from_json(self, 
-                       json_path: str = 'learning/serpapi_example_output.json') -> dict:
-        with open(json_path, 'r') as f:
-            # Load the JSON data from the file
-            results = json.load(f)
+                       json_path: str = 'fixtures/serpapi_example_output.json') -> dict:
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                results = json.load(f)
+        except FileNotFoundError:
+            import logging
+            logging.warning(f"Fixture not found at {json_path}; returning empty results.")
+            return []
         return results.get("organic_results", [])
 
 if __name__ == "__main__":

@@ -1,0 +1,255 @@
+{
+    "search_metadata": {
+        "id": "68dd23a95604338f2391ddbf",
+        "status": "Success",
+        "json_endpoint": "https://serpapi.com/searches/d38b7b2b933246e3/68dd23a95604338f2391ddbf.json",
+        "pixel_position_endpoint": "https://serpapi.com/searches/d38b7b2b933246e3/68dd23a95604338f2391ddbf.json_with_pixel_position",
+        "created_at": "2025-10-01 12:50:49 UTC",
+        "processed_at": "2025-10-01 12:50:49 UTC",
+        "google_url": "https://www.google.com.au/search?q=top+environmental+corporates+in+australia&oq=top+environmental+corporates+in+australia&uule=w+CAIQICIgU3lkbmV5LE5ldyBTb3V0aCBXYWxlcyxBdXN0cmFsaWE&hl=en&gl=au&num=10&safe=active&start=10&sourceid=chrome&ie=UTF-8",
+        "raw_html_file": "https://serpapi.com/searches/d38b7b2b933246e3/68dd23a95604338f2391ddbf.html",
+        "total_time_taken": 1.03
+    },
+    "search_parameters": {
+        "engine": "google",
+        "q": "top environmental corporates in australia",
+        "location_requested": "Sydney, New South Wales, Australia",
+        "location_used": "Sydney,New South Wales,Australia",
+        "google_domain": "google.com.au",
+        "hl": "en",
+        "gl": "au",
+        "safe": "active",
+        "start": 10,
+        "num": "10",
+        "device": "desktop"
+    },
+    "search_information": {
+        "query_displayed": "top environmental corporates in australia",
+        "total_results": 251000000,
+        "page_number": 2,
+        "time_taken_displayed": 0.45,
+        "organic_results_state": "Results for exact spelling"
+    },
+    "organic_results": [
+        {
+            "position": 1,
+            "title": "Top 100 ESG Companies in Australia (2025)",
+            "link": "https://ensun.io/search/esg/australia",
+            "redirect_link": "https://www.google.com.au/url?sa=t&source=web&rct=j&opi=89978449&url=https://ensun.io/search/esg/australia&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChAWegQIGhAB",
+            "displayed_link": "https://ensun.io \u203a search \u203a esg \u203a australia",
+            "favicon": "https://serpapi.com/searches/68dd23a95604338f2391ddbf/images/efcbc74e0ae9c48b53954ea9891160577eb0fbcf189689e4db19b923820caa91.png",
+            "snippet": "Discover all relevant ESG Companies in Australia, including ESG Reporting Intelligence and Edge Environment.",
+            "snippet_highlighted_words": [
+                "ESG Companies in Australia"
+            ],
+            "source": "ensun"
+        },
+        {
+            "position": 2,
+            "title": "Australia's top ten companies for sustainability",
+            "link": "https://www.hcamag.com/au/news/general/australias-top-ten-companies-for-sustainability/143185",
+            "redirect_link": "https://www.google.com.au/url?sa=t&source=web&rct=j&opi=89978449&url=https://www.hcamag.com/au/news/general/australias-top-ten-companies-for-sustainability/143185&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChAWegQIFRAB",
+            "displayed_link": "https://www.hcamag.com \u203a news \u203a general \u203a australias-t...",
+            "favicon": "https://serpapi.com/searches/68dd23a95604338f2391ddbf/images/efcbc74e0ae9c48b53954ea989116057b4d1689f462741127bea014ae5cf7f1e.png",
+            "snippet": "Australia's top ten companies for sustainability \u00b7 1. Arup \u00b7 2. BHP Billiton \u00b7 3. Disney \u00b7 4. IAG \u00b7 5. NAB \u00b7 6. PwC \u00b7 7. Sydney Water \u00b7 8. Telstra",
+            "snippet_highlighted_words": [
+                "1. Arup"
+            ],
+            "source": "HRD America"
+        },
+        {
+            "position": 3,
+            "title": "Orica crowned Australia's most sustainable company for ...",
+            "link": "https://www.afr.com/companies/mining/orica-crowned-australia-s-most-sustainable-company-for-impact-20240625-p5jojc",
+            "redirect_link": "https://www.google.com.au/url?sa=t&source=web&rct=j&opi=89978449&url=https://www.afr.com/companies/mining/orica-crowned-australia-s-most-sustainable-company-for-impact-20240625-p5jojc&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChAWegQIGRAB",
+            "displayed_link": "https://www.afr.com \u203a Companies \u203a Mining",
+            "favicon": "https://serpapi.com/searches/68dd23a95604338f2391ddbf/images/efcbc74e0ae9c48b53954ea989116057266fbbba90262d292c891bc999adf852.png",
+            "date": "9 July 2024",
+            "snippet": "Orica crowned Australia's most sustainable company for Impact. The explosives manufacturer is recognised for completing the biggest emissions ...",
+            "snippet_highlighted_words": [
+                "Orica crowned Australia's most sustainable company for Impact"
+            ],
+            "source": "AFR"
+        },
+        {
+            "position": 4,
+            "title": "Ten of Australia's top companies lack clear plans to stop ...",
+            "link": "https://www.theguardian.com/australia-news/2024/feb/20/australian-companies-using-supporting-fossil-fuels-list-coles-woolworths-telstra-rio-tinto-qantas-bluescope-steel-origin-agl-cleanaway-south-32",
+            "redirect_link": "https://www.google.com.au/url?sa=t&source=web&rct=j&opi=89978449&url=https://www.theguardian.com/australia-news/2024/feb/20/australian-companies-using-supporting-fossil-fuels-list-coles-woolworths-telstra-rio-tinto-qantas-bluescope-steel-origin-agl-cleanaway-south-32&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChAWegQIGBAB",
+            "displayed_link": "https://www.theguardian.com \u203a australia-news \u203a feb \u203a a...",
+            "favicon": "https://serpapi.com/searches/68dd23a95604338f2391ddbf/images/efcbc74e0ae9c48b53954ea989116057ad0f97dccdb3a9feede7b5a8ea3f45ac.png",
+            "date": "19 Feb 2024",
+            "snippet": "Ten of Australia's best-known corporations \u2013 including Coles, Telstra, Woolworths and Qantas \u2013 have no clear plans to stop using or supporting fossil fuels.",
+            "snippet_highlighted_words": [
+                "Coles, Telstra, Woolworths and Qantas"
+            ],
+            "source": "The Guardian"
+        },
+        {
+            "position": 5,
+            "title": "The 10 Most Environmentally Friendly Energy Companies ...",
+            "link": "https://www.energymatters.com.au/renewable-news/the-10-most-environmentally-friendly-energy-companies-in-australia/",
+            "redirect_link": "https://www.google.com.au/url?sa=t&source=web&rct=j&opi=89978449&url=https://www.energymatters.com.au/renewable-news/the-10-most-environmentally-friendly-energy-companies-in-australia/&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChAWegQIGxAB",
+            "displayed_link": "https://www.energymatters.com.au \u203a renewable-news",
+            "favicon": "https://serpapi.com/searches/68dd23a95604338f2391ddbf/images/efcbc74e0ae9c48b53954ea989116057e0c67f7c744a68eb56baf21feb44fb53.png",
+            "date": "16 Jan 2024",
+            "snippet": "Nectr Energy is a top greenest provider in Australia because it offers 100% renewable energy electricity plans, solar and battery bundle plans, ...",
+            "snippet_highlighted_words": [
+                "Nectr Energy"
+            ],
+            "source": "Energy Matters"
+        },
+        {
+            "position": 6,
+            "title": "Australian property companies the most sustainable in ...",
+            "link": "https://new.gbca.org.au/news/gbca-media-releases/australian-property-companies-the-most-sustainable-in-the-world/",
+            "redirect_link": "https://www.google.com.au/url?sa=t&source=web&rct=j&opi=89978449&url=https://new.gbca.org.au/news/gbca-media-releases/australian-property-companies-the-most-sustainable-in-the-world/&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChAWegQIFxAB",
+            "displayed_link": "https://new.gbca.org.au \u203a news \u203a gbca-media-releases",
+            "favicon": "https://serpapi.com/searches/68dd23a95604338f2391ddbf/images/efcbc74e0ae9c48b53954ea989116057fee05e8ffabc4960e888ff359819e8a2.png",
+            "date": "19 Oct 2022",
+            "snippet": "Australian property companies top the 2022 GRESB Real Estate Benchmark once again, leading the global cohort in sustainability.",
+            "snippet_highlighted_words": [
+                "Australian property companies"
+            ],
+            "source": "Green Building Council of Australia"
+        },
+        {
+            "position": 7,
+            "title": "Sustainable Companies in Australia | Eco-Friendly & Green ...",
+            "link": "https://www.ecohubmap.com/list/business/all/Australia",
+            "redirect_link": "https://www.google.com.au/url?sa=t&source=web&rct=j&opi=89978449&url=https://www.ecohubmap.com/list/business/all/Australia&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChAWegQIFhAB",
+            "displayed_link": "https://www.ecohubmap.com \u203a list \u203a business \u203a all \u203a Aust...",
+            "favicon": "https://serpapi.com/searches/68dd23a95604338f2391ddbf/images/efcbc74e0ae9c48b53954ea989116057e6807f15088662b047794d251a290424.png",
+            "snippet": "Top 253 sustainable companies in Australia \u00b7 Product Boxes Au \u00b7 Centre for Tropical Environmental and Sustainabililty Science \u00b7 Plantation Shutters Adelaide \u00b7 Fox ...",
+            "snippet_highlighted_words": [
+                "Product Boxes Au"
+            ],
+            "source": "EcoHubMap"
+        },
+        {
+            "position": 8,
+            "title": "The most (and least) sustainable industries in Australia in 2023",
+            "link": "https://www.glowfeed.com/2023/09/15/the-most-and-least-sustainable-industries-in-australia-in-2023/",
+            "redirect_link": "https://www.google.com.au/url?sa=t&source=web&rct=j&opi=89978449&url=https://www.glowfeed.com/2023/09/15/the-most-and-least-sustainable-industries-in-australia-in-2023/&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChAWegQIOhAB",
+            "displayed_link": "https://www.glowfeed.com \u203a 2023/09/15 \u203a the-most-an...",
+            "favicon": "https://serpapi.com/searches/68dd23a95604338f2391ddbf/images/efcbc74e0ae9c48b53954ea9891160579601afcfe3d35f17061dee38831dcf47.png",
+            "date": "15 Sept 2023",
+            "snippet": "The leading commercial industries in consumers' minds are: renewable energy (environmental contribution), hardware & DIY retailers (community focus), and food ...",
+            "snippet_highlighted_words": [
+                "leading",
+                "environmental"
+            ],
+            "source": "glowfeed.com"
+        },
+        {
+            "position": 9,
+            "title": "Corporate greenwashing",
+            "link": "https://www.edo.org.au/corporate-greenwashing/",
+            "redirect_link": "https://www.google.com.au/url?sa=t&source=web&rct=j&opi=89978449&url=https://www.edo.org.au/corporate-greenwashing/&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChAWegQINhAB",
+            "displayed_link": "https://www.edo.org.au \u203a corporate-greenwashing",
+            "favicon": "https://serpapi.com/searches/68dd23a95604338f2391ddbf/images/efcbc74e0ae9c48b53954ea9891160577667f569d3253b9ed1a80ea6d32a8cc5.png",
+            "snippet": "Our lawyers work with clients and people to investigate potential greenwashing and ensure claims by major companies to cut carbon pollution are backed up by ...",
+            "snippet_highlighted_words": [
+                "companies"
+            ],
+            "source": "Environmental Defenders Office"
+        },
+        {
+            "position": 10,
+            "title": "Top 10 Aussie GreenTech Start-Ups To Watch In 2023",
+            "link": "https://storm4.com/resources/industry-insights/top-10-aus-greentech/",
+            "redirect_link": "https://www.google.com.au/url?sa=t&source=web&rct=j&opi=89978449&url=https://storm4.com/resources/industry-insights/top-10-aus-greentech/&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChAWegQINBAB",
+            "displayed_link": "https://storm4.com \u203a Intel",
+            "favicon": "https://serpapi.com/searches/68dd23a95604338f2391ddbf/images/efcbc74e0ae9c48b53954ea989116057dea95fbf37cbba6532e9a270d6667118.png",
+            "snippet": "With new opportunities to explore within GreenTech, we've taken a closer look at ten impressive Australian start-up companies that are disrupting the market.",
+            "snippet_highlighted_words": [
+                "ten impressive Australian start-up companies"
+            ],
+            "source": "Storm4"
+        }
+    ],
+    "related_searches": [
+        {
+            "block_position": 1,
+            "query": "Top 10 ethical companies in Australia",
+            "link": "https://www.google.com.au/search?safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&q=Top+10+ethical+companies+in+Australia&sa=X&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDVAnoECC0QAQ",
+            "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=Top+10+ethical+companies+in+Australia&safe=active&start=10"
+        },
+        {
+            "block_position": 1,
+            "query": "Top environmental corporates in australia 2022",
+            "link": "https://www.google.com.au/search?safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&q=Top+environmental+corporates+in+australia+2022&sa=X&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDVAnoECDMQAQ",
+            "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=Top+environmental+corporates+in+australia+2022&safe=active&start=10"
+        },
+        {
+            "block_position": 1,
+            "query": "Most sustainable companies in Australia",
+            "link": "https://www.google.com.au/search?safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&q=Most+sustainable+companies+in+Australia&sa=X&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDVAnoECDIQAQ",
+            "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=Most+sustainable+companies+in+Australia&safe=active&start=10"
+        },
+        {
+            "block_position": 1,
+            "query": "Sustainable companies Australia",
+            "link": "https://www.google.com.au/search?safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&q=Sustainable+companies+Australia&sa=X&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDVAnoECDEQAQ",
+            "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=Sustainable+companies+Australia&safe=active&start=10"
+        },
+        {
+            "block_position": 1,
+            "query": "Environmental organisations Australia",
+            "link": "https://www.google.com.au/search?safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&q=Environmental+organisations+Australia&sa=X&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDVAnoECDAQAQ",
+            "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=Environmental+organisations+Australia&safe=active&start=10"
+        },
+        {
+            "block_position": 1,
+            "query": "Sustainable companies examples",
+            "link": "https://www.google.com.au/search?safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&q=Sustainable+companies+examples&sa=X&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDVAnoECC4QAQ",
+            "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=Sustainable+companies+examples&safe=active&start=10"
+        },
+        {
+            "block_position": 1,
+            "query": "Environmental ngos Australia",
+            "link": "https://www.google.com.au/search?safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&q=Environmental+ngos+Australia&sa=X&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDVAnoECC8QAQ",
+            "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=Environmental+ngos+Australia&safe=active&start=10"
+        },
+        {
+            "block_position": 1,
+            "query": "Sustainable business in Australia",
+            "link": "https://www.google.com.au/search?safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&q=Sustainable+business+in+Australia&sa=X&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDVAnoECCwQAQ",
+            "serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=Sustainable+business+in+Australia&safe=active&start=10"
+        }
+    ],
+    "pagination": {
+        "current": 2,
+        "previous": "https://www.google.com.au/search?q=top+environmental+corporates+in+australia&safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&ei=qSPdaOq2J4KDwbkP2aPr6Qg&start=0&sa=N&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDx0wN6BAgKEAI",
+        "next": "https://www.google.com.au/search?q=top+environmental+corporates+in+australia&safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&ei=qSPdaOq2J4KDwbkP2aPr6Qg&start=20&sa=N&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDw0wN6BAgKEBc",
+        "other_pages": {
+            "1": "https://www.google.com.au/search?q=top+environmental+corporates+in+australia&safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&ei=qSPdaOq2J4KDwbkP2aPr6Qg&start=0&sa=N&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDy0wN6BAgKEAQ",
+            "3": "https://www.google.com.au/search?q=top+environmental+corporates+in+australia&safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&ei=qSPdaOq2J4KDwbkP2aPr6Qg&start=20&sa=N&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDy0wN6BAgKEAc",
+            "4": "https://www.google.com.au/search?q=top+environmental+corporates+in+australia&safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&ei=qSPdaOq2J4KDwbkP2aPr6Qg&start=30&sa=N&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDy0wN6BAgKEAk",
+            "5": "https://www.google.com.au/search?q=top+environmental+corporates+in+australia&safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&ei=qSPdaOq2J4KDwbkP2aPr6Qg&start=40&sa=N&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDy0wN6BAgKEAs",
+            "6": "https://www.google.com.au/search?q=top+environmental+corporates+in+australia&safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&ei=qSPdaOq2J4KDwbkP2aPr6Qg&start=50&sa=N&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDy0wN6BAgKEA0",
+            "7": "https://www.google.com.au/search?q=top+environmental+corporates+in+australia&safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&ei=qSPdaOq2J4KDwbkP2aPr6Qg&start=60&sa=N&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDy0wN6BAgKEA8",
+            "8": "https://www.google.com.au/search?q=top+environmental+corporates+in+australia&safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&ei=qSPdaOq2J4KDwbkP2aPr6Qg&start=70&sa=N&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDy0wN6BAgKEBE",
+            "9": "https://www.google.com.au/search?q=top+environmental+corporates+in+australia&safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&ei=qSPdaOq2J4KDwbkP2aPr6Qg&start=80&sa=N&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDy0wN6BAgKEBM",
+            "10": "https://www.google.com.au/search?q=top+environmental+corporates+in+australia&safe=active&sca_esv=dd3ca90e44cfa28e&gl=au&hl=en&ei=qSPdaOq2J4KDwbkP2aPr6Qg&start=90&sa=N&ved=2ahUKEwiqr62LhYOQAxWCQTABHdnROo04ChDy0wN6BAgKEBU"
+        }
+    },
+    "serpapi_pagination": {
+        "current": 2,
+        "previous_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=0",
+        "previous": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=0",
+        "next_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=20",
+        "next": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=20",
+        "other_pages": {
+            "1": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=0",
+            "3": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=20",
+            "4": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=30",
+            "5": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=40",
+            "6": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=50",
+            "7": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=60",
+            "8": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=70",
+            "9": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=80",
+            "10": "https://serpapi.com/search.json?device=desktop&engine=google&gl=au&google_domain=google.com.au&hl=en&location=Sydney%2C+New+South+Wales%2C+Australia&num=10&q=top+environmental+corporates+in+australia&safe=active&start=90"
+        }
+    }
+}
