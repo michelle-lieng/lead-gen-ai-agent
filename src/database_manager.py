@@ -78,7 +78,22 @@ class DatabaseManager:
             logging.info(f"📦 Connected to '{self.db_name}' successfully.")
         except Exception as e:
             logging.error(f"❌ Could not connect to target database: {e}")
+            # Attempt to create the DB if missing, then reconnect once.
             self.create_new_db()
+            try:
+                self.conn = psycopg2.connect(
+                    host=os.getenv("POSTGRESQL_HOST"),
+                    port=os.getenv("POSTGRESQL_PORT"),
+                    database=self.db_name,
+                    user=os.getenv("POSTGRESQL_USER"),
+                    password=os.getenv("POSTGRESQL_PASSWORD")
+                )
+                self.cur = self.conn.cursor()
+                logging.info(f"📦 Reconnected to '{self.db_name}' successfully after creation.")
+            except Exception as re:
+                logging.error(f"❌ Reconnect failed after creating database: {re}")
+                # Hard exit to avoid None cursor downstream
+                sys.exit(1)
 
     def create_tables(self):
         # create table for initial collection of website urls
