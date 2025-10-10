@@ -198,8 +198,44 @@ class DatabaseManager:
                 f,
             )
 
+        # export enrichedleads
+        with open(outdir / "enriched_leads.csv", "w", newline="", encoding="utf-8-sig") as f:
+            self.cur.copy_expert(
+                "COPY (SELECT * FROM enriched_leads ORDER BY count DESC, company) TO STDOUT WITH (FORMAT CSV, HEADER TRUE, DELIMITER ',');",
+                f,
+            )
+
         self.conn.commit()
         logging.info(f"✅ CSVs saved to {outdir}")
+        return outdir
+
+    def create_enriched_leads_table(self):
+        """
+        Create enriched_leads table with company names and their appearance counts.
+        """
+        # Create the enriched_leads table
+        self.cur.execute("""
+        CREATE TABLE IF NOT EXISTS enriched_leads (
+            id SERIAL PRIMARY KEY,
+            company TEXT NOT NULL UNIQUE,
+            count INTEGER NOT NULL DEFAULT 1
+        );
+        """)
+        
+        # Populate with grouped data from leads table
+        self.cur.execute("""
+        INSERT INTO enriched_leads (company, count)
+        SELECT lead as company, COUNT(*) as count
+        FROM leads
+        WHERE lead IS NOT NULL AND lead != ''
+        GROUP BY lead
+        ON CONFLICT (company) DO UPDATE SET
+            count = enriched_leads.count + EXCLUDED.count
+        ;
+        """)
+        
+        self.conn.commit()
+        logging.info("✅ Enriched leads table created and populated.")
 
     def close(self):
         if self.cur:

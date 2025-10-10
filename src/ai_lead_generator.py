@@ -94,6 +94,9 @@ class AILeadGenerator():
         # 3. For each search result we take the title, URL, snippet and query and extract leads
         await self.collect_initial_leads()
 
+        # 4. Create enriched leads table
+        self.db.create_enriched_leads_table()
+
         # End step: Save all DB and close connection
         self.end_lead_gen()
 
