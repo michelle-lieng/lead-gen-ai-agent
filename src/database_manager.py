@@ -145,50 +145,39 @@ class DatabaseManager:
         self.cur.execute("SELECT id, query, title, link, snippet FROM initial_urls WHERE status = 'unprocessed';")
         return self.cur.fetchall() #these are all the rows we have to go through
 
-    def upsert_leads(self, initial_url_id: int, leads: list, scraped_page: str | None = None):
-        # Detect explicit scrape failure: attempted scrape but got empty content
-        scrape_failed = scraped_page == "scrape_failed"
-
-        if scrape_failed:
-            # Mark failure status and flag in website_scraped
-            self.cur.execute(
-                "UPDATE initial_urls SET status = 'scrape_failed', website_scraped = 'scrape_failed' WHERE id = %s;",
-                (initial_url_id,)
-            )
-
-        elif len(leads) == 0:
-            self.cur.execute(
-                "UPDATE initial_urls SET status = 'no_leads' WHERE id = %s;",
-                (initial_url_id,)
-            )
+    def upsert_leads(self, initial_url_id: int, leads: list[str], scraped_page: str | None = None):
+        # Determine website_scraped value
+        if scraped_page == "scrape_failed":
+            website_scraped_value = "scrape_failed"
+        elif scraped_page is None:
+            website_scraped_value = "no_scrape"
         else:
+            website_scraped_value = scraped_page
+
+        # Determine status
+        if website_scraped_value == "scrape_failed":
+            status_value = "scrape_failed"
+        elif len(leads) == 0:
+            status_value = "no_leads"
+        else:
+            status_value = "processed"
+
+        # Insert leads once (if any)
+        if status_value == "processed":
             for lead in leads:
-                # create a new row 
                 self.cur.execute(
                     "INSERT INTO leads (initial_url_id, lead) VALUES (%s, %s);",
-                    (initial_url_id, lead)
-                )
-                # update status of initial_urls table 
-                self.cur.execute(
-                    "UPDATE initial_urls SET status = 'processed' WHERE id = %s;",
-                    (initial_url_id,)
+                    (initial_url_id, lead),
                 )
 
-                if scraped_page is not None:
-                    # update webscraped column
-                    self.cur.execute(
-                        "UPDATE initial_urls SET website_scraped = %s WHERE id = %s;",
-                        (scraped_page, initial_url_id)
-                    )
-                else:
-                    # update webscraped column
-                    self.cur.execute(
-                        "UPDATE initial_urls SET website_scraped = 'no_scrape' WHERE id = %s;",
-                        (initial_url_id,)
-                    )
-                
+        # Single update for initial_urls
+        self.cur.execute(
+            "UPDATE initial_urls SET status = %s, website_scraped = %s WHERE id = %s;",
+            (status_value, website_scraped_value, initial_url_id),
+        )
+
         self.conn.commit()
-    
+
     def download_csv(self):
         filename_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         # Save under project working directory to keep path portable across OSes
