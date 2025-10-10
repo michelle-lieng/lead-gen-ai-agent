@@ -7,6 +7,7 @@ from .database_manager import DatabaseManager
 from .serpapi_manager import SerpAPIManager
 from .lead_extraction_agent import LeadExtractionAgent
 from .settings import load_settings
+import logging
 
 class AILeadGenerator():
     def __init__(self,
@@ -80,7 +81,15 @@ class AILeadGenerator():
         """
         Save DB and close connection to DB.
         """
-        self.db.download_csv()
+        outdir = self.db.download_csv()
+        
+        # Save the current system prompt alongside CSV outputs for traceability
+        try:
+            prompt_text = self.extraction_agent.system_prompt()
+            with open(outdir / "lead_extraction_system_prompt.txt", "w", encoding="utf-8") as f:
+                f.write(prompt_text)
+        except Exception as exc:
+            logging.warning(f"Could not save system prompt: {exc}")
         self.db.close()
 
     async def main(self):
