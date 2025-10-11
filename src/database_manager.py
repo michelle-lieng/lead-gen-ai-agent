@@ -7,6 +7,8 @@ import logging
 import sys
 from pathlib import Path
 from datetime import datetime
+import pandas as pd
+from io import StringIO
 
 # --- Configure logging ---
 logging.basicConfig(
@@ -69,7 +71,10 @@ class DatabaseManager:
                 password=os.getenv("POSTGRESQL_PASSWORD")
             )
             self.cur = self.conn.cursor()
+            # Explicitly set client encoding to UTF-8
+            self.cur.execute("SET client_encoding = 'UTF8';")
             logging.info(f"📦 Connected to '{self.db_name}' successfully.")
+            return self.conn, self.cur
         except Exception as e:
             logging.error(f"❌ Could not connect to target database: {e}")
             # Attempt to create the DB if missing, then reconnect once.
