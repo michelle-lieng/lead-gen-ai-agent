@@ -5,10 +5,13 @@ config.yaml presence check. One place to load .env and validate quickly.
 from __future__ import annotations
 
 from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 import yaml
+
+class ConfigSettings(BaseModel):
+    postgresql_database: str
 
 class Settings(BaseSettings):
     # Database connection (env)
@@ -41,12 +44,17 @@ def _validate_config_yaml(path_str: str) -> None:
         raise ValueError(f"Add 'postgresql_database' to {path}")
 
 
-def load_settings() -> Settings:
-    # Load .env once and validate env vars via pydantic
+def load_settings() -> tuple[Settings, ConfigSettings]:
+    # Load .env once and validate env vars
     load_dotenv()
     settings = Settings()  # validates env on init
-    # Quick YAML check (DatabaseManager still reads config.yaml directly)
+    
+    # Validate YAML config separately
     _validate_config_yaml("config.yaml")
-    return settings
+    with Path("config.yaml").open("r", encoding="utf-8") as f:
+        yaml_data = yaml.safe_load(f) or {}
+    config = ConfigSettings(**yaml_data)
+    
+    return settings, config
 
 

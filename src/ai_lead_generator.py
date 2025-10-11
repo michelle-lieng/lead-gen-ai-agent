@@ -11,12 +11,12 @@ import logging
 
 class AILeadGenerator():
     def __init__(self,
-                 database_manager: DatabaseManager = None,
-                 serpapi_manager: SerpAPIManager = None,
-                 initial_lead_agent: LeadExtractionAgent = None):
-        # Build typed settings once at startup
-        self.settings = load_settings()
-        self.db = database_manager if database_manager else DatabaseManager()
+                 database_manager = None,
+                 serpapi_manager = None,
+                 initial_lead_agent = None):
+        # Build typed settings once at startup (validates env + config)
+        self.settings, self.config = load_settings()
+        self.db = database_manager if database_manager else DatabaseManager(config_data=self.config)
         self.serp = serpapi_manager if serpapi_manager else SerpAPIManager()
         self.extraction_agent = initial_lead_agent if initial_lead_agent else LeadExtractionAgent()
 

@@ -3,7 +3,6 @@ This class manages all connections to my postgre db.
 """
 import os
 import psycopg2
-import yaml
 import logging
 import sys
 from pathlib import Path
@@ -16,13 +15,10 @@ logging.basicConfig(
 )
 
 class DatabaseManager:
-    def __init__(self, config_path="config.yaml"):
-        with open(config_path, "r") as file:
-            self.config = yaml.safe_load(file)
-        self.db_name = self.config.get("postgresql_database")
-        if self.db_name is None:
-            logging.error("❌ Add database name to config.yaml")
-            sys.exit(1)
+    def __init__(self, config_data):
+        # Accept config_data directly from validated settings
+        self.db_name = config_data.postgresql_database
+        
         self.conn = None #database connection object
         self.cur = None #cursor object to execute SQL commands on connection
 
