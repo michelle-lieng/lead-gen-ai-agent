@@ -67,6 +67,50 @@ try:
 except Exception as e:
     print(f"❌ Upload failed: {e}")
 
-# # let's join with main leads table and drop all decertified later
+########################## NEXT SESSION JOINING THE TABLES
+from .database_manager import DatabaseManager
+import logging
 
+# Initialize database manager
+db = DatabaseManager(config_data=config)
 
+# Connect to database
+conn, cur = db.connect_to_db()
+
+# Create joined table with all columns from both tables
+# If e.company exists → use that value --> If e.company is NULL → use b.company_name instead
+cur.execute("""
+CREATE TABLE IF NOT EXISTS enriched_bcorp_leads AS
+SELECT 
+    ROW_NUMBER() OVER (ORDER BY COALESCE(e.id, 999999)) as id,
+    COALESCE(e.company, b.company_name) as company,
+    COALESCE(e.count,0) as count,
+    b.description,
+    b.industry,
+    b.industry_category,
+    b.products_and_services,
+    b.state,
+    b.city,
+    b.sector,
+    b.size,
+    b.b_corp_profile,
+    b.website,
+    b.assessment_year,
+    b.bcorp_overall_score
+FROM enriched_leads e
+FULL OUTER JOIN bcorp_companies b 
+    ON LOWER(TRIM(REGEXP_REPLACE(e.company, '[^a-zA-Z0-9\s]', '', 'g'))) = 
+       LOWER(TRIM(REGEXP_REPLACE(b.company_name, '[^a-zA-Z0-9\s]', '', 'g')));
+""")
+
+conn.commit()
+logging.info("✅ Lead tables joined successfully!")
+
+# Check the results
+cur.execute("SELECT COUNT(*) FROM enriched_bcorp_leads;")
+count = cur.fetchone()[0]
+print(f"📊 Joined table has {count} rows")
+
+# Close connection
+cur.close()
+conn.close()
