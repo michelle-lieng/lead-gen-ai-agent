@@ -24,10 +24,15 @@ print(f"Original dataset: {len(df)} rows")
 
 # Filter row where country == Australia
 df = df[df['country'] == 'Australia']
-print(f"After filtering for Australia: {len(df)} rows")
+
+# was planning to join with main leads table and drop all decertified later
+# but want to apply all transformations before joining for code reusability
+df = df[df['current_status']=='certified']
+
+print(f"After filtering: {len(df)} rows")
 
 # Select relevant columns
-df = df[['company_name', 'current_status', 'description', 'industry', 'industry_category', 
+df = df[['company_name', 'description', 'industry', 'industry_category', 
 'products_and_services', 'state', 'city', 'sector', 'size', 'b_corp_profile',
 'website', 'assessment_year', 'overall_score']]
 
