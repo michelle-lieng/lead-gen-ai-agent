@@ -36,6 +36,9 @@ df = df[['company_name', 'description', 'industry', 'industry_category',
 'products_and_services', 'state', 'city', 'sector', 'size', 'b_corp_profile',
 'website', 'assessment_year', 'overall_score']]
 
+# Rename overall_score to bcorp_overall_score
+df = df.rename(columns={'overall_score': 'bcorp_overall_score'})
+
 # Deduplicate rows 
 df = df.drop_duplicates(subset=['company_name'])
 print(f"After deduplication: {len(df)} rows")
