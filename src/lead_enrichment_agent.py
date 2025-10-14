@@ -68,44 +68,36 @@ client = OpenAI()
 with open('src/formatted_greenwashing_articles.txt', 'r', encoding='utf-8') as f:
     articles_context = f.read()
 
-# Comprehensive prompt with all necessary instructions
+# Search-based greenwashing detection prompt
 prompt = f"""
-You are an expert environmental analyst tasked with determining if a company is engaging in greenwashing based on news articles and evidence.
+You are analyzing EXTERNAL articles (not written by the company) that were found by searching for "greenwashing + [company name]". Your task is to determine if these search results actually contain greenwashing allegations against the company.
 
 TASK:
-Analyze the provided articles and determine:
-1. Is the company engaging in greenwashing? (True/False)
-2. Are these articles relevant to the specific company? (True/False)
+Based on the search results, determine:
+1. Do these articles contain actual greenwashing allegations against the company? (True/False)
+2. Are these articles directly about the company's greenwashing practices? (True/False)
 
-GREENWASHING INDICATORS to look for:
-- Misleading environmental claims
-- Exaggerated sustainability efforts
-- False or deceptive advertising about environmental impact
-- Regulatory violations or complaints
-- Discrepancy between public claims and actual practices
-- Use of vague or unsubstantiated environmental language
+WHAT TO LOOK FOR:
+- Articles that specifically accuse the company of greenwashing
+- Regulatory complaints or investigations about the company's environmental claims
+- News reports about the company being caught in misleading environmental advertising
+- Legal actions against the company for false environmental claims
+- Journalistic investigations exposing the company's deceptive practices
 
-RELEVANCE CRITERIA:
-- Articles must specifically mention the company by name
-- Content must be directly related to the company's environmental practices
-- Recent articles (2020+) are more relevant than older ones
+ANALYSIS APPROACH:
+1. Check if articles contain specific greenwashing allegations against the company
+2. Look for regulatory actions, complaints, or legal cases
+3. Identify news reports about the company being caught in deceptive practices
+4. Determine if the articles are about actual greenwashing scandals, not general sustainability efforts
 
-ANALYSIS STEPS:
-1. Read through each article carefully
-2. Identify specific claims or allegations against the company
-3. Look for regulatory actions, complaints, or investigations
-4. Assess the credibility and recency of the sources
-5. Determine if the evidence supports a greenwashing conclusion
-6. Evaluate if the articles are directly relevant to the company
-
-IMPORTANT: Only consider articles that are directly relevant to the specific company. If articles are not about the company or are about different companies, they should not influence your greenwashing assessment.
+IMPORTANT: You are NOT analyzing the company's own communications. You are analyzing whether external sources have accused the company of greenwashing. If the search results don't contain specific allegations, complaints, or investigations about greenwashing, then the answer should be False.
 """
 
 # Make the API call with structured output
 response = client.chat.completions.parse(
     model="gpt-4o-2024-08-06",
     messages=[
-        {"role": "system", "content": f"You are an expert environmental analyst specializing in greenwashing detection. CONTEXT - Recent articles about the company:{articles_context}"},
+        {"role": "system", "content": f"You are an expert environmental analyst. Your job is to determine if articles found by searching 'greenwashing + company name' are actually about greenwashing allegations against that company. CONTEXT - These are EXTERNAL articles (not written by the company) found by searching for greenwashing about this company:{articles_context}"},
         {"role": "user", "content": prompt}
     ],
     response_format=GreenwashingAnalysis,
