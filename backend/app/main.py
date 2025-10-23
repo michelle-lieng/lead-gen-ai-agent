@@ -67,3 +67,9 @@ async def health_check():
             "error": str(e)
         }
 
+############ PROJECT ENDPOINTS
+
+# Include API routes
+app.include_router(projects.router, prefix="/projects", tags=["projects"])
+
+########## GENERAL LEADS ENDPOINTS
