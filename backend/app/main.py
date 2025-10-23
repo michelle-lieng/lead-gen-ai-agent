@@ -4,7 +4,7 @@ FastAPI application entry point
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api.routes import projects
+from .api.routes import projects, queries
 from .services.database import db_service
 
 # Configure logging
@@ -72,4 +72,6 @@ async def health_check():
 # Include API routes
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 
-########## GENERAL LEADS ENDPOINTS
+########## QUERY ENDPOINTS
+
+app.include_router(queries.router, prefix="/api", tags=["queries"])
