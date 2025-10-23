@@ -50,7 +50,7 @@ async def root():
     """Root endpoint"""
     return {"message": "AI Lead Generator API", "status": "running"}
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
     try:
@@ -70,6 +70,6 @@ async def health_check():
 ############ PROJECT ENDPOINTS
 
 # Include API routes
-app.include_router(projects.router, prefix="/projects", tags=["projects"])
+app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 
 ########## GENERAL LEADS ENDPOINTS
