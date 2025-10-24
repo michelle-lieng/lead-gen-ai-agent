@@ -33,3 +33,8 @@ class ProjectResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class QueryListRequest(BaseModel):
+    """Schema for query list requests"""
+    queries: list[str]
