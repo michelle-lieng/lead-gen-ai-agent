@@ -64,6 +64,16 @@ class DatabaseService:
             logger.error(f"❌ Error checking table existence: {e}")
             return False
     
+    def check_all_tables_exist(self) -> bool:
+        """Check if all required tables exist"""
+        required_tables = ["projects", "queries", "initial_urls"]
+        for table_name in required_tables:
+            if not self.check_table_exists(table_name):
+                logger.info(f"❌ Table '{table_name}' does not exist")
+                return False
+        logger.info("✅ All required tables exist")
+        return True
+    
     def create_tables(self) -> bool:
         """Create all tables ONLY if they don't exist"""
         try:
@@ -71,23 +81,23 @@ class DatabaseService:
             if not self.check_database_connection():
                 raise Exception("Database connection failed")
             
-            # Check if table already exists - if yes, skip creation
-            if self.check_table_exists():
-                logger.info("✅ Table 'projects' already exists - skipping creation")
+            # Check if all tables already exist - if yes, skip creation
+            if self.check_all_tables_exist():
+                logger.info("✅ All required tables already exist - skipping creation")
                 return True
             
             # Only create tables if they don't exist
-            logger.info("📝 Table 'projects' doesn't exist - creating now...")
+            logger.info("📝 Some tables don't exist - creating all tables now...")
             Base.metadata.create_all(bind=self.engine)
             logger.info("✅ Database tables created successfully")
             
-            # Verify table was actually created
-            if self.check_table_exists():
-                logger.info("✅ Table creation verified")
+            # Verify all tables were actually created
+            if self.check_all_tables_exist():
+                logger.info("✅ All table creation verified")
                 return True
             else:
-                logger.error("❌ Table creation failed - table not found after creation")
-                raise Exception("Table creation failed - table not found after creation")
+                logger.error("❌ Table creation failed - some tables not found after creation")
+                raise Exception("Table creation failed - some tables not found after creation")
                 
         except SQLAlchemyError as e:
             logger.error(f"❌ SQLAlchemy error creating tables: {e}")
