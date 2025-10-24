@@ -1,7 +1,6 @@
 """
 Project service for managing project operations
 """
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
 import logging
@@ -21,6 +20,7 @@ class ProjectService:
     def create_project(self, project_name: str, description: str = None) -> Project:
         """Create a new project"""
         try:
+            # this line returns a SQL Alchemy Session object --> have the query(), filter(), first() methods
             with self.db.get_session() as session:
                 # Check if project name already exists
                 existing_project = session.query(Project).filter(Project.project_name == project_name).first()
