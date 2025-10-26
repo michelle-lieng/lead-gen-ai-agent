@@ -15,6 +15,8 @@ from ..config import settings
 from ..models.tables import SerpQueries, SerpUrls
 from ..models.schemas import QueryListRequest
 
+logger = logging.getLogger(__name__)
+
 class LeadsSerpService:
     """Service for generating leads from search operations"""
     

@@ -1,6 +1,7 @@
 """
 Configuration management for the backend
 """
+import logging
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from typing import Optional
@@ -24,6 +25,13 @@ class Settings(BaseSettings):
     # App settings
     log_level: str = Field(default="INFO") # Only log level has a default
     
+    def configure_logging(self):
+        """Configure logging based on settings."""
+        logging.basicConfig(
+            level=getattr(logging, self.log_level.upper()), #returns e.g. logging.INFO
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+
     # tells pydantic how to load the file
     model_config = {
         "env_file": "../.env",  # Look in project root, not backend directory
@@ -32,3 +40,4 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
+settings.configure_logging() # Sets up logging with whatever level set in settings
