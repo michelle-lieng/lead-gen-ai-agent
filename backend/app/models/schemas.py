@@ -4,12 +4,10 @@ Pydantic models for API request/response validation
 from pydantic import BaseModel
 from typing import Optional
 
-
 class ProjectCreate(BaseModel):
     """Schema for creating a new project"""
     project_name: str
     description: Optional[str] = None
-
 
 class ProjectUpdate(BaseModel):
     """Schema for updating an existing project"""
@@ -18,7 +16,6 @@ class ProjectUpdate(BaseModel):
     status: Optional[str] = None
     leads_collected: Optional[int] = None
     datasets_added: Optional[int] = None
-
 
 class ProjectResponse(BaseModel):
     """Schema for project API responses"""
@@ -33,7 +30,6 @@ class ProjectResponse(BaseModel):
     
     class Config:
         from_attributes = True
-
 
 class QueryListRequest(BaseModel):
     """Schema for query list requests"""
