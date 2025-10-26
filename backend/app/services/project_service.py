@@ -12,16 +12,12 @@ logger = logging.getLogger(__name__)
 
 class ProjectService:
     """Service for project-related database operations"""
-    
-    def __init__(self):
-        """Initialize project service with database service"""
-        self.db = db_service
-    
+
     def create_project(self, project_name: str, description: str = None) -> Project:
         """Create a new project"""
         try:
             # this line returns a SQL Alchemy Session object --> have the query(), filter(), first() methods
-            with self.db.get_session() as session:
+            with db_service.get_session() as session:
                 # Check if project name already exists
                 existing_project = session.query(Project).filter(Project.project_name == project_name).first()
                 if existing_project:
@@ -32,8 +28,8 @@ class ProjectService:
                     description=description
                 )
                 session.add(project)
-                session.commit()
-                session.refresh(project)
+                session.commit() #save data to database
+                session.refresh(project) # updates python object with database values to return 
                 logger.info(f"✅ Created project: {project_name}")
                 return project
         except ValueError:
@@ -46,7 +42,7 @@ class ProjectService:
     def get_projects(self) -> List[Project]:
         """Get all projects"""
         try:
-            with self.db.get_session() as session:
+            with db_service.get_session() as session:
                 return session.query(Project).order_by(Project.date_added.desc()).all()
         except SQLAlchemyError as e:
             logger.error(f"❌ Error getting projects: {e}")
@@ -55,7 +51,7 @@ class ProjectService:
     def get_project(self, project_id: int) -> Optional[Project]:
         """Get specific project by ID"""
         try:
-            with self.db.get_session() as session:
+            with db_service.get_session() as session:
                 return session.query(Project).filter(Project.id == project_id).first()
         except SQLAlchemyError as e:
             logger.error(f"❌ Error getting project {project_id}: {e}")
@@ -64,7 +60,7 @@ class ProjectService:
     def update_project(self, project_id: int, **kwargs) -> Optional[Project]:
         """Update project fields"""
         try:
-            with self.db.get_session() as session:
+            with db_service.get_session() as session:
                 project = session.query(Project).filter(Project.id == project_id).first()
                 if not project:
                     logger.warning(f"Project {project_id} not found")
@@ -85,7 +81,7 @@ class ProjectService:
     def delete_project(self, project_id: int) -> bool:
         """Delete project by ID"""
         try:
-            with self.db.get_session() as session:
+            with db_service.get_session() as session:
                 project = session.query(Project).filter(Project.id == project_id).first()
                 if not project:
                     logger.warning(f"Project {project_id} not found")
