@@ -18,21 +18,40 @@ class DatabaseService:
             f"postgresql://{settings.postgresql_user}:{settings.postgresql_password}"
             f"@{settings.postgresql_host}:{settings.postgresql_port}/{settings.postgresql_database}"
         )
+        # This creates the connection pool (default to 5 connections in the pool)
+        # Think of it like parking spaces how many sessions we can create
         self.engine = create_engine(self.connection_string)
-        # this is the factory for creating new sessions (conversations with the db)
+        # this is the factory for creating new sessions
+        # this attachs the get_sessions with the connection pool
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
         
     def get_session(self) -> Session:
         """Get database session - this creates new session
-        (using our factory in the init)
+        (using our factory in the init and connecting to our connection pool)
         
         Note to self: When we make changes in session they are not saved yet
         only stagged. It is only when we go session.commit() that the changes
         are saved. We can do session.rollback() to cancel staged changes.
-        Session.close() then ends the conversation. We don't actually use it in
-        the code below because we use the with self.getsession() which will automatically
-        close it after the code runs. We need to close our sessions otherwise they
-        take up RAM.
+        Session.close() then ends the conversation. 
+        
+        We don't actually use it in the code below because we use the with self.getsession() 
+        which will automatically close it after the code runs. We need to close our sessions 
+        otherwise they take up RAM.
+
+        # 5 connections in the pool (by engine)
+        # 🅿️ [Conn1] [Conn2] [Conn3] [Conn4] [Conn5]
+
+        # Create 5 sessions (all get connections)
+        session1 = SessionLocal()  # Gets Conn1
+        session2 = SessionLocal()  # Gets Conn2
+        session3 = SessionLocal()  # Gets Conn3
+        session4 = SessionLocal()  # Gets Conn4
+        session5 = SessionLocal()  # Gets Conn5
+
+        # 🅿️ [Conn1 in use] [Conn2 in use] [Conn3 in use] [Conn4 in use] [Conn5 in use]
+
+        # Try to create 6th session
+        session6 = SessionLocal()  # Waits! No connections available
         """
         return self.SessionLocal()
     
