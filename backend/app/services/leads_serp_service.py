@@ -8,12 +8,13 @@ import os
 from typing import List
 from serpapi import GoogleSearch
 
+from .database_service import db_service
+
 from ..config import settings
-from .database import db_service
-from ..models.tables import Queries
+from ..models.tables import SerpQueries
 from ..models.schemas import QueryListRequest
 
-class GenerateLeadsFromSearch:
+class LeadsSerpService:
     """Service for generating leads from search operations"""
     
     def __init__(self):
@@ -71,7 +72,7 @@ class GenerateLeadsFromSearch:
             print(f"Error generating search queries: {str(e)}")
 
     @staticmethod
-    def extract_initial_urls(queries: list) -> List[dict]:
+    def extract_urls(queries: list) -> List[dict]:
         all_extracted_urls = []
         for query in queries:
             params = {
@@ -106,8 +107,8 @@ class GenerateLeadsFromSearch:
         try:
             with self.db.get_session() as session:
                 for query in queries:
-                    # Create a new Queries record
-                    query_record = Queries(
+                    # Create a new SerpQueries record
+                    query_record = SerpQueries(
                         project_id=project_id,
                         query=query
                     )
@@ -120,14 +121,19 @@ class GenerateLeadsFromSearch:
                 
         except Exception as e:
             print(f"❌ Error saving queries to database: {str(e)}")
+            # Check if it's a foreign key violation
+            if "ForeignKeyViolation" in str(e):
+                raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
 
-    def add_initial_urls_to_table():
+    def add_urls_to_table():
         pass
 
+# Global project service instance
+leads_serp_service = LeadsSerpService()
+
 if __name__ == "__main__":
-    generate_leads = GenerateLeadsFromSearch()
-    #print(generate_search_queries("Best sushi stores in Australia")[0])
-    #print(extract_initial_urls(["Best sushi stores in Australia", "Cats"]))
-    print(generate_leads.add_queries_to_table(3, ["What is a dog","Pizza?"]))
+    #print(leads_serp_service.generate_search_queries("Best sushi stores in Australia")[0])
+    #print(leads_serp_service.extract_urls(["Best sushi stores in Australia", "Cats"]))
+    print(leads_serp_service.add_queries_to_table(3, ["What is a dog","Pizza?"]))
 """

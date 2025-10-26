@@ -66,7 +66,7 @@ class DatabaseService:
     
     def check_all_tables_exist(self) -> bool:
         """Check if all required tables exist"""
-        required_tables = ["projects", "queries", "initial_urls"]
+        required_tables = ["projects", "serp_queries", "serp_urls"]
         for table_name in required_tables:
             if not self.check_table_exists(table_name):
                 logger.info(f"❌ Table '{table_name}' does not exist")
@@ -106,7 +106,6 @@ class DatabaseService:
             logger.error(f"❌ Database setup failed: {e}")
             raise
     
-
 # Global database service instance
 db_service = DatabaseService()
 
@@ -114,7 +113,7 @@ db_service = DatabaseService()
 if __name__ == "__main__":
     """
     Quick testing of database service functions
-    Run with: python -m app.services.database
+    Run with: python -m app.services.database_service
     """
     import sys
     import os

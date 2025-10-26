@@ -4,8 +4,8 @@ FastAPI application entry point
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api.routes import projects, queries
-from .services.database import db_service
+from .api.routes import projects, leads_serp
+from .services.database_service import db_service
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -74,4 +74,4 @@ app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 
 ########## QUERY ENDPOINTS
 
-app.include_router(queries.router, prefix="/api", tags=["queries"])
+app.include_router(leads_serp.router, prefix="/api", tags=["queries"])

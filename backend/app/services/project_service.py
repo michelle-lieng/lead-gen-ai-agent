@@ -6,7 +6,7 @@ from typing import List, Optional
 import logging
 
 from ..models.tables import Project
-from .database import db_service
+from .database_service import db_service
 
 logger = logging.getLogger(__name__)
 

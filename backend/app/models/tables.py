@@ -21,13 +21,13 @@ class Project(Base):
     leads_collected = Column(Integer, default=0)
     datasets_added = Column(Integer, default=0)
     
-    # Relationship to queries and initial_urls
-    queries = relationship("Queries", back_populates="project")
-    initial_urls = relationship("InitialUrls", back_populates="project")
+    # Relationship to serp_queries and serp_urls
+    serp_queries = relationship("SerpQueries", back_populates="project")
+    serp_urls = relationship("SerpUrls", back_populates="project")
 
-class Queries(Base):
-    """PostgreSQL table: queries - for generating search questions"""
-    __tablename__ = "queries"
+class SerpQueries(Base):
+    """PostgreSQL table: serp_queries - for generating search questions"""
+    __tablename__ = "serp_queries"
     
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)  # Foreign key to Project.id
@@ -35,11 +35,11 @@ class Queries(Base):
     date_added = Column(DateTime, default=datetime.utcnow)
     
     # Relationship back to project
-    project = relationship("Project", back_populates="queries")
+    project = relationship("Project", back_populates="serp_queries")
 
-class InitialUrls(Base):
-    """PostgreSQL table: initial_urls - for storing search result URLs"""
-    __tablename__ = "initial_urls"
+class SerpUrls(Base):
+    """PostgreSQL table: serp_urls - for storing search result SERP URLs"""
+    __tablename__ = "serp_urls"
     
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)  # Foreign key to Project.id
@@ -53,7 +53,7 @@ class InitialUrls(Base):
     created_at = Column(DateTime, default=datetime.utcnow)  # creation timestamp
     
     # Relationship back to project
-    project = relationship("Project", back_populates="initial_urls")
+    project = relationship("Project", back_populates="serp_urls")
 
 # Future PostgreSQL tables can be added here:
 # class Lead(Base):
