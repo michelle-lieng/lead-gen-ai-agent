@@ -6,11 +6,13 @@ from openai import OpenAI
 from pydantic import BaseModel
 import os
 from serpapi import GoogleSearch
+import logging
+from sqlalchemy.dialects.postgresql import insert
 
 from .database_service import db_service
 
 from ..config import settings
-from ..models.tables import SerpQueries
+from ..models.tables import SerpQueries, SerpUrls
 from ..models.schemas import QueryListRequest
 
 class LeadsSerpService:
@@ -18,7 +20,6 @@ class LeadsSerpService:
     
     def __init__(self):
         """Initialise leads from search service with database service"""
-        self.db = db_service
         # Initialize OpenAI client once
         if not settings.openai_api_key:
             raise ValueError("OpenAI API key not configured")
@@ -68,7 +69,7 @@ class LeadsSerpService:
             return queries_object.queries #returns a list
             
         except Exception as e:
-            print(f"Error generating search queries: {str(e)}")
+            logging.error(f"Error generating search queries: {str(e)}")
 
     @staticmethod
     def _extract_urls(query: str) -> list[dict]:
@@ -86,12 +87,11 @@ class LeadsSerpService:
             "start": "0",
             "safe": "active",
             "api_key": settings.serp_api_key
-            }
+        }
 
-            search = GoogleSearch(params)
-            results = search.get_dict()
-            all_extracted_urls += results.get("organic_results", [])
-        return all_extracted_urls
+        search = GoogleSearch(params)
+        results = search.get_dict()
+        return results.get("organic_results", [])
 
     def add_queries_to_table(self, project_id: int, queries: list[str]) -> bool:
         """
@@ -105,7 +105,8 @@ class LeadsSerpService:
             bool: shows if successiveful or not
         """
         try:
-            with self.db.get_session() as session:
+            total_queries = 0
+            with db_service.get_session() as session:
                 for query in queries:
                     # Create a new SerpQueries record
                     query_record = SerpQueries(
@@ -113,27 +114,73 @@ class LeadsSerpService:
                         query=query
                     )
                     session.add(query_record)
+                    total_queries += 1
                 
                 # Commit all queries at once
                 session.commit()
                 
+                logging.info(f"Uploaded {total_queries} queries to serp_queries table")
                 return True
                 
         except Exception as e:
-            print(f"❌ Error saving queries to database: {str(e)}")
+            logging.error(f"❌ Error saving queries to database: {str(e)}")
             # Check if it's a foreign key violation
             if "ForeignKeyViolation" in str(e):
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
 
-    def add_urls_to_table():
-        pass
+    def generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> dict:
+        """
+        1. first generate the urls using _extract_urls
+        2. then save urls to serp_urls table
+        """
+        try:
+            with db_service.get_session() as session:
+                all_urls = []
 
+                # STEP 1: Collect all generated urls first using _extract_urls
+                for query in queries:
+                    # extract the urls using Serpapi
+                    serp_object = self._extract_urls(query)
+                    for serp_result in serp_object:
+                        all_urls.append({
+                            'project_id': project_id,
+                            'query': query,
+                            'title': serp_result.get('title'),
+                            'link': serp_result.get('link'),
+                            'snippet': serp_result.get('snippet'),
+                            'source': serp_result.get('source')
+                        })
+
+                # Step 2: Batch upsert using SQLAlchemy core
+                statement = insert(SerpUrls).values(all_urls)
+                statement = statement.on_conflict_do_update(
+                    index_elements=['link'],
+                    set_=dict(
+                        title=statement.excluded.title,
+                        snippet=statement.excluded.snippet,
+                        source=statement.excluded.source
+                    )
+                )
+                session.execute(statement)
+                session.commit()
+                logging.info(f"✅ Processed {len(all_urls)} URLs for {len(queries)} queries")
+            
+            return True
+                
+        except Exception as e:
+            logging.error(f"❌ Error saving queries to database: {str(e)}")
+            # Check if it's a foreign key violation
+            if "ForeignKeyViolation" in str(e):
+                raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
+            raise
+                
 # Global project service instance
 leads_serp_service = LeadsSerpService()
 
 if __name__ == "__main__":
     #print(leads_serp_service.generate_search_queries("Best sushi stores in Australia")[0])
-    #print(leads_serp_service.extract_urls(["Best sushi stores in Australia", "Cats"]))
-    print(leads_serp_service.add_queries_to_table(3, ["What is a dog","Pizza?"]))
+    #print(leads_serp_service._extract_urls("Best sushi stores in Australia")
+    # print(leads_serp_service.add_queries_to_table(3, ["What is a dog","Pizza?"]))
+    print(leads_serp_service.generate_and_add_urls_to_table(3, ["What is a dog","Pizza?"]))
 """
