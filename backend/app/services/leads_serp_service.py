@@ -5,7 +5,6 @@ Lead generation from search using AI-powered query generation
 from openai import OpenAI
 from pydantic import BaseModel
 import os
-from typing import List
 from serpapi import GoogleSearch
 
 from .database_service import db_service
@@ -25,7 +24,7 @@ class LeadsSerpService:
             raise ValueError("OpenAI API key not configured")
         self.openai_client = OpenAI(api_key=settings.openai_api_key)
 
-    def generate_search_queries(self, description: str, num_queries: int = 2) -> List[str]:
+    def generate_search_queries(self, description: str, num_queries: int = 2) -> list[str]:
         """
         Generate AI-powered search queries based on project description using ChatGPT
         
@@ -34,7 +33,7 @@ class LeadsSerpService:
             num_queries (int): Number of queries to generate (default: 5)
         
         Returns:
-            List[str]: List of generated search queries
+            list[str]: List of generated search queries
         """
         try:
             
@@ -72,10 +71,11 @@ class LeadsSerpService:
             print(f"Error generating search queries: {str(e)}")
 
     @staticmethod
-    def extract_urls(queries: list) -> List[dict]:
-        all_extracted_urls = []
-        for query in queries:
-            params = {
+    def _extract_urls(query: str) -> list[dict]:
+        """
+        Uses Serpapi to extract urls from single query.
+        """
+        params = {
             "engine": "google",
             "q": query,
             "location": "Sydney, New South Wales, Australia",
@@ -93,13 +93,13 @@ class LeadsSerpService:
             all_extracted_urls += results.get("organic_results", [])
         return all_extracted_urls
 
-    def add_queries_to_table(self, project_id: int, queries: List[str]) -> bool:
+    def add_queries_to_table(self, project_id: int, queries: list[str]) -> bool:
         """
         Save generated search queries to the database for a specific project.
         
         Args:
             project_id (int): ID of the project these queries belong to
-            queries (List[str]): List of search queries to save
+            queries (list[str]): List of search queries to save
         
         Returns:
             bool: shows if successiveful or not
