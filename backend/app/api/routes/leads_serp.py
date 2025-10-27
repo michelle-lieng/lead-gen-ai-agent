@@ -22,8 +22,11 @@ async def generate_queries(project_id: int) -> list:
         project = project_service.get_project(project_id)
         query_list = leads_serp_service.generate_search_queries(project.description)
         return query_list
+    except ValueError as e:
+        # Handle project not found (ValueError from project_service.get_project)
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating project: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating queries: {str(e)}")
 
 @router.post("/projects/{project_id}/leads/serp/urls")
 async def generate_urls(project_id: int, request: QueryListRequest):
