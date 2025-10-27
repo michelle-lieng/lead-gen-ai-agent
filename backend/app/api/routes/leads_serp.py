@@ -36,8 +36,14 @@ async def generate_urls(project_id: int, request: QueryListRequest):
     2. Generate new urls and save them to serp_urls table
     """
     try:
-        success = leads_serp_service.add_queries_to_table(project_id, request.queries)
-        return {"success": success, "message": f"Saved {len(request.queries)} queries to database"}
+        # Step 1: Save generated queries to serp_queries table
+        step_1_success = leads_serp_service.add_queries_to_table(project_id, request.queries)
+
+        # Step 2: Save generated urls to serp_urls table
+        step_2_success = leads_serp_service.generate_and_add_urls_to_table(project_id, request.queries)
+        return {"success_saved_to_serp_queries": step_1_success,
+        "success_saved_to_serp_urls": step_2_success,
+        "message": f"Saved and processed {len(request.queries)} queries"}
     except ValueError as e:
         # Handle specific validation errors (like foreign key violations)
         raise HTTPException(status_code=400, detail=str(e))
