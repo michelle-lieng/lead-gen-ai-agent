@@ -5,9 +5,9 @@ from fastapi import APIRouter, HTTPException
 from typing import List
 import asyncio
 
-from .projects import get_project
-
 from ...services.leads_serp_service import leads_serp_service
+from ...services.project_service import project_service
+
 from ...models.schemas import QueryListRequest
 
 router = APIRouter()
@@ -19,8 +19,8 @@ async def generate_queries(project_id: int) -> list:
     -> generates queries
     -> saves them to the frontend"""
     try:
-        project_response = await get_project(project_id)
-        query_list = leads_serp_service.generate_search_queries(project_response.description)
+        project = project_service.get_project(project_id)
+        query_list = leads_serp_service.generate_search_queries(project.description)
         return query_list
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating project: {str(e)}")
