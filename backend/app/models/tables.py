@@ -47,7 +47,6 @@ class SerpUrls(Base):
     title = Column(Text)  # title of the result
     link = Column(Text, unique=True)  # final URL (unique constraint)
     snippet = Column(Text)  # snippet/description from search
-    source = Column(Text)  # domain or source field
     website_scraped = Column(Text)  # website scraped status
     status = Column(String(50), default="unprocessed")  # processing status
     created_at = Column(DateTime, default=datetime.utcnow)  # creation timestamp
