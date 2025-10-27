@@ -52,7 +52,13 @@ class ProjectService:
         """Get specific project by ID"""
         try:
             with db_service.get_session() as session:
-                return session.query(Project).filter(Project.id == project_id).first()
+                project = session.query(Project).filter(Project.id == project_id).first()
+                if not project:
+                    raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
+                return project
+        except ValueError:
+            # Re-raise ValueError (project not found)
+            raise
         except SQLAlchemyError as e:
             logger.error(f"❌ Error getting project {project_id}: {e}")
             raise
