@@ -11,7 +11,9 @@ from sqlalchemy.dialects.postgresql import insert
 
 from .database_service import db_service
 
+from ..utils.scrapers import jina_serp_scraper
 from ..config import settings
+from ..prompts import SERP_QUERIES_PROMPT
 from ..models.tables import SerpQueries, SerpUrls
 from ..models.schemas import QueryListRequest
 
@@ -33,7 +35,7 @@ class LeadsSerpService:
         
         Args:
             description (str): Project description to base queries on
-            num_queries (int): Number of queries to generate (default: 5)
+            num_queries (int): Number of queries to generate (default: 2)
         
         Returns:
             list[str]: List of generated search queries
@@ -41,18 +43,10 @@ class LeadsSerpService:
         try:
             
             # Create the prompt for ChatGPT
-            prompt = f"""
-            Based on this project description, generate {num_queries} targeted search queries to find potential leads:
-            
-            Project Description: {description}
-            
-            Requirements:
-            - Generate search queries that would find companies matching this description
-            - Include industry-specific terms, location keywords, and company size indicators
-            - Make queries specific enough to find relevant results but broad enough to capture variety
-            - Focus on terms that would appear in company websites, LinkedIn profiles, and business directories
-            - Each query should be 3-8 words long
-            """
+            prompt = SERP_QUERIES_PROMPT.format(
+                description=description, 
+                num_queries=num_queries
+            )
             
             # Call OpenAI API
             response = self.openai_client.responses.parse(
@@ -68,32 +62,18 @@ class LeadsSerpService:
             # Parse the response
             queries_object = response.output_parsed
             
-            return queries_object.queries #returns a list
+            # Clean up any quotes or formatting issues
+            cleaned_queries = []
+            for query in queries_object.queries:
+                # Remove quotes and extra whitespace
+                cleaned_query = query.strip().strip('"').strip("'")
+                cleaned_queries.append(cleaned_query)
+            
+            return cleaned_queries
             
         except Exception as e:
             logging.error(f"Error generating search queries: {str(e)}")
-
-    @staticmethod
-    def _extract_urls(query: str) -> list[dict]:
-        """
-        Uses Serpapi to extract urls from single query.
-        """
-        params = {
-            "engine": "google",
-            "q": query,
-            "location": "Sydney, New South Wales, Australia",
-            "hl": "en",
-            "gl": "au",
-            "google_domain": "google.com.au",
-            "num": "100",
-            "start": "0",
-            "safe": "active",
-            "api_key": settings.serp_api_key
-        }
-
-        search = GoogleSearch(params)
-        results = search.get_dict()
-        return results.get("organic_results", [])
+            raise
 
     def add_queries_to_table(self, project_id: int, queries: list[str]) -> bool:
         """
@@ -131,27 +111,26 @@ class LeadsSerpService:
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
 
-    def generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> dict:
+    def generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> bool:
         """
-        1. first generate the urls using _extract_urls
+        1. first generate the urls using jina_serp_scraper
         2. then save urls to serp_urls table
         """
         try:
             with db_service.get_session() as session:
                 all_urls = []
 
-                # STEP 1: Collect all generated urls first using _extract_urls
+                # STEP 1: Collect all generated urls first using jina_serp_scraper
                 for query in queries:
                     # extract the urls using Serpapi
-                    serp_object = self._extract_urls(query)
+                    serp_object = jina_serp_scraper(query)
                     for serp_result in serp_object:
                         all_urls.append({
                             'project_id': project_id,
                             'query': query,
                             'title': serp_result.get('title'),
-                            'link': serp_result.get('link'),
-                            'snippet': serp_result.get('snippet'),
-                            'source': serp_result.get('source')
+                            'link': serp_result.get('url'),
+                            'snippet': serp_result.get('description')
                         })
 
                 # Step 2: Batch upsert using SQLAlchemy core
@@ -160,8 +139,7 @@ class LeadsSerpService:
                     index_elements=['link'],
                     set_=dict(
                         title=statement.excluded.title,
-                        snippet=statement.excluded.snippet,
-                        source=statement.excluded.source
+                        snippet=statement.excluded.snippet
                     )
                 )
                 session.execute(statement)
@@ -176,13 +154,18 @@ class LeadsSerpService:
             if "ForeignKeyViolation" in str(e):
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
+
+    def scrape_leads_from_urls(self, project_id: int):
+        """
+        If on table SerpUrls the status is unprocessed then we will scrape it.
+        """
+        pass
                 
 # Global project service instance
 leads_serp_service = LeadsSerpService()
 
 if __name__ == "__main__":
     #print(leads_serp_service.generate_search_queries("Best sushi stores in Australia")[0])
-    #print(leads_serp_service._extract_urls("Best sushi stores in Australia")
-    # print(leads_serp_service.add_queries_to_table(3, ["What is a dog","Pizza?"]))
-    print(leads_serp_service.generate_and_add_urls_to_table(3, ["What is a dog","Pizza?"]))
-"""
+    #print(leads_serp_service.jina_serp_scrape("Best sushi stores in Australia")
+    #print(leads_serp_service.add_queries_to_table(3, ["What is a dog","Pizza?"]))
+    print(leads_serp_service.generate_and_add_urls_to_table(2, ["Coles company greenwashing","Pizza?"]))
