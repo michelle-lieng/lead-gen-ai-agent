@@ -38,13 +38,13 @@ class LeadsSerpService:
         # for openai agents sdk
         set_default_openai_key(settings.openai_api_key)
 
-    def generate_search_queries(self, description: str, num_queries: int = 5) -> list[str]:
+    def generate_search_queries(self, description: str, num_queries: int = 3) -> list[str]:
         """
         Generate AI-powered search queries based on project description using ChatGPT
         
         Args:
             description (str): Project description to base queries on
-            num_queries (int): Number of queries to generate (default: 5)
+            num_queries (int): Number of queries to generate (default: 3)
         
         Returns:
             list[str]: List of generated search queries
