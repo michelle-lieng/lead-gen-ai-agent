@@ -28,6 +28,7 @@ class ProjectUpdate(BaseModel):
     status: Optional[str] = None
     leads_collected: Optional[int] = None
     datasets_added: Optional[int] = None
+    urls_processed: Optional[int] = None
     
     @field_validator('project_name', 'description')
     @classmethod
@@ -47,6 +48,7 @@ class ProjectResponse(BaseModel):
     last_updated: str
     leads_collected: int
     datasets_added: int
+    urls_processed: int
     
     class Config:
         from_attributes = True

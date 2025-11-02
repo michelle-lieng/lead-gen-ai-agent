@@ -24,7 +24,8 @@ async def create_project(project: ProjectCreate):
             date_added=db_project.date_added.isoformat(),
             last_updated=db_project.last_updated.isoformat(),
             leads_collected=db_project.leads_collected,
-            datasets_added=db_project.datasets_added
+            datasets_added=db_project.datasets_added,
+            urls_processed=db_project.urls_processed
         )
     except ValueError as e:
         # Handle duplicate project name
@@ -46,7 +47,8 @@ async def list_projects():
                 date_added=p.date_added.isoformat(),
                 last_updated=p.last_updated.isoformat(),
                 leads_collected=p.leads_collected,
-                datasets_added=p.datasets_added
+                datasets_added=p.datasets_added,
+                urls_processed=p.urls_processed
             ) for p in projects
         ]
     except Exception as e:
@@ -68,7 +70,8 @@ async def get_project(project_id: int):
             date_added=project.date_added.isoformat(),
             last_updated=project.last_updated.isoformat(),
             leads_collected=project.leads_collected,
-            datasets_added=project.datasets_added
+            datasets_added=project.datasets_added,
+            urls_processed=project.urls_processed
         )
     except HTTPException:
         raise
@@ -97,7 +100,8 @@ async def update_project(project_id: int, project: ProjectUpdate):
             date_added=updated_project.date_added.isoformat(),
             last_updated=updated_project.last_updated.isoformat(),
             leads_collected=updated_project.leads_collected,
-            datasets_added=updated_project.datasets_added
+            datasets_added=updated_project.datasets_added,
+            urls_processed=updated_project.urls_processed
         )
     except HTTPException:
         raise

@@ -20,6 +20,7 @@ class Project(Base):
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     leads_collected = Column(Integer, default=0)
     datasets_added = Column(Integer, default=0)
+    urls_processed = Column(Integer, default=0)
     
     # Relationship to serp_queries, serp_urls, and serp_leads
     serp_queries = relationship("SerpQuery", back_populates="project")
