@@ -120,10 +120,13 @@ class LeadsSerpService:
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
 
-    def generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> bool:
+    def generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> dict:
         """
         1. first generate the urls using jina_serp_scraper
         2. then save urls to serp_urls table
+        
+        Returns:
+            dict: Contains success status, URLs added, and statistics
         """
         try:
             with db_service.get_session() as session:
@@ -155,7 +158,12 @@ class LeadsSerpService:
                 session.commit()
                 logging.info(f"✅ Processed {len(all_urls)} URLs for {len(queries)} queries")
             
-            return True
+            return {
+                "success": True,
+                "urls_added": len(all_urls),
+                "queries_processed": len(queries),
+                "message": f"Successfully added {len(all_urls)} URLs from {len(queries)} search queries"
+            }
                 
         except Exception as e:
             logging.error(f"❌ Error saving queries to database: {str(e)}")
