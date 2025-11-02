@@ -8,13 +8,43 @@ Note: They all cache content.
 import requests
 import json
 import ast
+import re
+import unicodedata
 
 from ..config import settings
 
+def clean_content(content: str) -> str:
+    """
+    Clean scraped content by removing weird characters, excessive whitespace, and formatting issues.
+    """
+    if not content:
+        return content
+    
+    # Remove excessive dashes and separators
+    content = re.sub(r'-{10,}', '', content)  # Remove 10+ consecutive dashes
+    content = re.sub(r'={10,}', '', content)  # Remove 10+ consecutive equals
+    content = re.sub(r'_{10,}', '', content)  # Remove 10+ consecutive underscores
+    content = re.sub(r'\.{10,}', '', content)  # Remove 10+ consecutive dots
+    
+    # Remove weird Unicode characters and control characters
+    content = re.sub(r'[\u200b-\u200d\ufeff]', '', content)  # Remove zero-width characters
+    content = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', content)  # Remove control characters
+    
+    # Normalize Unicode characters (convert to closest ASCII equivalent)
+    content = unicodedata.normalize('NFKD', content)
+    
+    # Remove excessive whitespace while preserving paragraph structure
+    content = re.sub(r'\n\s*\n\s*\n+', '\n\n', content)  # Replace 3+ newlines with 2
+    content = re.sub(r'[ \t]+', ' ', content).strip()  # Replace multiple spaces/tabs with single space
+    content = content.encode("utf-8", "ignore").decode("utf-8")  # Clean UTF-8 encoding
+            
+    return content
+
 def jina_url_scraper(url: str) -> str:
     """
-    Uses jina api to scrape url.
+    Uses jina api to scrape url and clean the content.
     """
+    url = f"https://r.jina.ai/{url}"
     headers = {
         #"Authorization": f"Bearer jina_{settings.jina_api_key}",
         "X-Md-Link-Style": "discarded",
@@ -22,7 +52,12 @@ def jina_url_scraper(url: str) -> str:
         "X-Retain-Images": "none"
     }
     response = requests.get(url, headers=headers)
-    return response.text
+    raw_content = response.text
+    
+    # Clean the scraped content
+    cleaned_content = clean_content(raw_content)
+    
+    return cleaned_content
 
 def jina_serp_scraper(search_phrase:str) -> list[dict]:
     url = 'https://s.jina.ai/'
@@ -38,9 +73,9 @@ def jina_serp_scraper(search_phrase:str) -> list[dict]:
 if __name__ == "__main__":
     from pprint import pprint
     # try url scraper
-    url = "https://r.jina.ai/https://www.afr.com/companies/mining/orica-crowned-australia-s-most-sustainable-company-for-impact-20240625-p5jojc"
+    url = "https://www.our-trace.com/blog/23-companies-in-australia-doing-great-things-in-sustainability"
     print(jina_url_scraper(url))
 
     # try serp scraper
-    search_phrase = "Coles company greenwashing"
-    pprint(jina_serp_scraper(search_phrase))
+    # search_phrase = "Coles company greenwashing"
+    # pprint(jina_serp_scraper(search_phrase))
