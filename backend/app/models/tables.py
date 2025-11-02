@@ -21,11 +21,12 @@ class Project(Base):
     leads_collected = Column(Integer, default=0)
     datasets_added = Column(Integer, default=0)
     
-    # Relationship to serp_queries and serp_urls
-    serp_queries = relationship("SerpQueries", back_populates="project")
-    serp_urls = relationship("SerpUrls", back_populates="project")
+    # Relationship to serp_queries, serp_urls, and serp_leads
+    serp_queries = relationship("SerpQuery", back_populates="project")
+    serp_urls = relationship("SerpUrl", back_populates="project")
+    serp_leads = relationship("SerpLead", back_populates="project")
 
-class SerpQueries(Base):
+class SerpQuery(Base):
     """PostgreSQL table: serp_queries - for generating search questions"""
     __tablename__ = "serp_queries"
     
@@ -37,7 +38,7 @@ class SerpQueries(Base):
     # Relationship back to project
     project = relationship("Project", back_populates="serp_queries")
 
-class SerpUrls(Base):
+class SerpUrl(Base):
     """PostgreSQL table: serp_urls - for storing search result SERP URLs"""
     __tablename__ = "serp_urls"
     
@@ -51,16 +52,20 @@ class SerpUrls(Base):
     status = Column(String(50), default="unprocessed")  # processing status
     created_at = Column(DateTime, default=datetime.utcnow)  # creation timestamp
     
-    # Relationship back to project
+    # Relationship back to project and forward to leads
     project = relationship("Project", back_populates="serp_urls")
+    serp_leads = relationship("SerpLead", back_populates="serp_url")
 
-# Future PostgreSQL tables can be added here:
-# class Lead(Base):
-#     """PostgreSQL table: leads - for storing generated leads"""
-#     __tablename__ = "leads"
-#     # ... lead fields
-
-# class Dataset(Base):
-#     """PostgreSQL table: datasets - for storing lead datasets"""
-#     __tablename__ = "datasets"
-#     # ... dataset fields
+class SerpLead(Base):
+    """PostgreSQL table: serp_leads - for storing leads extracted from serp urls"""
+    __tablename__ = "serp_leads"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)  # Foreign key to Project.id
+    serp_url_id = Column(Integer, ForeignKey("serp_urls.id"), nullable=False)  # Foreign key to SerpUrl.id
+    lead = Column(Text, nullable=False)  # The extracted lead/company name
+    created_at = Column(DateTime, default=datetime.utcnow)  # When the lead was extracted
+    
+    # Relationships
+    project = relationship("Project", back_populates="serp_leads")
+    serp_url = relationship("SerpUrl", back_populates="serp_leads")
