@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert
 
 from .database_service import db_service
+from .project_service import project_service
 
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..config import settings
@@ -325,6 +326,9 @@ class LeadsSerpService:
                 logging.info(f"   - Skipped: {skipped_count}")
                 logging.info(f"   - Failed: {failed_count}")
                 logging.info(f"   - New leads extracted: {new_leads_count}")
+                
+                # Update project counts (urls_processed and leads_collected)
+                project_service.update_project_counts_from_db(project_id)
                 
                 return {
                     "success": True,

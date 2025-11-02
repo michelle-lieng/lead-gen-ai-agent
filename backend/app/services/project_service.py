@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
 import logging
 
-from ..models.tables import Project
+from ..models.tables import Project, SerpUrl, SerpLead
 from .database_service import db_service
 
 logger = logging.getLogger(__name__)
@@ -100,6 +100,51 @@ class ProjectService:
         except SQLAlchemyError as e:
             logger.error(f"❌ Error deleting project {project_id}: {e}")
             raise
+    
+    def update_project_counts_from_db(self, project_id: int) -> bool:
+        """
+        Recalculate and update project counts from database tables.
+        Counts only URLs with status='processed' from serp_urls and all leads from serp_leads.
+        
+        Args:
+            project_id (int): ID of the project to update
+            
+        Returns:
+            bool: True if successful, False if project not found
+        """
+        try:            
+            with db_service.get_session() as session:
+                # Check if project exists
+                project = session.query(Project).filter(Project.id == project_id).first()
+                if not project:
+                    logger.warning(f"Project {project_id} not found for count update")
+                    return False
+                
+                # Count only processed URLs for this project
+                urls_count = session.query(SerpUrl).filter(
+                    SerpUrl.project_id == project_id,
+                    SerpUrl.status == "processed"
+                ).count()
+                
+                # Count leads for this project
+                leads_count = session.query(SerpLead).filter(
+                    SerpLead.project_id == project_id
+                ).count()
+                
+                # Update project counts
+                project.urls_processed = urls_count
+                project.leads_collected = leads_count
+                
+                session.commit()
+                logger.info(f"✅ Updated counts for project {project_id}: {urls_count} processed URLs, {leads_count} leads")
+                return True
+                
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Error updating project counts for {project_id}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Unexpected error updating project counts for {project_id}: {e}")
+            return False
 
 # Global project service instance
 project_service = ProjectService()
