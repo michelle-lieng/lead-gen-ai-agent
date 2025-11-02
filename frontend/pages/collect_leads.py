@@ -107,21 +107,36 @@ def show_web_search_tab(project):
                     st.info(f"📊 Generating URLs from {len(st.session_state.generated_queries)} queries...")
                     urls_result = generate_urls(project['id'], st.session_state.generated_queries)
                     
-                    if urls_result:
-                        st.success(f"✅ Found URLs from search results")
+                    if urls_result and urls_result.get('success'):
+                        urls_info = urls_result.get('urls_result', {})
+                        st.success(f"✅ Generated {urls_info.get('urls_added', 0)} URLs from {urls_info.get('queries_processed', 0)} search queries")
                         
                         # Step 2: Extract leads from URLs
                         st.info("🤖 Extracting leads from URLs...")
                         leads_result = generate_leads(project['id'])
                         
-                        if leads_result:
+                        if leads_result and leads_result.get('success'):
                             st.success("✅ Leads extracted successfully!")
                             st.markdown("**📊 Search Results:**")
-                            st.success(f"✅ Successfully processed {len(st.session_state.generated_queries)} search queries and extracted leads!")
+                            
+                            # Display detailed statistics
+                            col1, col2, col3, col4 = st.columns(4)
+                            with col1:
+                                st.metric("URLs Processed", leads_result.get('urls_processed', 0))
+                            with col2:
+                                st.metric("New Leads", leads_result.get('new_leads_extracted', 0))
+                            with col3:
+                                st.metric("URLs Skipped", leads_result.get('urls_skipped', 0))
+                            with col4:
+                                st.metric("URLs Failed", leads_result.get('urls_failed', 0))
+                            
+                            st.info(f"📝 {leads_result.get('message', 'Leads extracted successfully')}")
                         else:
-                            st.error("❌ Failed to extract leads. URLs were generated successfully.")
+                            error_msg = leads_result.get('message', 'Failed to extract leads') if leads_result else 'Failed to extract leads'
+                            st.error(f"❌ {error_msg}")
                     else:
-                        st.error("❌ Failed to generate URLs from queries.")
+                        error_msg = urls_result.get('message', 'Failed to generate URLs') if urls_result else 'Failed to generate URLs'
+                        st.error(f"❌ {error_msg}")
             else:
                 st.error("❌ Please add at least one query before starting the search.")
 
