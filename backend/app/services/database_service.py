@@ -6,6 +6,12 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError
 
 import logging
+from io import StringIO
+import csv
+from flask import Response
+from datetime import datetime
+from pathlib import Path
+
 from ..config import settings
 from ..models.tables import Base
 
@@ -124,6 +130,81 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"❌ Database setup failed: {e}")
             raise
+
+    def export_table_as_csv(self, table_name: str | list[str]):
+        """
+        Export any table to CSV file
+        
+        Args:
+            table_name (str | list): Name of the table(s) to export
+        
+        Returns:
+            str | list[str]: Path(s) to the created CSV file(s)
+        """
+        try:
+            csv_paths = []
+            # Convert single table name to list for uniform processing
+            if isinstance(table_name, str):
+                tables = [table_name]
+            else:
+                tables = table_name
+            
+            for table in tables:
+                # Check if table exists
+                if not self.check_table_exists(table):
+                    raise Exception(f"Table '{table}' does not exist")
+                
+                # Create standard output directory
+                output_dir = Path.cwd() / "output" / table
+                filename_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                outdir = output_dir / filename_ts
+                outdir.mkdir(parents=True, exist_ok=True)
+                
+                # Build the query - special case for serp_urls table
+                if table == "serp_urls":
+                    query = "SELECT id, project_id, query, title, link, snippet, LEFT(website_scraped, 32600) AS website_scraped, status, created_at FROM serp_urls"
+                else:
+                    query = f"SELECT * FROM {table}"
+                
+                # Export to CSV
+                csv_filename = f"{table}.csv"
+                csv_path = outdir / csv_filename
+                
+                with self.get_session() as session:
+                    # Execute query and get results
+                    result = session.execute(text(query))
+                    rows = result.fetchall()
+                    
+                    if not rows:
+                        logger.warning(f"⚠️ Table '{table}' is empty")
+                        csv_paths.append(str(csv_path))
+                        continue
+                    
+                    # Get column names from the first row
+                    columns = list(result.keys())
+                    
+                    # Write to CSV
+                    with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
+                        writer = csv.writer(f)
+                        # Write header
+                        writer.writerow(columns)
+                        # Write data rows
+                        writer.writerows(rows)
+                
+                logger.info(f"✅ Table '{table}' exported to {csv_path}")
+                csv_paths.append(str(csv_path))
+            
+            # Return single path if single table, list if multiple tables
+            if isinstance(table_name, str):
+                return csv_paths[0] if csv_paths else None
+            return csv_paths
+            
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Database error exporting table(s): {e}")
+            raise
+        except Exception as e:
+            logger.error(f"❌ Error exporting table(s): {e}")
+            raise
     
 # Global database service instance
 db_service = DatabaseService()
@@ -136,6 +217,8 @@ if __name__ == "__main__":
     """
     import sys
     import os
+
+    db_service.export_table_as_csv(["serp_urls", "serp_leads"])
     
     # Add the backend directory to Python path
     sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
