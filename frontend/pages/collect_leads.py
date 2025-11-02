@@ -2,7 +2,7 @@
 Lead collection page
 """
 import streamlit as st
-from api_client import update_project
+from api_client import update_project, generate_queries, generate_urls, generate_leads
 
 def show_collect_leads():
     """Lead collection page"""
@@ -28,11 +28,12 @@ def show_web_search_tab(project):
     """Web search tab content"""
     st.markdown("#### 🧠 AI-Powered Web Search")
     
-    # Step 1: Editable project description
+    # Step 1: Editable project description (always loaded from database)
     st.markdown("**Step 1: Project Description**")
     
-    # Editable description with inline save
+    # Get description from database (via project object)
     current_description = project.get('description', '')
+    # Editable description with inline save
     updated_description = st.text_area(
         "Edit your project description", 
         value=current_description,
@@ -53,74 +54,76 @@ def show_web_search_tab(project):
             else:
                 st.error("❌ Failed to update description")
     
-    if updated_description:
-        # Step 2: Generate search queries
-        st.markdown("**Step 2: AI-Generated Search Queries**")
-        if st.button("🤖 Generate Smart Search Queries"):
-            with st.spinner("🤖 AI is generating targeted search queries..."):
-                # TODO: Call AI service to generate search queries based on updated_description
-                generated_queries = [
-                    "sustainable energy companies California solar wind",
-                    "green tech startups California renewable energy",
-                    "clean energy companies Bay Area 10-500 employees",
-                    "solar panel manufacturers California",
-                    "wind energy companies California startups"
-                ]
+    # Step 2: Generate search queries (uses description from database)
+    st.markdown("**Step 2: AI-Generated Search Queries**")
+    
+    if st.button("🤖 Generate Smart Search Queries"):
+        with st.spinner("🤖 AI is generating targeted search queries..."):
+            generated_queries = generate_queries(project['id'])
+            if generated_queries:
                 st.session_state.generated_queries = generated_queries
+                st.success(f"✅ Generated {len(generated_queries)} search queries!")
+            else:
+                st.error("❌ Failed to generate queries. Please try again.")
+    
+    # Step 3: Display and edit queries (always show if queries exist)
+    if 'generated_queries' in st.session_state:
+        st.markdown("**Review and customize your search queries:**")
         
-        # Step 3: Display and edit queries
-        if 'generated_queries' in st.session_state:
-            st.markdown("**Review and customize your search queries:**")
-            
-            final_queries = []
-            for i, query in enumerate(st.session_state.generated_queries):
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    edited_query = st.text_input(
-                        f"Query {i+1}", 
-                        value=query, 
-                        key=f"query_{i}",
-                        label_visibility="collapsed"
-                    )
-                    final_queries.append(edited_query)
-                with col2:
-                    if st.button("❌", key=f"remove_{i}"):
-                        st.session_state.generated_queries.pop(i)
-                        st.rerun()
-            
-            # Add new query
-            st.markdown("**Add your own search queries:**")
-            new_query = st.text_input("Add custom query", placeholder="Enter your own search query...")
-            if st.button("➕ Add Query") and new_query:
-                st.session_state.generated_queries.append(new_query)
-                st.rerun()
-            
-            # Step 4: Start search
-            st.markdown("**Step 3: Start the search**")
-            if st.button("🔍 Start Web Search", type="primary"):
-                with st.spinner("🔍 Searching the web with all queries..."):
-                    # TODO: Implement SerpAPI search for each query
-                    st.info(f"🔍 Searching with {len(final_queries)} queries...")
-                    st.info("📊 Extracting URLs from search results...")
-                    st.info("✅ Search completed! Found X potential leads.")
+        for i, query in enumerate(st.session_state.generated_queries):
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                edited_query = st.text_input(
+                    f"Query {i+1}", 
+                    value=query, 
+                    key=f"query_{i}",
+                    label_visibility="collapsed"
+                )
+                # Update the query in session state if edited (only if not empty)
+                if edited_query.strip() != query and edited_query.strip():
+                    st.session_state.generated_queries[i] = edited_query.strip()
+                elif edited_query.strip() == "" and query:
+                    # If user cleared it, remove it instead
+                    st.session_state.generated_queries.pop(i)
+                    st.rerun()
+            with col2:
+                if st.button("❌", key=f"remove_{i}"):
+                    st.session_state.generated_queries.pop(i)
+                    st.rerun()
+        
+        # Add new query
+        st.markdown("**Add your own search queries:**")
+        new_query = st.text_input("Add custom query", placeholder="Enter your own search query...")
+        if st.button("➕ Add Query") and new_query:
+            st.session_state.generated_queries.append(new_query.strip())
+            st.rerun()
+        
+        # Step 4: Start search
+        st.markdown("**Step 3: Start the search**")
+        if st.button("🔍 Start Web Search", type="primary"):
+            if st.session_state.generated_queries:
+                with st.spinner("🔍 Starting web search..."):
+                    # Step 1: Generate URLs from queries
+                    st.info(f"📊 Generating URLs from {len(st.session_state.generated_queries)} queries...")
+                    urls_result = generate_urls(project['id'], st.session_state.generated_queries)
                     
-                    # Show results
-                    st.markdown("**📊 Search Results:**")
-                    st.success("✅ Found 150 potential leads from 5 search queries")
-                    
-                    # Show sample results
-                    sample_results = [
-                        {"url": "https://solarcorp.com", "title": "SolarCorp - Leading Solar Solutions", "snippet": "California-based solar company..."},
-                        {"url": "https://windpower.com", "title": "WindPower Inc - Renewable Energy", "snippet": "Wind energy solutions for California..."},
-                        {"url": "https://greentech.com", "title": "GreenTech Solutions", "snippet": "Sustainable energy startup in Bay Area..."}
-                    ]
-                    
-                    for result in sample_results:
-                        with st.container():
-                            st.write(f"**{result['title']}**")
-                            st.caption(f"🔗 {result['url']}")
-                            st.caption(result['snippet'])
-                            st.markdown("---")
+                    if urls_result:
+                        st.success(f"✅ Found URLs from search results")
+                        
+                        # Step 2: Extract leads from URLs
+                        st.info("🤖 Extracting leads from URLs...")
+                        leads_result = generate_leads(project['id'])
+                        
+                        if leads_result:
+                            st.success("✅ Leads extracted successfully!")
+                            st.markdown("**📊 Search Results:**")
+                            st.success(f"✅ Successfully processed {len(st.session_state.generated_queries)} search queries and extracted leads!")
+                        else:
+                            st.error("❌ Failed to extract leads. URLs were generated successfully.")
+                    else:
+                        st.error("❌ Failed to generate URLs from queries.")
+            else:
+                st.error("❌ Please add at least one query before starting the search.")
 
 def show_email_scraping_tab(project):
     """Email scraping tab content"""
