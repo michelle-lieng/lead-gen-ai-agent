@@ -2,7 +2,7 @@
 Dashboard page - main project overview and creation
 """
 import streamlit as st
-from api_client import get_projects, create_project
+from api_client import get_projects, create_project, delete_project
 
 def show_dashboard():
     """Main dashboard - project overview and creation"""
@@ -45,7 +45,7 @@ def show_dashboard():
         for project in projects:
             with st.container():
                 # Main project info
-                col1, col2, col3, col4, col5 = st.columns([4, 1, 1, 1, 1])
+                col1, col2, col3, col4, col5, col6 = st.columns([4, 1, 1, 1, 1, 1])
                 
                 with col1:
                     st.write(f"**{project['project_name']}**")
@@ -77,5 +77,30 @@ def show_dashboard():
                         st.session_state.selected_project = project
                         st.session_state.current_page = "project_overview"
                         st.rerun()
+                
+                with col6:
+                    if st.button("🗑️", key=f"delete_{project['id']}", help="Delete project"):
+                        # Initialize delete confirmation state if not exists
+                        if f"delete_confirm_{project['id']}" not in st.session_state:
+                            st.session_state[f"delete_confirm_{project['id']}"] = True
+                            st.rerun()
+                        else:
+                            # Confirmed deletion
+                            with st.spinner("Deleting project..."):
+                                success = delete_project(project['id'])
+                                if success:
+                                    st.success(f"✅ Project '{project['project_name']}' deleted successfully!")
+                                    # Reset confirmation state
+                                    if f"delete_confirm_{project['id']}" in st.session_state:
+                                        del st.session_state[f"delete_confirm_{project['id']}"]
+                                    # Clear selected project if it was the deleted one
+                                    if st.session_state.selected_project and st.session_state.selected_project['id'] == project['id']:
+                                        st.session_state.selected_project = None
+                                        st.session_state.current_page = "dashboard"
+                                    st.rerun()
+                
+                # Show confirmation message if delete was clicked
+                if st.session_state.get(f"delete_confirm_{project['id']}", False):
+                    st.warning(f"⚠️ Are you sure you want to delete '{project['project_name']}'? Click the delete button again to confirm, or refresh the page to cancel.")
                 
                 st.markdown("---")
