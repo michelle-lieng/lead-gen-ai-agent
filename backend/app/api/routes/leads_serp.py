@@ -19,7 +19,9 @@ async def generate_queries(project_id: int) -> list:
     -> generates queries
     -> saves them to the frontend"""
     try:
+        # first use project service function to retrieve description
         project = project_service.get_project(project_id)
+        # then use leads_serp_service function
         query_list = leads_serp_service.generate_search_queries(project.description)
         return query_list
     except ValueError as e:
@@ -44,6 +46,25 @@ async def generate_urls(project_id: int, request: QueryListRequest):
         return {"success_saved_to_serp_queries": step_1_success,
         "success_saved_to_serp_urls": step_2_success,
         "message": f"Saved and processed {len(request.queries)} queries"}
+    except ValueError as e:
+        # Handle specific validation errors (like foreign key violations)
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving queries: {str(e)}")
+
+@router.post("/projects/{project_id}/leads/serp/results")
+async def generate_leads(project_id: int):
+    """
+    For given project_id
+    1. We load up the serp_urls and we ingest it our code will go down each row
+    and if status = unprocessed then we will update that table and extract the leads
+    and save to serp_leads table --> using function extract_and_add_leads_to_table
+    """
+    try:
+        # Step 1: Save leads to serp_leads and update serp_urls
+        success = await leads_serp_service.extract_and_add_leads_to_table(project_id)
+
+        return {"success": success}
     except ValueError as e:
         # Handle specific validation errors (like foreign key violations)
         raise HTTPException(status_code=400, detail=str(e))
