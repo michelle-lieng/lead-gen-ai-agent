@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ProjectService:
     """Service for project-related database operations"""
 
-    def create_project(self, project_name: str, description: str = None) -> Project:
+    def create_project(self, project_name: str, description: str) -> Project:
         """Create a new project"""
         try:
             # this line returns a SQL Alchemy Session object --> have the query(), filter(), first() methods
