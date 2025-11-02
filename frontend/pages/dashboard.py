@@ -14,19 +14,21 @@ def show_dashboard():
     
     with st.form("create_project_form"):
         project_name = st.text_input("Project Name", placeholder="e.g., Environmental Leads")
-        description = st.text_area("Description (Optional)", placeholder="Describe your project...")
+        description = st.text_area("Description", placeholder="Describe your project...", help="Required: Describe your target companies. Be specific about industry, location, company size, and any other criteria")
         
         submitted = st.form_submit_button("Create Project", type="primary")
         
         if submitted:
-            if project_name:
+            if not project_name:
+                st.error("Please enter a project name")
+            elif not description or not description.strip():
+                st.error("Please enter a project description")
+            else:
                 with st.spinner("Creating project..."):
                     result = create_project(project_name, description)
                     if result:
                         st.success(f"✅ Project '{project_name}' created successfully!")
                         st.rerun()
-            else:
-                st.error("Please enter a project name")
     
     st.markdown("---")
     
