@@ -2,16 +2,29 @@
 Project overview page
 """
 import streamlit as st
-from api_client import update_project, delete_project
+from api_client import update_project, delete_project, get_project
 
 def show_project_overview():
     """Project overview page"""
-    project = st.session_state.selected_project
+    # Always fetch fresh project data when page loads
+    selected_project = st.session_state.selected_project
+    if selected_project:
+        project = get_project(selected_project['id'])
+        if project:
+            # Update session state with fresh data
+            st.session_state.selected_project = project
+        else:
+            # Fallback to session state if API call fails
+            project = selected_project
+    else:
+        st.error("No project selected")
+        return
+    
     st.markdown(f"# 📋 {project['project_name']}")
     st.markdown("---")
     
     # Project stats
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         st.metric("Status", project['status'])
@@ -20,6 +33,8 @@ def show_project_overview():
     with col3:
         st.metric("Datasets Added", project['datasets_added'])
     with col4:
+        st.metric("URLs Processed", project.get('urls_processed', 0))
+    with col5:
         st.metric("Project ID", project['id'])
     
     st.markdown("---")

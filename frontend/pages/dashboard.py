@@ -47,7 +47,7 @@ def show_dashboard():
         for project in projects:
             with st.container():
                 # Main project info
-                col1, col2, col3, col4, col5, col6 = st.columns([4, 1, 1, 1, 1, 1])
+                col1, col2, col3, col4, col5, col6, col7 = st.columns([4, 1, 1, 1, 1, 1, 1])
                 
                 with col1:
                     st.write(f"**{project['project_name']}**")
@@ -69,18 +69,21 @@ def show_dashboard():
                         st.info(f"📋 {status}")
                 
                 with col3:
-                    st.metric("🎯 Leads", project['leads_collected'])
+                    st.metric("🎯 Leads", project.get('leads_collected',0))
                 
                 with col4:
-                    st.metric("📊 Datasets", project['datasets_added'])
+                    st.metric("📊 Datasets", project.get('datasets_added',0))
                 
                 with col5:
+                    st.metric("🔗 URLs", project.get('urls_processed', 0))
+                
+                with col6:
                     if st.button("🔍 Open", key=f"open_{project['id']}"):
                         st.session_state.selected_project = project
                         st.session_state.current_page = "project_overview"
                         st.rerun()
                 
-                with col6:
+                with col7:
                     if st.button("🗑️", key=f"delete_{project['id']}", help="Delete project"):
                         # Initialize delete confirmation state if not exists
                         if f"delete_confirm_{project['id']}" not in st.session_state:
