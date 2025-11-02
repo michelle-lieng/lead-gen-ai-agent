@@ -91,7 +91,7 @@ class DatabaseService:
     
     def check_all_tables_exist(self) -> bool:
         """Check if all required tables exist"""
-        required_tables = ["projects", "serp_queries", "serp_urls"]
+        required_tables = ["projects", "serp_queries", "serp_urls", "serp_leads"]
         for table_name in required_tables:
             if not self.check_table_exists(table_name):
                 logger.info(f"❌ Table '{table_name}' does not exist")
