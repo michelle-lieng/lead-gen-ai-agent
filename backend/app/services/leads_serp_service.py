@@ -238,13 +238,22 @@ class LeadsSerpService:
                 
                 if not unprocessed_urls:
                     logging.info(f"No unprocessed URLs found for project {project_id}")
-                    return True
+                    return {
+                        "success": True,
+                        "urls_processed": 0,
+                        "urls_skipped": 0,
+                        "urls_failed": 0,
+                        "total_urls_attempted": 0,
+                        "new_leads_extracted": 0,
+                        "message": "No unprocessed URLs found to extract leads from"
+                    }
                 
                 logging.info(f"Processing {len(unprocessed_urls)} unprocessed URLs for project {project_id}")
                 
                 processed_count = 0
                 skipped_count = 0
                 failed_count = 0
+                new_leads_count = 0
                 
                 # Step 2: Process each URL
                 for url_record in unprocessed_urls:
@@ -292,6 +301,7 @@ class LeadsSerpService:
                                     lead=lead
                                 )
                                 session.add(lead_record)
+                                new_leads_count += 1
                             
                             logging.info(f"✅ Extracted {len(leads)} leads from {url_record.link}")
                             
@@ -314,8 +324,17 @@ class LeadsSerpService:
                 logging.info(f"   - Processed: {processed_count}")
                 logging.info(f"   - Skipped: {skipped_count}")
                 logging.info(f"   - Failed: {failed_count}")
+                logging.info(f"   - New leads extracted: {new_leads_count}")
                 
-                return True
+                return {
+                    "success": True,
+                    "urls_processed": processed_count,
+                    "urls_skipped": skipped_count,
+                    "urls_failed": failed_count,
+                    "total_urls_attempted": len(unprocessed_urls),
+                    "new_leads_extracted": new_leads_count,
+                    "message": f"Processed {processed_count} URLs, extracted {new_leads_count} new leads ({skipped_count} skipped, {failed_count} failed)"
+                }
                 
         except Exception as e:
             logging.error(f"❌ Error saving queries to database: {str(e)}")

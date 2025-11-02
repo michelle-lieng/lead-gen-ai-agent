@@ -66,9 +66,9 @@ async def generate_leads(project_id: int):
     """
     try:
         # Step 1: Save leads to serp_leads and update serp_urls
-        success = await leads_serp_service.extract_and_add_leads_to_table(project_id)
+        result = await leads_serp_service.extract_and_add_leads_to_table(project_id)
 
-        return {"success": success}
+        return result
     except ValueError as e:
         # Handle specific validation errors (like foreign key violations)
         raise HTTPException(status_code=400, detail=str(e))
