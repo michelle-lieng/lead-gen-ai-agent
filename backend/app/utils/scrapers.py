@@ -28,15 +28,23 @@ def clean_content(content: str) -> str:
     
     # Remove weird Unicode characters and control characters
     content = re.sub(r'[\u200b-\u200d\ufeff]', '', content)  # Remove zero-width characters
-    content = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', content)  # Remove control characters
+    content = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', content)  # Remove control characters (includes null bytes)
     
-    # Normalize Unicode characters (convert to closest ASCII equivalent)
+    # Normalize Unicode characters (convert to decomposed form)
     content = unicodedata.normalize('NFKD', content)
     
-    # Remove excessive whitespace while preserving paragraph structure
-    content = re.sub(r'\n\s*\n\s*\n+', '\n\n', content)  # Replace 3+ newlines with 2
-    content = re.sub(r'[ \t]+', ' ', content).strip()  # Replace multiple spaces/tabs with single space
-    content = content.encode("utf-8", "ignore").decode("utf-8")  # Clean UTF-8 encoding
+    # Remove all newlines and carriage returns, replace with spaces
+    content = re.sub(r'[\r\n]+', ' ', content)  # Replace newlines/carriage returns with spaces
+    
+    # Normalize all whitespace to single spaces and strip
+    content = re.sub(r'\s+', ' ', content).strip()
+    
+    # Clean UTF-8 encoding (removes any invalid UTF-8 sequences)
+    content = content.encode("utf-8", "ignore").decode("utf-8")
+
+    # Remove excessive whitespace while preserving paragraph structure [OLD CODE]
+    #content = re.sub(r'\n\s*\n\s*\n+', '\n\n', content)  # Replace 3+ newlines with 2
+    #content = re.sub(r'[ \t]+', ' ', content).strip()  # Replace multiple spaces/tabs with single space
             
     return content
 
