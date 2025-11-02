@@ -2,22 +2,28 @@
 """
 Lead generation from search using AI-powered query generation
 """
-from openai import OpenAI
-from pydantic import BaseModel
 import os
-from serpapi import GoogleSearch
 import logging
+
+import asyncio
+from openai import OpenAI
+from agents import Agent, Runner, function_tool,set_default_openai_key
+from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert
 
 from .database_service import db_service
 
-from ..utils.scrapers import jina_serp_scraper
+from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..config import settings
-from ..prompts import SERP_QUERIES_PROMPT
-from ..models.tables import SerpQueries, SerpUrls
+from ..prompts import SERP_QUERIES_PROMPT, SERP_EXTRACTION_PROMPT
+from ..models.tables import SerpQuery, SerpUrl, SerpLead
 from ..models.schemas import QueryListRequest
 
 logger = logging.getLogger(__name__)
+
+# Disable noisy third-party logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
 
 class LeadsSerpService:
     """Service for generating leads from search operations"""
@@ -28,6 +34,9 @@ class LeadsSerpService:
         if not settings.openai_api_key:
             raise ValueError("OpenAI API key not configured")
         self.openai_client = OpenAI(api_key=settings.openai_api_key)
+
+        # for openai agents sdk
+        set_default_openai_key(settings.openai_api_key)
 
     def generate_search_queries(self, description: str, num_queries: int = 2) -> list[str]:
         """
@@ -90,8 +99,8 @@ class LeadsSerpService:
             total_queries = 0
             with db_service.get_session() as session:
                 for query in queries:
-                    # Create a new SerpQueries record
-                    query_record = SerpQueries(
+                    # Create a new SerpQuery record
+                    query_record = SerpQuery(
                         project_id=project_id,
                         query=query
                     )
@@ -134,7 +143,7 @@ class LeadsSerpService:
                         })
 
                 # Step 2: Batch upsert using SQLAlchemy core
-                statement = insert(SerpUrls).values(all_urls)
+                statement = insert(SerpUrl).values(all_urls)
                 statement = statement.on_conflict_do_update(
                     index_elements=['link'],
                     set_=dict(
@@ -155,11 +164,157 @@ class LeadsSerpService:
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
 
-    def scrape_leads_from_urls(self, project_id: int):
+    # we use this decorator for tools to openai agent sdk
+    @function_tool
+    async def _scrape_url(url: str) -> str:
         """
-        If on table SerpUrls the status is unprocessed then we will scrape it.
+        This tool asynchronously scrapes the url provided and returns a string of the website scraped.
+        Use this tool when the search result seems to provide relevant leads e.g. 
+        "Top 100 environmental companies" and you need more information than what is provided in the
+        snippet and title to extract leads.
         """
-        pass
+        logging.info(f"Scraping URL: {url}")
+        return jina_url_scraper(url)
+    
+    async def _lead_extractor(self, query, title, snippet, url) -> tuple[list, str | None]:
+        """
+        If on table serp_urls the status is unprocessed then we will scrape it.
+        """
+        agent = Agent(
+            name="Lead Generator",
+            instructions=SERP_EXTRACTION_PROMPT,
+            tools=[self._scrape_url],
+            output_type=list[str], # Specify the output type as a list of strings
+
+        )
+        # this runner class is async -> Runner.run(), which runs async and returns a RunResult. 
+        result = await Runner.run(agent, 
+                                input=f"""
+                                    Search Result:
+                                    Query: {query}
+                                    Title: {title}
+                                    Snippet: {snippet}
+                                    URL: {url}
+                                """)
+        scraped_content = None #initial value
+        for item in result.new_items:
+            if getattr(item, "type", None) == "tool_call_output_item":
+                scraped_content = getattr(item, "output", None)
+
+                # scraped content is already cleaned by jina_url_scraper
+                logging.info("Tool output (scraped content) found.")
+        logging.info(f"Final output (company names): {result.final_output}")
+        # enforce list type for leads
+        leads = result.final_output
+        return leads, scraped_content
+    
+    async def extract_and_add_leads_to_table(self, project_id: int) -> bool:
+        """
+        Process unprocessed URLs from serp_urls table:
+        1. Get all URLs with status="unprocessed" for the project
+        2. Extract leads using _lead_extractor
+        3. Update website_scraped column with scraped content
+        4. Update status based on results:
+           - "processed" if leads found
+           - "skip" if no leads found (empty list)
+           - "unprocessed" if extraction failed
+        5. Save extracted leads to serp_leads table
+        """
+        try:
+            with db_service.get_session() as session:
+                # Step 1: Get all unprocessed URLs for this project
+                unprocessed_urls = session.query(SerpUrl).filter(
+                    SerpUrl.project_id == project_id,
+                    SerpUrl.status == "unprocessed"
+                ).all()
+                
+                if not unprocessed_urls:
+                    logging.info(f"No unprocessed URLs found for project {project_id}")
+                    return True
+                
+                logging.info(f"Processing {len(unprocessed_urls)} unprocessed URLs for project {project_id}")
+                
+                processed_count = 0
+                skipped_count = 0
+                failed_count = 0
+                
+                # Step 2: Process each URL
+                for url_record in unprocessed_urls:
+                    try:
+                        logging.info(f"Processing URL: {url_record.link}")
+                        
+                        # Extract leads using the _lead_extractor method
+                        leads, scraped_content = await self._lead_extractor(
+                            query=url_record.query,
+                            title=url_record.title,
+                            snippet=url_record.snippet,
+                            url=url_record.link
+                        )
+                        
+                        # Clean up leads - handle AI returning ['[]'] or similar
+                        if leads and isinstance(leads, list):
+                            # Remove any strings that look like empty lists or invalid entries
+                            cleaned_leads = []
+                            for lead in leads:
+                                if isinstance(lead, str):
+                                    # Remove quotes and brackets, check if it's meaningful
+                                    clean_lead = lead.strip().strip('[]').strip("'").strip('"')
+                                    if clean_lead and clean_lead not in ['', '[]', 'None', 'null']:
+                                        cleaned_leads.append(clean_lead)
+                                elif lead and str(lead).strip():
+                                    cleaned_leads.append(str(lead).strip())
+                            
+                            leads = cleaned_leads
+                            logging.info(f"Cleaned leads: {leads}")
+                        
+                        # Step 3: Update the URL record
+                        url_record.website_scraped = scraped_content
+                        
+                        # Step 4: Determine status based on results
+                        if leads and isinstance(leads, list) and len(leads) > 0:
+                            # Leads found - mark as processed
+                            url_record.status = "processed"
+                            processed_count += 1
+                            
+                            # Step 5: Save leads to serp_leads table
+                            for lead in leads:
+                                lead_record = SerpLead(
+                                    project_id=project_id,
+                                    serp_url_id=url_record.id,
+                                    lead=lead
+                                )
+                                session.add(lead_record)
+                            
+                            logging.info(f"✅ Extracted {len(leads)} leads from {url_record.link}")
+                            
+                        else:
+                            # No leads found - mark as skip
+                            url_record.status = "skip"
+                            skipped_count += 1
+                            logging.info(f"⏭️ No leads found in {url_record.link} - marked as skip")
+                            
+                    except Exception as e:
+                        # Extraction failed - keep as unprocessed
+                        url_record.status = "unprocessed"
+                        failed_count += 1
+                        logging.error(f"❌ Failed to extract leads from {url_record.link}: {str(e)}")
+                
+                # Commit all changes
+                session.commit()
+                
+                logging.info(f"✅ Lead extraction completed for project {project_id}:")
+                logging.info(f"   - Processed: {processed_count}")
+                logging.info(f"   - Skipped: {skipped_count}")
+                logging.info(f"   - Failed: {failed_count}")
+                
+                return True
+                
+        except Exception as e:
+            logging.error(f"❌ Error saving queries to database: {str(e)}")
+            # Check if it's a foreign key violation
+            if "ForeignKeyViolation" in str(e):
+                raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
+            raise
                 
 # Global project service instance
 leads_serp_service = LeadsSerpService()
@@ -168,4 +323,27 @@ if __name__ == "__main__":
     #print(leads_serp_service.generate_search_queries("Best sushi stores in Australia")[0])
     #print(leads_serp_service.jina_serp_scrape("Best sushi stores in Australia")
     #print(leads_serp_service.add_queries_to_table(3, ["What is a dog","Pizza?"]))
-    print(leads_serp_service.generate_and_add_urls_to_table(2, ["Coles company greenwashing","Pizza?"]))
+    #print(leads_serp_service.generate_and_add_urls_to_table(2, ["Coles company greenwashing","Pizza?"]))
+    
+    # CASE 1: Easy company extraction
+    # query = "what are the top environmental corporates in australia"
+    # title = "Orica crowned Australia’s most sustainable company for Impact"
+    # snippet = "Orica's success this year follows Acconia, an infrastucture and renewable..."
+    # url = "https://www.afr.com/companies/mining/orica-crowned-australia-s-most-sustainable-company-for-impact-20240625-p5jojc"
+
+    # CASE 2: Need to scrape
+    # query = "what are the top environmental corporates in australia"
+    # title = "crowned Australia’s most sustainable company for Impact"
+    # snippet = "an infrastucture and renewable..."
+    # url = "https://www.afr.com/companies/mining/orica-crowned-australia-s-most-sustainable-company-for-impact-20240625-p5jojc"
+
+    # CASE 3: Should return empty list
+    # query = "what are the top environmental corporates in australia"
+    # title = "Top 14 Most Polluting Companies in 2023"
+    # url = "https://www.theecoexperts.co.uk"
+    # snippet = "5 June 2025 — The Top 10 Most Polluting Companies · 1. Saudi Aramco · 2. Chevron · 3. Gazprom · 4. ExxonMobil · 5. National Iranian Oil Company (NIOC) · 6. BP · 7."
+    # leads, scraped_content = asyncio.run(leads_serp_service._lead_extractor(query, title, snippet, url))
+    # print(leads)
+    
+    print(asyncio.run(leads_serp_service.extract_and_add_leads_to_table(3)))
+
