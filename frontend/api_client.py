@@ -76,3 +76,12 @@ def delete_project(project_id: int):
 def generate_queries(project_id: int):
     """Generate search queries for a project via API"""
     return _make_request("POST", f"{API_BASE_URL}/api/projects/{project_id}/leads/serp/queries")
+
+def generate_urls(project_id: int, queries: list[str]):
+    """Generate URLs from search queries and save them"""
+    data = {"queries": queries}
+    return _make_request("POST", f"{API_BASE_URL}/api/projects/{project_id}/leads/serp/urls", json_data=data)
+
+def generate_leads(project_id: int):
+    """Extract leads from URLs and save them"""
+    return _make_request("POST", f"{API_BASE_URL}/api/projects/{project_id}/leads/serp/results")
