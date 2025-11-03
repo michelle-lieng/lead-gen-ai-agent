@@ -2,7 +2,16 @@
 Lead collection page
 """
 import streamlit as st
-from api_client import update_project, generate_queries, generate_urls, generate_leads
+from api_client import update_project, generate_queries, generate_urls, generate_leads, fetch_latest_run_zip
+
+def fetch_and_store_zip_data(project_id: int):
+    """Fetch ZIP file from API and store in session state"""
+    zip_content, filename = fetch_latest_run_zip(project_id)
+    if zip_content and filename:
+        st.session_state["csv_data_all"] = zip_content
+        st.session_state["csv_filename_all"] = filename
+        return True
+    return False
 
 def show_collect_leads():
     """Lead collection page"""
@@ -142,6 +151,10 @@ def show_web_search_tab(project):
                                 st.metric("URLs Failed", leads_result.get('urls_failed', 0))
                             
                             st.info(f"📝 {leads_result.get('message', 'Leads extracted successfully')}")
+                            
+                            # Automatically fetch ZIP file after successful extraction
+                            with st.spinner("📥 Preparing download..."):
+                                fetch_and_store_zip_data(project['id'])
                         else:
                             error_msg = leads_result.get('message', 'Failed to extract leads') if leads_result else 'Failed to extract leads'
                             st.error(f"❌ {error_msg}")
@@ -150,6 +163,39 @@ def show_web_search_tab(project):
                         st.error(f"❌ {error_msg}")
             else:
                 st.error("❌ Please add at least one query before starting the search.")
+    
+    # Always show download section at the bottom of Web Search tab
+    st.markdown("---")
+    st.markdown("### 📥 Download Latest Run Results")
+    
+    # Check if project has processed data
+    has_data = project.get('urls_processed', 0) > 0 or project.get('leads_collected', 0) > 0
+    
+    if has_data:
+        # Check if ZIP data is already in session state
+        has_csv_data = "csv_data_all" in st.session_state
+        
+        if not has_csv_data:
+            # Show button to load downloads
+            if st.button("📥 Load Downloads", help="Fetch ZIP file from the latest run"):
+                with st.spinner("📥 Loading downloads..."):
+                    fetch_and_store_zip_data(project['id'])
+                    st.rerun()
+        
+        # Show single ZIP download button if data is available
+        if f"csv_data_all" in st.session_state:
+            st.download_button(
+                label="📦 Download All Results (ZIP)",
+                data=st.session_state["csv_data_all"],
+                file_name=st.session_state.get("csv_filename_all", f"{project['project_name']}_serp_lead_gen.zip"),
+                mime="application/zip",
+                key="dl_all",
+                use_container_width=True
+            )
+        else:
+            st.info("📥 Click 'Load Downloads' above to prepare the download file.")
+    else:
+        st.info("ℹ️ No data available yet. Run a web search to generate downloadable CSV files.")
 
 def show_email_scraping_tab(project):
     """Email scraping tab content"""
