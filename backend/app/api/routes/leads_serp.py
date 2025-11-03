@@ -2,16 +2,8 @@
 Query endpoints
 """
 from fastapi import APIRouter, HTTPException, Response
-from typing import List
-import asyncio
-from datetime import datetime
-import re
-import zipfile
-from io import BytesIO
-
 
 from ...services.leads_serp_service import leads_serp_service
-from ...services.project_service import project_service
 
 from ...models.schemas import QueryListRequest
 
@@ -78,42 +70,18 @@ async def get_latest_run_results(project_id: int):
     Returns all data for the project as a ZIP file with three CSV files.
     """
     try:
-        # Export all CSV files for the project (no filtering)
-        export_result = leads_serp_service.export_all_data_as_csv(project_id)
+        zip_bytes, filename = leads_serp_service.export_all_data_as_zip(project_id)
         
-        csv_files = export_result.get("csv_files", {})
-        
-        if not csv_files:
-            raise HTTPException(status_code=404, detail="No data found for this project")
-        
-        # Always return ZIP file with all tables
-        # Use current timestamp for filename
-        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        # Get project name for meaningful filename
-        project_name = project_service.get_project(project_id).project_name
-        # Sanitize project name for filename (remove special chars, replace spaces with underscores)
-        safe_project_name = re.sub(r'[^\w\s-]', '', project_name).strip().replace(' ', '_')
-        
-        zip_filename = f"{safe_project_name}_serp_lead_gen_{timestamp_str}.zip"
-        
-        zip_buffer = BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            for name, csv_content in csv_files.items():
-                zip_file.writestr(f"serp_{name}.csv", csv_content.encode('utf-8-sig'))
-        
-        zip_buffer.seek(0)
         return Response(
-            content=zip_buffer.getvalue(),
+            content=zip_bytes,
             media_type="application/zip",
             headers={
-                "Content-Disposition": f"attachment; filename={zip_filename}"
+                "Content-Disposition": f"attachment; filename={filename}"
             }
         )
         
-    except HTTPException:
-        raise
     except ValueError as e:
+        # Handle "no data" or "project not found" errors
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error downloading CSV: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error downloading data: {str(e)}")

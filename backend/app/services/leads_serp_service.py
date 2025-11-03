@@ -7,7 +7,10 @@ import logging
 import asyncio
 from openai import OpenAI
 import csv
-from io import StringIO
+from io import StringIO, BytesIO
+from datetime import datetime
+import re
+import zipfile
 from agents import Agent, Runner, function_tool,set_default_openai_key
 from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert
@@ -416,7 +419,7 @@ class LeadsSerpService:
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
     
-    def export_all_data_as_csv(self, project_id: int) -> dict:
+    def _export_all_data_as_csv(self, project_id: int) -> dict:
         """
         Export ALL data as CSV(s) for all tables (queries, URLs, leads) for the project.
         No filtering - just returns everything.
@@ -499,6 +502,68 @@ class LeadsSerpService:
                 
         except Exception as e:
             logging.error(f"❌ Error exporting data as CSV: {str(e)}")
+            raise
+
+    def export_all_data_as_zip(self, project_id: int) -> tuple[bytes, str]:
+        """
+        Export all project data as a ZIP file containing CSV files.
+        
+        This is the main export method that should be used by API routes.
+        It generates a ZIP file with all project data (queries, URLs, leads) as CSV files.
+        
+        Args:
+            project_id: Project ID
+        
+        Returns:
+            tuple[bytes, str]: 
+                - zip_file_bytes: Binary content of the ZIP file
+                - filename: Suggested filename for download (e.g., "project_name_serp_lead_gen_20240101_120000.zip")
+        
+        Raises:
+            ValueError: If no data found for project or project doesn't exist
+        """
+        try:
+            # Step 1: Get CSV data using private method
+            export_result = self._export_all_data_as_csv(project_id)
+            csv_files = export_result.get("csv_files", {})
+            
+            # Step 2: Validate that we have data
+            if not csv_files:
+                raise ValueError("No data found for this project")
+            
+            # Step 3: Generate timestamp for filename
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Step 4: Get project name for meaningful filename
+            project = project_service.get_project(project_id)
+            project_name = project.project_name
+            
+            # Step 5: Sanitize project name for filename
+            # Remove special characters, keep alphanumeric, spaces, hyphens, underscores
+            safe_project_name = re.sub(r'[^\w\s-]', '', project_name).strip().replace(' ', '_')
+            
+            # Step 6: Generate ZIP filename
+            zip_filename = f"{safe_project_name}_serp_lead_gen_{timestamp_str}.zip"
+            
+            # Step 7: Create ZIP file in memory
+            zip_buffer = BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for name, csv_content in csv_files.items():
+                    # Encode CSV with UTF-8 BOM for Excel compatibility
+                    zip_file.writestr(f"serp_{name}.csv", csv_content.encode('utf-8-sig'))
+            
+            zip_buffer.seek(0)
+            zip_bytes = zip_buffer.getvalue()
+            
+            logging.info(f"✅ Generated ZIP file for project {project_id}: {zip_filename} ({len(zip_bytes)} bytes)")
+            
+            return zip_bytes, zip_filename
+                
+        except ValueError:
+            # Re-raise ValueError as-is (for "no data" or "project not found")
+            raise
+        except Exception as e:
+            logging.error(f"❌ Error exporting data as ZIP: {str(e)}")
             raise
 
 # Global project service instance
