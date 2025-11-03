@@ -66,9 +66,12 @@ def show_web_search_tab(project):
     # Step 2: Search Queries
     st.markdown("**Step 2: Search Queries**")
     
-    # Initialize queries list if it doesn't exist
+    # Initialize queries dict if it doesn't exist (use dict for easy deletion by ID)
     if 'generated_queries' not in st.session_state:
-        st.session_state.generated_queries = []
+        st.session_state.generated_queries = {}
+    # Counter for unique IDs
+    if 'query_counter' not in st.session_state:
+        st.session_state.query_counter = 0
     
     col1, col2 = st.columns([2, 1])
     with col1:
@@ -78,7 +81,9 @@ def show_web_search_tab(project):
             new_query = st.text_input("Add custom query", placeholder="Enter your own search query...", key="new_query_input")
             submitted = st.form_submit_button("➕ Add Query")
             if submitted and new_query and new_query.strip():
-                st.session_state.generated_queries.append(new_query.strip())
+                query_id = f"q{st.session_state.query_counter}"
+                st.session_state.query_counter += 1
+                st.session_state.generated_queries[query_id] = new_query.strip()
                 st.rerun()
     
     with col2:
@@ -87,7 +92,11 @@ def show_web_search_tab(project):
             with st.spinner("🤖 AI is generating targeted search queries..."):
                 generated_queries = generate_queries(project['id'])
                 if generated_queries:
-                    st.session_state.generated_queries.extend(generated_queries)
+                    # Assign unique IDs to all new AI queries
+                    for query in generated_queries:
+                        query_id = f"q{st.session_state.query_counter}"
+                        st.session_state.query_counter += 1
+                        st.session_state.generated_queries[query_id] = query
                     st.success(f"✅ Generated {len(generated_queries)} search queries!")
                     st.rerun()
                 else:
@@ -97,35 +106,47 @@ def show_web_search_tab(project):
     if st.session_state.generated_queries:
         st.markdown("**Your search queries:**")
         
-        for i, query in enumerate(st.session_state.generated_queries):
+        queries_to_delete = []
+        queries_list = list(st.session_state.generated_queries.items())  # Convert to list for display order
+        
+        for i, (query_id, query) in enumerate(queries_list):
+            query_key = f"query_{query_id}"
+            delete_key = f"remove_{query_id}"
+            
             col1, col2 = st.columns([4, 1])
             with col1:
                 edited_query = st.text_input(
                     f"Query {i+1}", 
                     value=query, 
-                    key=f"query_{i}",
+                    key=query_key,
                     label_visibility="collapsed"
                 )
-                # Update the query in session state if edited (only if not empty)
-                if edited_query.strip() != query and edited_query.strip():
-                    st.session_state.generated_queries[i] = edited_query.strip()
-                elif edited_query.strip() == "" and query:
-                    # If user cleared it, remove it instead
-                    st.session_state.generated_queries.pop(i)
-                    st.rerun()
+                # Update the query in session state if edited
+                if edited_query.strip() != query:
+                    if edited_query.strip():  # Not empty - update it
+                        st.session_state.generated_queries[query_id] = edited_query.strip()
+                    else:  # Empty - mark for deletion
+                        queries_to_delete.append(query_id)
             with col2:
-                if st.button("❌", key=f"remove_{i}"):
-                    st.session_state.generated_queries.pop(i)
-                    st.rerun()
+                if st.button("❌", key=delete_key):
+                    queries_to_delete.append(query_id)
+        
+        # Delete marked queries (simple - just remove from dict!)
+        if queries_to_delete:
+            for query_id in queries_to_delete:
+                st.session_state.generated_queries.pop(query_id, None)
+            st.rerun()
         
         # Step 3: Start search
         st.markdown("**Step 3: Start the search**")
         if st.button("🔍 Start Web Search", type="primary"):
             if st.session_state.generated_queries:
                 with st.spinner("🔍 Starting web search..."):
+                    # Convert dict to list for API call
+                    queries_list = list(st.session_state.generated_queries.values())
                     # Step 1: Generate URLs from queries
-                    st.info(f"📊 Generating URLs from {len(st.session_state.generated_queries)} queries...")
-                    urls_result = generate_urls(project['id'], st.session_state.generated_queries)
+                    st.info(f"📊 Generating URLs from {len(queries_list)} queries...")
+                    urls_result = generate_urls(project['id'], queries_list)
                     
                     if urls_result and urls_result.get('success'):
                         urls_info = urls_result.get('urls_result', {})
