@@ -85,3 +85,40 @@ def generate_urls(project_id: int, queries: list[str]):
 def generate_leads(project_id: int):
     """Extract leads from URLs and save them"""
     return _make_request("POST", f"{API_BASE_URL}/api/projects/{project_id}/leads/serp/results")
+
+def fetch_latest_run_zip(project_id: int):
+    """
+    Fetch ZIP file containing latest run results (queries, URLs, leads).
+    
+    Args:
+        project_id: Project ID
+    
+    Returns:
+        tuple: (zip_content: bytes, filename: str) or (None, None) on error
+    """
+    try:
+        url = f"{API_BASE_URL}/api/projects/{project_id}/leads/serp/results"
+        response = requests.get(url, stream=True)
+        
+        if response.status_code == 200:
+            # Get filename from Content-Disposition header (backend always includes it)
+            content_disposition = response.headers.get('Content-Disposition', '')
+            filename = content_disposition.split('filename=')[1].strip('"') if 'filename=' in content_disposition else f"latest_run_{project_id}.zip"
+            
+            return response.content, filename
+        else:
+            # Handle error response (consistent with _handle_response pattern)
+            try:
+                error_data = response.json()
+                error_detail = error_data.get('detail', f'Error: {response.status_code}')
+            except (ValueError, KeyError):
+                error_detail = f'HTTP {response.status_code}: {response.text[:100]}'
+            
+            st.error(f"❌ {error_detail}")
+            return None, None
+    except requests.exceptions.ConnectionError:
+        st.error("❌ Cannot connect to backend API. Make sure your FastAPI server is running on http://localhost:8000")
+        return None, None
+    except Exception as e:
+        st.error(f"❌ Unexpected error: {str(e)}")
+        return None, None
