@@ -6,7 +6,7 @@ from sqlalchemy import or_
 from typing import List, Optional
 import logging
 
-from ..models.tables import Project, SerpUrl, SerpLead
+from ..models.tables import Project, SerpUrl, SerpLead, SerpQuery
 from .database_service import db_service
 
 logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ class ProjectService:
             raise
     
     def delete_project(self, project_id: int) -> bool:
-        """Delete project by ID"""
+        """Delete project by ID, including all related records (leads, URLs, queries)"""
         try:
             with db_service.get_session() as session:
                 project = session.query(Project).filter(Project.id == project_id).first()
@@ -100,9 +100,21 @@ class ProjectService:
                     logger.warning(f"Project {project_id} not found")
                     return False
                 
+                # Delete all related records first (to avoid foreign key constraint violations)
+                # Delete leads first (they depend on serp_urls)
+                leads_count = session.query(SerpLead).filter(SerpLead.project_id == project_id).delete()
+                
+                # Delete URLs (they depend on serp_queries)
+                urls_count = session.query(SerpUrl).filter(SerpUrl.project_id == project_id).delete()
+                
+                # Delete queries
+                queries_count = session.query(SerpQuery).filter(SerpQuery.project_id == project_id).delete()
+                
+                # Now delete the project
                 session.delete(project)
                 session.commit()
-                logger.info(f"✅ Deleted project {project_id}")
+                
+                logger.info(f"✅ Deleted project {project_id} and {leads_count} leads, {urls_count} URLs, {queries_count} queries")
                 return True
         except SQLAlchemyError as e:
             logger.error(f"❌ Error deleting project {project_id}: {e}")
