@@ -19,18 +19,16 @@ router = APIRouter()
 
 @router.post("/projects/{project_id}/leads/serp/queries")
 async def generate_queries(project_id: int) -> list:
-    """Gets the project id 
-    -> gets description 
-    -> generates queries
-    -> saves them to the frontend"""
+    """
+    Generate AI-powered search queries for a project based on its description.
+    
+    Gets the project id -> service handles fetching description and generating queries
+    """
     try:
-        # first use project service function to retrieve description
-        project = project_service.get_project(project_id)
-        # then use leads_serp_service function
-        query_list = leads_serp_service.generate_search_queries(project.description)
+        query_list = leads_serp_service.generate_search_queries_for_project(project_id)
         return query_list
     except ValueError as e:
-        # Handle project not found (ValueError from project_service.get_project)
+        # Handle project not found (ValueError from service)
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating queries: {str(e)}")
@@ -38,23 +36,15 @@ async def generate_queries(project_id: int) -> list:
 @router.post("/projects/{project_id}/leads/serp/urls")
 async def generate_urls(project_id: int, request: QueryListRequest):
     """
-    For given project_id
+    Save queries and generate URLs for a project.
+    
+    Business workflow:
     1. Save generated queries to serp_queries table
-    2. Generate new urls and save them to serp_urls table
+    2. Generate URLs from queries and save them to serp_urls table
     """
     try:
-        # Step 1: Save generated queries to serp_queries table
-        step_1_success = leads_serp_service.add_queries_to_table(project_id, request.queries)
-
-        # Step 2: Save generated urls to serp_urls table
-        urls_result = leads_serp_service.generate_and_add_urls_to_table(project_id, request.queries)
-        
-        return {
-            "success": step_1_success and urls_result.get("success", False),
-            "queries_saved": step_1_success,
-            "urls_result": urls_result,
-            "message": f"Saved {len(request.queries)} queries and {urls_result.get('urls_added', 0)} URLs"
-        }
+        result = leads_serp_service.save_queries_and_generate_urls(project_id, request.queries)
+        return result
     except ValueError as e:
         # Handle specific validation errors (like foreign key violations)
         raise HTTPException(status_code=400, detail=str(e))

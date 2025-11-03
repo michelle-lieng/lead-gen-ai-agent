@@ -40,7 +40,7 @@ class LeadsSerpService:
         # for openai agents sdk
         set_default_openai_key(settings.openai_api_key)
 
-    def generate_search_queries(self, description: str, num_queries: int = 3) -> list[str]:
+    def _generate_search_queries(self, description: str, num_queries: int = 3) -> list[str]:
         """
         Generate AI-powered search queries based on project description using ChatGPT
         
@@ -86,7 +86,25 @@ class LeadsSerpService:
             logging.error(f"Error generating search queries: {str(e)}")
             raise
 
-    def add_queries_to_table(self, project_id: int, queries: list[str]) -> bool:
+    def generate_search_queries_for_project(self, project_id: int, num_queries: int = 3) -> list[str]:
+        """
+        Generate AI-powered search queries for a project by project_id.
+        Fetches the project description internally.
+        
+        Args:
+            project_id (int): ID of the project
+            num_queries (int): Number of queries to generate (default: 3)
+        
+        Returns:
+            list[str]: List of generated search queries
+        
+        Raises:
+            ValueError: If project with project_id does not exist
+        """
+        project = project_service.get_project(project_id)
+        return self._generate_search_queries(project.description, num_queries)
+
+    def _add_queries_to_table(self, project_id: int, queries: list[str]) -> bool:
         """
         Save generated search queries to the database for a specific project.
         
@@ -122,7 +140,7 @@ class LeadsSerpService:
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
 
-    def generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> dict:
+    def _generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> dict:
         """
         1. first generate the urls using jina_serp_scraper
         2. then save urls to serp_urls table
@@ -173,6 +191,39 @@ class LeadsSerpService:
             if "ForeignKeyViolation" in str(e):
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
+
+    def save_queries_and_generate_urls(self, project_id: int, queries: list[str]) -> dict:
+        """
+        Orchestrates saving queries and generating URLs in one operation.
+        This is the main business workflow that should be used by API routes.
+        
+        Args:
+            project_id (int): ID of the project
+            queries (list[str]): List of search queries to save and process
+        
+        Returns:
+            dict: Unified response containing:
+                - success: bool indicating overall success
+                - queries_saved: bool indicating if queries were saved
+                - urls_result: dict with URLs operation results
+                - message: str with summary message
+        
+        Raises:
+            ValueError: If project does not exist or validation fails
+        """
+        # Step 1: Save queries to database
+        queries_saved = self._add_queries_to_table(project_id, queries)
+        
+        # Step 2: Generate URLs from queries and save to database
+        urls_result = self._generate_and_add_urls_to_table(project_id, queries)
+        
+        # Combine results into unified response
+        return {
+            "success": queries_saved and urls_result.get("success", False),
+            "queries_saved": queries_saved,
+            "urls_result": urls_result,
+            "message": f"Saved {len(queries)} queries and {urls_result.get('urls_added', 0)} URLs"
+        }
 
     # we use this decorator for tools to openai agent sdk
     @function_tool
@@ -456,8 +507,8 @@ leads_serp_service = LeadsSerpService()
 if __name__ == "__main__":
     #print(leads_serp_service.generate_search_queries("Best sushi stores in Australia")[0])
     #print(leads_serp_service.jina_serp_scrape("Best sushi stores in Australia")
-    #print(leads_serp_service.add_queries_to_table(3, ["What is a dog","Pizza?"]))
-    #print(leads_serp_service.generate_and_add_urls_to_table(2, ["Coles company greenwashing","Pizza?"]))
+    #print(leads_serp_service._add_queries_to_table(3, ["What is a dog","Pizza?"]))
+    #print(leads_serp_service._generate_and_add_urls_to_table(2, ["Coles company greenwashing","Pizza?"]))
     
     # CASE 1: Easy company extraction
     # query = "what are the top environmental corporates in australia"
