@@ -2,7 +2,7 @@
 Lead collection page
 """
 import streamlit as st
-from api_client import update_project, generate_queries, generate_urls, generate_leads, fetch_latest_run_zip
+from api_client import update_project, generate_queries, generate_urls, generate_leads, fetch_latest_run_zip, get_project
 
 def fetch_and_store_zip_data(project_id: int):
     """Fetch ZIP file from API and store in session state"""
@@ -148,40 +148,44 @@ def show_web_search_tab(project):
                     st.info(f"📊 Generating URLs from {len(queries_list)} queries...")
                     urls_result = generate_urls(project['id'], queries_list)
                     
-                    if urls_result and urls_result.get('success'):
+                    if urls_result.get('success'):
                         urls_info = urls_result.get('urls_result', {})
                         st.success(f"✅ Generated {urls_info.get('urls_added', 0)} URLs from {urls_info.get('queries_processed', 0)} search queries")
                         
                         # Step 2: Extract leads from URLs
-                        st.info("🤖 Extracting leads from URLs...")
+                        st.info("🤖 Extracting leads from URLs (this may take several minutes)...")
                         leads_result = generate_leads(project['id'])
                         
-                        if leads_result and leads_result.get('success'):
+                        if leads_result.get('success'):
+                            updated_project = get_project(project['id'])
+                            urls_processed = updated_project.get('urls_processed', 0)
+                            new_leads_count = updated_project.get('new_leads_extracted', 0)
+                            urls_skipped = updated_project.get('urls_skipped', 0)
+                            urls_failed = updated_project.get('urls_failed', 0)
+                                
                             st.success("✅ Leads extracted successfully!")
+
                             st.markdown("**📊 Search Results:**")
-                            
-                            # Display detailed statistics
+                                
+                            # Always show the same 4-column dashboard
                             col1, col2, col3, col4 = st.columns(4)
                             with col1:
-                                st.metric("URLs Processed", leads_result.get('urls_processed', 0))
+                                st.metric("URLs Processed", urls_processed)
                             with col2:
-                                st.metric("New Leads", leads_result.get('new_leads_extracted', 0))
+                                st.metric("New Leads", new_leads_count)
                             with col3:
-                                st.metric("URLs Skipped", leads_result.get('urls_skipped', 0))
+                                st.metric("URLs Skipped", urls_skipped)
                             with col4:
-                                st.metric("URLs Failed", leads_result.get('urls_failed', 0))
+                                st.metric("URLs Failed", urls_failed)
                             
-                            st.info(f"📝 {leads_result.get('message', 'Leads extracted successfully')}")
-                            
+                            st.info("📝 For detailed statistics, check the backend logs.")
                             # Automatically fetch ZIP file after successful extraction
                             with st.spinner("📥 Preparing download..."):
                                 fetch_and_store_zip_data(project['id'])
                         else:
-                            error_msg = leads_result.get('message', 'Failed to extract leads') if leads_result else 'Failed to extract leads'
-                            st.error(f"❌ {error_msg}")
+                            st.error(f"❌ Failed to generate leads")
                     else:
-                        error_msg = urls_result.get('message', 'Failed to generate URLs') if urls_result else 'Failed to generate URLs'
-                        st.error(f"❌ {error_msg}")
+                        st.error(f"❌ Failed to generate URLs")
             else:
                 st.error("❌ Please add at least one query before starting the search.")
     
@@ -190,7 +194,7 @@ def show_web_search_tab(project):
     st.markdown("### 📥 Download Latest Run Results")
     
     # Check if project has processed data
-    has_data = project.get('urls_processed', 0) > 0 or project.get('leads_collected', 0) > 0
+    has_data = updated_project.get('new_leads_extracted', 0) > 0 or project.get('leads_collected', 0) > 0
     
     if has_data:
         # Check if ZIP data is already in session state
@@ -208,7 +212,7 @@ def show_web_search_tab(project):
             st.download_button(
                 label="📦 Download All Results (ZIP)",
                 data=st.session_state["csv_data_all"],
-                file_name=st.session_state.get("csv_filename_all", f"{project['project_name']}_serp_lead_gen.zip"),
+                file_name=st.session_state.get("csv_filename_all"),
                 mime="application/zip",
                 key="dl_all",
                 use_container_width=True
