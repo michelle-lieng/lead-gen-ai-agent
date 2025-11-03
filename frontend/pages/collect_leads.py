@@ -157,11 +157,8 @@ def show_web_search_tab(project):
                         leads_result = generate_leads(project['id'])
                         
                         if leads_result.get('success'):
-                            updated_project = get_project(project['id'])
-                            urls_processed = updated_project.get('urls_processed', 0)
-                            new_leads_count = updated_project.get('new_leads_extracted', 0)
-                            urls_skipped = updated_project.get('urls_skipped', 0)
-                            urls_failed = updated_project.get('urls_failed', 0)
+                            # update project stats
+                            project = get_project(project['id'])
                                 
                             st.success("✅ Leads extracted successfully!")
 
@@ -170,13 +167,13 @@ def show_web_search_tab(project):
                             # Always show the same 4-column dashboard
                             col1, col2, col3, col4 = st.columns(4)
                             with col1:
-                                st.metric("URLs Processed", urls_processed)
+                                st.metric("URLs Processed", project.get('urls_processed', 0))
                             with col2:
-                                st.metric("New Leads", new_leads_count)
+                                st.metric("New Leads", project.get('new_leads_extracted', 0))
                             with col3:
-                                st.metric("URLs Skipped", urls_skipped)
+                                st.metric("URLs Skipped", project.get('urls_skipped', 0))
                             with col4:
-                                st.metric("URLs Failed", urls_failed)
+                                st.metric("URLs Failed", project.get('urls_failed', 0))
                             
                             st.info("📝 For detailed statistics, check the backend logs.")
                             # Automatically fetch ZIP file after successful extraction
@@ -194,7 +191,7 @@ def show_web_search_tab(project):
     st.markdown("### 📥 Download Latest Run Results")
     
     # Check if project has processed data
-    has_data = updated_project.get('new_leads_extracted', 0) > 0 or project.get('leads_collected', 0) > 0
+    has_data = project.get('leads_collected', 0) > 0
     
     if has_data:
         # Check if ZIP data is already in session state
