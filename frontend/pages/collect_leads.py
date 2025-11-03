@@ -47,7 +47,7 @@ def show_web_search_tab(project):
         "Edit your project description", 
         value=current_description,
         placeholder="e.g., Find sustainable energy companies in California that are focused on solar and wind power, preferably startups or mid-size companies with 10-500 employees...",
-        height=100,
+        height=250,
         help="Describe your target companies. Be specific about industry, location, company size, and any other criteria"
     )
     
