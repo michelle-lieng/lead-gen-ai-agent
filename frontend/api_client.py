@@ -1,124 +1,106 @@
 """
 API client for communicating with FastAPI backend
 """
+
+import os
+from typing import Optional
 import requests
-import streamlit as st
-from typing import List, Optional
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
-# API Configuration
-API_BASE_URL = "http://localhost:8000"  # Your FastAPI backend URL
+# Configuration
+BASE_URL = "http://localhost:8000"
+# Default timeout: 10 minutes (600 secs) for lead extraction operations which can process many URLs sequentially
+# Each URL can take 10-30 seconds with AI processing + scraping, so with 50 URLs this could take 8+ minutes
+TIMEOUT = 600
 
-def _handle_response(response: requests.Response, success_return=None):
-    """Helper to handle API responses consistently"""
-    if response.status_code == 200:
-        return response.json() if success_return is None else success_return
-    
-    # Handle error responses - safely extract error message
+# Create one shared session for connection reuse
+_session = requests.Session()
+
+# Add retry logic
+retry = Retry(
+    total=3,
+    backoff_factor=0.5,
+    status_forcelist=(502, 503, 504),
+    allowed_methods=("GET", "POST", "PUT", "DELETE"),
+    raise_on_status=False,
+)
+adapter = HTTPAdapter(max_retries=retry)
+_session.mount("http://", adapter)
+_session.mount("https://", adapter)
+_session.headers.update({"Accept": "application/json"})
+
+def _request(method: str, path: str, json_data=None, stream=False):
+    """Make HTTP request - returns response or None on error"""
     try:
-        error_data = response.json()
-        error_detail = error_data.get('detail', f'Error: {response.status_code}')
-    except (ValueError, KeyError):
-        # Response is not JSON or doesn't have expected structure
-        error_detail = f'HTTP {response.status_code}: {response.text[:100]}'
-    
-    st.error(f"❌ {error_detail}")
-    return None
-
-def _make_request(method: str, url: str, json_data=None, success_return=None):
-    """Helper to make API requests with consistent error handling"""
-    try:
-        if method == "GET":
-            response = requests.get(url)
-        elif method == "POST":
-            response = requests.post(url, json=json_data)
-        elif method == "PUT":
-            response = requests.put(url, json=json_data)
-        elif method == "DELETE":
-            response = requests.delete(url)
-        else:
-            st.error(f"Unsupported HTTP method: {method}")
-            return None
+        # Build full URL (BASE_URL already has no trailing slash, path has leading slash)
+        url = f"{BASE_URL}{path}"
+        response = _session.request(
+            method, url, json=json_data, timeout=TIMEOUT, stream=stream
+        )
         
-        return _handle_response(response, success_return)
-    except requests.exceptions.ConnectionError:
-        st.error("❌ Cannot connect to backend API. Make sure your FastAPI server is running on http://localhost:8000")
+        if response.status_code >= 200 and response.status_code < 300:
+            return response
         return None
-    except Exception as e:
-        st.error(f"❌ Unexpected error: {str(e)}")
+    except Exception:
         return None
 
+# Project endpoints
 def get_projects():
-    """Fetch projects from the API"""
-    result = _make_request("GET", f"{API_BASE_URL}/api/projects/")
-    return result if result is not None else []
+    """Fetch all projects from the API"""
+    response = _request("GET", "/api/projects/")
+    return response.json() if response else []
 
-def create_project(project_name: str, description: str = None):
+def create_project(project_name: str, description: str):
     """Create a new project via API"""
-    data = {
-        "project_name": project_name,
-        "description": description
-    }
-    return _make_request("POST", f"{API_BASE_URL}/api/projects/", json_data=data)
+    response = _request("POST", "/api/projects/", json_data={"project_name": project_name, "description": description})
+    return response.json() if response else None
 
 def update_project(project_id: int, **kwargs):
     """Update project via API"""
     data = {k: v for k, v in kwargs.items() if v is not None}
-    return _make_request("PUT", f"{API_BASE_URL}/api/projects/{project_id}", json_data=data)
+    response = _request("PUT", f"/api/projects/{project_id}", json_data=data)
+    return response.json() if response else None
 
 def get_project(project_id: int):
     """Get specific project by ID"""
-    return _make_request("GET", f"{API_BASE_URL}/api/projects/{project_id}")
+    response = _request("GET", f"/api/projects/{project_id}")
+    return response.json() if response else None
 
 def delete_project(project_id: int):
     """Delete project via API"""
-    return _make_request("DELETE", f"{API_BASE_URL}/api/projects/{project_id}", success_return=True) or False
+    response = _request("DELETE", f"/api/projects/{project_id}")
+    return response is not None
 
+# Lead generation endpoints
 def generate_queries(project_id: int):
     """Generate search queries for a project via API"""
-    return _make_request("POST", f"{API_BASE_URL}/api/projects/{project_id}/leads/serp/queries")
+    response = _request("POST", f"/api/projects/{project_id}/leads/serp/queries")
+    return response.json() if response else None
 
 def generate_urls(project_id: int, queries: list[str]):
     """Generate URLs from search queries and save them"""
-    data = {"queries": queries}
-    return _make_request("POST", f"{API_BASE_URL}/api/projects/{project_id}/leads/serp/urls", json_data=data)
+    response = _request("POST", f"/api/projects/{project_id}/leads/serp/urls", json_data={"queries": queries})
+    return response.json() if response else None
 
 def generate_leads(project_id: int):
     """Extract leads from URLs and save them"""
-    return _make_request("POST", f"{API_BASE_URL}/api/projects/{project_id}/leads/serp/results")
+    response = _request("POST", f"/api/projects/{project_id}/leads/serp/results")
+    return response.json() if response else None
 
 def fetch_latest_run_zip(project_id: int):
     """
-    Fetch ZIP file containing latest run results (queries, URLs, leads).
-    
-    Args:
-        project_id: Project ID
-    
-    Returns:
-        tuple: (zip_content: bytes, filename: str) or (None, None) on error
+    Fetch ZIP file containing latest run results.
+    Returns (zip_content: bytes, filename: str) or (None, None) on error
     """
-    try:
-        url = f"{API_BASE_URL}/api/projects/{project_id}/leads/serp/results"
-        response = requests.get(url, stream=True)
+    response = _request("GET", f"/api/projects/{project_id}/leads/serp/results", stream=True)
+    
+    if response:
+        # Get filename from Content-Disposition header (backend sets it)
+        cd = response.headers.get("Content-Disposition", "")
+        # Extract filename from header (format: "attachment; filename=name.zip")
+        filename = cd.split("filename=", 1)[1].strip().strip('"').strip("'")
         
-        if response.status_code == 200:
-            # Get filename from Content-Disposition header (backend always includes it)
-            content_disposition = response.headers.get('Content-Disposition', '')
-            filename = content_disposition.split('filename=')[1].strip('"') if 'filename=' in content_disposition else f"latest_run_{project_id}.zip"
-            
-            return response.content, filename
-        else:
-            # Handle error response (consistent with _handle_response pattern)
-            try:
-                error_data = response.json()
-                error_detail = error_data.get('detail', f'Error: {response.status_code}')
-            except (ValueError, KeyError):
-                error_detail = f'HTTP {response.status_code}: {response.text[:100]}'
-            
-            st.error(f"❌ {error_detail}")
-            return None, None
-    except requests.exceptions.ConnectionError:
-        st.error("❌ Cannot connect to backend API. Make sure your FastAPI server is running on http://localhost:8000")
-        return None, None
-    except Exception as e:
-        st.error(f"❌ Unexpected error: {str(e)}")
-        return None, None
+        return response.content, filename
+    
+    return None, None
