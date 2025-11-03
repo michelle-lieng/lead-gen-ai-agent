@@ -2,6 +2,7 @@
 Project service for managing project operations
 """
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import or_
 from typing import List, Optional
 import logging
 
@@ -40,8 +41,11 @@ class ProjectService:
             raise
     
     def get_projects(self) -> List[Project]:
-        """Get all projects"""
+        """Get all projects, refreshing counts from database before returning"""
         try:
+            # Refresh all project counts first to ensure accuracy
+            self.update_project_counts_from_db()  # None = all projects
+            
             with db_service.get_session() as session:
                 return session.query(Project).order_by(Project.date_added.desc()).all()
         except SQLAlchemyError as e:
@@ -49,8 +53,11 @@ class ProjectService:
             raise
     
     def get_project(self, project_id: int) -> Optional[Project]:
-        """Get specific project by ID"""
+        """Get specific project by ID, refreshing counts from database before returning"""
         try:
+            # Refresh project counts first to ensure accuracy
+            self.update_project_counts_from_db(project_id)
+            
             with db_service.get_session() as session:
                 project = session.query(Project).filter(Project.id == project_id).first()
                 if not project:
@@ -101,49 +108,75 @@ class ProjectService:
             logger.error(f"❌ Error deleting project {project_id}: {e}")
             raise
     
-    def update_project_counts_from_db(self, project_id: int) -> bool:
+    def update_project_counts_from_db(self, project_id: Optional[int] = None) -> bool:
         """
         Recalculate and update project counts from database tables.
-        Counts only URLs with status='processed' from serp_urls and all leads from serp_leads.
+        Counts only URLs with status='processed' or 'skip' from serp_urls and all leads from serp_leads.
         
         Args:
-            project_id (int): ID of the project to update
+            project_id (int, optional): ID of the project to update. If None, updates all projects.
             
         Returns:
-            bool: True if successful, False if project not found
+            bool: True if successful, False if project not found (when project_id is provided)
         """
         try:            
             with db_service.get_session() as session:
-                # Check if project exists
-                project = session.query(Project).filter(Project.id == project_id).first()
-                if not project:
-                    logger.warning(f"Project {project_id} not found for count update")
-                    return False
-                
-                # Count only processed URLs for this project
-                urls_count = session.query(SerpUrl).filter(
-                    SerpUrl.project_id == project_id,
-                    SerpUrl.status == "processed"
-                ).count()
-                
-                # Count leads for this project
-                leads_count = session.query(SerpLead).filter(
-                    SerpLead.project_id == project_id
-                ).count()
-                
-                # Update project counts
-                project.urls_processed = urls_count
-                project.leads_collected = leads_count
-                
-                session.commit()
-                logger.info(f"✅ Updated counts for project {project_id}: {urls_count} processed URLs, {leads_count} leads")
-                return True
+                if project_id is not None:
+                    # Update specific project
+                    project = session.query(Project).filter(Project.id == project_id).first()
+                    if not project:
+                        logger.warning(f"Project {project_id} not found for count update")
+                        return False
+                    
+                    # Count only processed or skipped URLs for this project
+                    urls_count = session.query(SerpUrl).filter(
+                        SerpUrl.project_id == project_id,
+                        or_(SerpUrl.status == "processed", SerpUrl.status == "skip")
+                    ).count()
+                    
+                    # Count leads for this project
+                    leads_count = session.query(SerpLead).filter(
+                        SerpLead.project_id == project_id
+                    ).count()
+                    
+                    # Update project counts
+                    project.urls_processed = urls_count
+                    project.leads_collected = leads_count
+                    
+                    session.commit()
+                    logger.info(f"✅ Updated counts for project {project_id}: {urls_count} processed URLs, {leads_count} leads")
+                    return True
+                else:
+                    # Update all projects
+                    projects = session.query(Project).all()
+                    updated_count = 0
+                    
+                    for project in projects:
+                        # Count processed or skipped URLs for this project
+                        urls_count = session.query(SerpUrl).filter(
+                            SerpUrl.project_id == project.id,
+                            or_(SerpUrl.status == "processed", SerpUrl.status == "skip")
+                        ).count()
+                        
+                        # Count leads for this project
+                        leads_count = session.query(SerpLead).filter(
+                            SerpLead.project_id == project.id
+                        ).count()
+                        
+                        # Update project counts
+                        project.urls_processed = urls_count
+                        project.leads_collected = leads_count
+                        updated_count += 1
+                    
+                    session.commit()
+                    logger.info(f"✅ Updated counts for {updated_count} project(s)")
+                    return True
                 
         except SQLAlchemyError as e:
-            logger.error(f"❌ Error updating project counts for {project_id}: {e}")
+            logger.error(f"❌ Error updating project counts for {project_id if project_id else 'all projects'}: {e}")
             return False
         except Exception as e:
-            logger.error(f"❌ Unexpected error updating project counts for {project_id}: {e}")
+            logger.error(f"❌ Unexpected error updating project counts for {project_id if project_id else 'all projects'}: {e}")
             return False
 
 # Global project service instance

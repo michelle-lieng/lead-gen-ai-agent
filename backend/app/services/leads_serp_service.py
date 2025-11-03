@@ -398,10 +398,7 @@ class LeadsSerpService:
                 logging.info(f"   - Skipped: {skipped_count}")
                 logging.info(f"   - Failed: {failed_count}")
                 logging.info(f"   - New leads extracted: {new_leads_count}")
-                
-                # Update project counts (urls_processed and leads_collected)
-                project_service.update_project_counts_from_db(project_id)
-                
+                                
                 return {
                     "success": True,
                     "urls_processed": processed_count,
