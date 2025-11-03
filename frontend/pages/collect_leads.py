@@ -54,21 +54,39 @@ def show_web_search_tab(project):
             else:
                 st.error("❌ Failed to update description")
     
-    # Step 2: Generate search queries (uses description from database)
-    st.markdown("**Step 2: AI-Generated Search Queries**")
+    # Step 2: Search Queries
+    st.markdown("**Step 2: Search Queries**")
     
-    if st.button("🤖 Generate Smart Search Queries"):
-        with st.spinner("🤖 AI is generating targeted search queries..."):
-            generated_queries = generate_queries(project['id'])
-            if generated_queries:
-                st.session_state.generated_queries = generated_queries
-                st.success(f"✅ Generated {len(generated_queries)} search queries!")
-            else:
-                st.error("❌ Failed to generate queries. Please try again.")
+    # Initialize queries list if it doesn't exist
+    if 'generated_queries' not in st.session_state:
+        st.session_state.generated_queries = []
     
-    # Step 3: Display and edit queries (always show if queries exist)
-    if 'generated_queries' in st.session_state:
-        st.markdown("**Review and customize your search queries:**")
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.markdown("**Add your own search queries:**")
+        # Use a form to handle input clearing properly
+        with st.form("add_query_form", clear_on_submit=True):
+            new_query = st.text_input("Add custom query", placeholder="Enter your own search query...", key="new_query_input")
+            submitted = st.form_submit_button("➕ Add Query")
+            if submitted and new_query and new_query.strip():
+                st.session_state.generated_queries.append(new_query.strip())
+                st.rerun()
+    
+    with col2:
+        st.markdown("**Or generate AI queries:**")
+        if st.button("🤖 Generate Smart Queries"):
+            with st.spinner("🤖 AI is generating targeted search queries..."):
+                generated_queries = generate_queries(project['id'])
+                if generated_queries:
+                    st.session_state.generated_queries.extend(generated_queries)
+                    st.success(f"✅ Generated {len(generated_queries)} search queries!")
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to generate queries. Please try again.")
+    
+    # Display and edit queries (always show if queries exist)
+    if st.session_state.generated_queries:
+        st.markdown("**Your search queries:**")
         
         for i, query in enumerate(st.session_state.generated_queries):
             col1, col2 = st.columns([4, 1])
@@ -91,14 +109,7 @@ def show_web_search_tab(project):
                     st.session_state.generated_queries.pop(i)
                     st.rerun()
         
-        # Add new query
-        st.markdown("**Add your own search queries:**")
-        new_query = st.text_input("Add custom query", placeholder="Enter your own search query...")
-        if st.button("➕ Add Query") and new_query:
-            st.session_state.generated_queries.append(new_query.strip())
-            st.rerun()
-        
-        # Step 4: Start search
+        # Step 3: Start search
         st.markdown("**Step 3: Start the search**")
         if st.button("🔍 Start Web Search", type="primary"):
             if st.session_state.generated_queries:
