@@ -4,9 +4,10 @@ Lead generation from search using AI-powered query generation
 """
 import os
 import logging
-
 import asyncio
 from openai import OpenAI
+import csv
+from io import StringIO
 from agents import Agent, Runner, function_tool,set_default_openai_key
 from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert
@@ -219,26 +220,26 @@ class LeadsSerpService:
     
     async def extract_and_add_leads_to_table(self, project_id: int) -> bool:
         """
-        Process unprocessed URLs from serp_urls table:
-        1. Get all URLs with status="unprocessed" for the project
+        Process unprocessed and failed URLs from serp_urls table:
+        1. Get all URLs with status="unprocessed" or "failed" for the project (failed URLs can be retried)
         2. Extract leads using _lead_extractor
         3. Update website_scraped column with scraped content
         4. Update status based on results:
            - "processed" if leads found
            - "skip" if no leads found (empty list)
-           - "unprocessed" if extraction failed
+           - "failed" if extraction or saving failed (will be retried on next run)
         5. Save extracted leads to serp_leads table
         """
         try:
             with db_service.get_session() as session:
-                # Step 1: Get all unprocessed URLs for this project
+                # Step 1: Get all unprocessed and failed URLs for this project (failed can be retried)
                 unprocessed_urls = session.query(SerpUrl).filter(
                     SerpUrl.project_id == project_id,
-                    SerpUrl.status == "unprocessed"
+                    SerpUrl.status.in_(["unprocessed", "failed"])
                 ).all()
                 
                 if not unprocessed_urls:
-                    logging.info(f"No unprocessed URLs found for project {project_id}")
+                    logging.info(f"No unprocessed or failed URLs found for project {project_id}")
                     return {
                         "success": True,
                         "urls_processed": 0,
@@ -246,10 +247,10 @@ class LeadsSerpService:
                         "urls_failed": 0,
                         "total_urls_attempted": 0,
                         "new_leads_extracted": 0,
-                        "message": "No unprocessed URLs found to extract leads from"
+                        "message": "No unprocessed or failed URLs found to extract leads from"
                     }
                 
-                logging.info(f"Processing {len(unprocessed_urls)} unprocessed URLs for project {project_id}")
+                logging.info(f"Processing {len(unprocessed_urls)} URLs (unprocessed and failed) for project {project_id}")
                 
                 processed_count = 0
                 skipped_count = 0
@@ -262,12 +263,20 @@ class LeadsSerpService:
                         logging.info(f"Processing URL: {url_record.link}")
                         
                         # Extract leads using the _lead_extractor method
-                        leads, scraped_content = await self._lead_extractor(
-                            query=url_record.query,
-                            title=url_record.title,
-                            snippet=url_record.snippet,
-                            url=url_record.link
-                        )
+                        try:
+                            leads, scraped_content = await self._lead_extractor(
+                                query=url_record.query,
+                                title=url_record.title,
+                                snippet=url_record.snippet,
+                                url=url_record.link
+                            )
+                        except Exception as extract_error:
+                            # Extraction failed - log but continue processing
+                            logging.error(f"❌ Extraction error for {url_record.link}: {str(extract_error)}")
+                            url_record.status = "failed"
+                            url_record.website_scraped = None
+                            failed_count += 1
+                            continue  # Skip to next URL
                         
                         # Clean up leads - handle AI returning ['[]'] or similar
                         if leads and isinstance(leads, list):
@@ -295,16 +304,23 @@ class LeadsSerpService:
                             processed_count += 1
                             
                             # Step 5: Save leads to serp_leads table
-                            for lead in leads:
-                                lead_record = SerpLead(
-                                    project_id=project_id,
-                                    serp_url_id=url_record.id,
-                                    lead=lead
-                                )
-                                session.add(lead_record)
-                                new_leads_count += 1
-                            
-                            logging.info(f"✅ Extracted {len(leads)} leads from {url_record.link}")
+                            try:
+                                for lead in leads:
+                                    lead_record = SerpLead(
+                                        project_id=project_id,
+                                        serp_url_id=url_record.id,
+                                        lead=lead
+                                    )
+                                    session.add(lead_record)
+                                    new_leads_count += 1
+                                
+                                logging.info(f"✅ Extracted {len(leads)} leads from {url_record.link}")
+                            except Exception as save_error:
+                                # Failed to save leads - log but continue
+                                logging.error(f"❌ Failed to save leads for {url_record.link}: {str(save_error)}")
+                                url_record.status = "failed"
+                                failed_count += 1
+                                continue
                             
                         else:
                             # No leads found - mark as skip
@@ -313,10 +329,12 @@ class LeadsSerpService:
                             logging.info(f"⏭️ No leads found in {url_record.link} - marked as skip")
                             
                     except Exception as e:
-                        # Extraction failed - keep as unprocessed
-                        url_record.status = "unprocessed"
+                        # Unexpected error - mark as failed and continue processing
+                        logging.error(f"❌ Unexpected error processing {url_record.link}: {str(e)}")
+                        url_record.status = "failed"
+                        url_record.website_scraped = None
                         failed_count += 1
-                        logging.error(f"❌ Failed to extract leads from {url_record.link}: {str(e)}")
+                        # Continue to next URL - don't let one failure stop the whole process
                 
                 # Commit all changes
                 session.commit()
