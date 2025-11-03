@@ -24,17 +24,15 @@ def show_project_overview():
     st.markdown("---")
     
     # Project stats
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("Status", project['status'])
-    with col2:
         st.metric("Leads Collected", project['leads_collected'])
-    with col3:
+    with col2:
         st.metric("Datasets Added", project['datasets_added'])
-    with col4:
+    with col3:
         st.metric("URLs Processed", project.get('urls_processed', 0))
-    with col5:
+    with col4:
         st.metric("Project ID", project['id'])
     
     st.markdown("---")

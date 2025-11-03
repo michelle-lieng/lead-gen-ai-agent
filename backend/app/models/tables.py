@@ -15,7 +15,6 @@ class Project(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_name = Column(String(255), nullable=False, unique=True)  # Added unique constraint
     description = Column(Text, nullable=False)  # Required field
-    status = Column(String(50), default="Draft")  # Draft, In Progress, Completed
     date_added = Column(DateTime, default=datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     leads_collected = Column(Integer, default=0)

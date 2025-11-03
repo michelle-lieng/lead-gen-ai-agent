@@ -236,11 +236,10 @@ if __name__ == "__main__":
         print("\n4️⃣ Testing update_project...")
         updated_project = project_service.update_project(
             test_project.id,
-            status="In Progress",
             description="Updated description"
         )
         if updated_project:
-            print(f"✅ Updated project: {updated_project.project_name} (Status: {updated_project.status})")
+            print(f"✅ Updated project: {updated_project.project_name}")
         else:
             print("❌ Update failed")
         
