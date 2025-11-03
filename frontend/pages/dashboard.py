@@ -74,29 +74,37 @@ def show_dashboard():
                         st.session_state.current_page = "project_overview"
                         st.rerun()
                 
-                with col7:
-                    if st.button("🗑️", key=f"delete_{project['id']}", help="Delete project"):
-                        # Initialize delete confirmation state if not exists
-                        if f"delete_confirm_{project['id']}" not in st.session_state:
-                            st.session_state[f"delete_confirm_{project['id']}"] = True
-                            st.rerun()
-                        else:
-                            # Confirmed deletion
+                with col6:
+                    delete_key = f"delete_confirm_{project['id']}"
+                    # Check if we're in confirmation mode
+                    if st.session_state.get(delete_key, False):
+                        # Show confirm button instead
+                        if st.button("✅ Confirm", key=f"confirm_delete_{project['id']}", help="Confirm deletion"):
                             with st.spinner("Deleting project..."):
                                 success = delete_project(project['id'])
                                 if success:
                                     st.success(f"✅ Project '{project['project_name']}' deleted successfully!")
                                     # Reset confirmation state
-                                    if f"delete_confirm_{project['id']}" in st.session_state:
-                                        del st.session_state[f"delete_confirm_{project['id']}"]
+                                    if delete_key in st.session_state:
+                                        del st.session_state[delete_key]
                                     # Clear selected project if it was the deleted one
                                     if st.session_state.selected_project and st.session_state.selected_project['id'] == project['id']:
                                         st.session_state.selected_project = None
                                         st.session_state.current_page = "dashboard"
                                     st.rerun()
+                        # Cancel button
+                        if st.button("❌ Cancel", key=f"cancel_delete_{project['id']}", help="Cancel deletion"):
+                            if delete_key in st.session_state:
+                                del st.session_state[delete_key]
+                            st.rerun()
+                    else:
+                        # Initial delete button
+                        if st.button("🗑️", key=f"delete_{project['id']}", help="Delete project"):
+                            st.session_state[delete_key] = True
+                            st.rerun()
                 
                 # Show confirmation message if delete was clicked
                 if st.session_state.get(f"delete_confirm_{project['id']}", False):
-                    st.warning(f"⚠️ Are you sure you want to delete '{project['project_name']}'? Click the delete button again to confirm, or refresh the page to cancel.")
+                    st.warning(f"⚠️ Are you sure you want to delete '{project['project_name']}'? Click Confirm to delete or Cancel to abort.")
                 
                 st.markdown("---")
