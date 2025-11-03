@@ -364,7 +364,92 @@ class LeadsSerpService:
             if "ForeignKeyViolation" in str(e):
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
+    
+    def export_all_data_as_csv(self, project_id: int) -> dict:
+        """
+        Export ALL data as CSV(s) for all tables (queries, URLs, leads) for the project.
+        No filtering - just returns everything.
+        
+        Args:
+            project_id: Project ID
+        
+        Returns:
+            dict: Contains CSV content as strings for queries, urls, and leads
+        """
+        try:
+            with db_service.get_session() as session:
+                csv_files = {}
                 
+                # Get all queries for this project
+                queries = session.query(SerpQuery).filter(
+                    SerpQuery.project_id == project_id
+                ).all()
+                
+                if queries:
+                    output = StringIO()
+                    writer = csv.writer(output)
+                    writer.writerow(["id", "project_id", "query", "date_added"])
+                    for record in queries:
+                        writer.writerow([
+                            record.id,
+                            record.project_id,
+                            record.query,
+                            record.date_added.isoformat()
+                        ])
+                    csv_files["queries"] = output.getvalue()
+                
+                # Get all URLs for this project
+                urls = session.query(SerpUrl).filter(
+                    SerpUrl.project_id == project_id
+                ).all()
+                
+                if urls:
+                    output = StringIO()
+                    writer = csv.writer(output)
+                    writer.writerow(["id", "project_id", "query", "title", "link", "snippet", "website_scraped", "status", "created_at"])
+                    for record in urls:
+                        # Truncate website_scraped to 32600 characters to prevent CSV cell overflow (Excel limit is 32767)
+                        website_scraped = record.website_scraped
+                        if website_scraped and len(website_scraped) > 32600:
+                            website_scraped = website_scraped[:32600]
+                        writer.writerow([
+                            record.id,
+                            record.project_id,
+                            record.query,
+                            record.title,
+                            record.link,
+                            record.snippet,
+                            website_scraped or "",
+                            record.status,
+                            record.created_at.isoformat()
+                        ])
+                    csv_files["urls"] = output.getvalue()
+                
+                # Get all leads for this project
+                leads = session.query(SerpLead).filter(
+                    SerpLead.project_id == project_id
+                ).all()
+                
+                if leads:
+                    output = StringIO()
+                    writer = csv.writer(output)
+                    writer.writerow(["id", "project_id", "serp_url_id", "lead", "created_at"])
+                    for record in leads:
+                        writer.writerow([
+                            record.id,
+                            record.project_id,
+                            record.serp_url_id,
+                            record.lead,
+                            record.created_at.isoformat()
+                        ])
+                    csv_files["leads"] = output.getvalue()
+            
+            return {"csv_files": csv_files}
+                
+        except Exception as e:
+            logging.error(f"❌ Error exporting data as CSV: {str(e)}")
+            raise
+
 # Global project service instance
 leads_serp_service = LeadsSerpService()
 
