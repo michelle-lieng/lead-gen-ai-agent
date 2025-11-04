@@ -86,7 +86,7 @@ class LeadsSerpService:
             return cleaned_queries
             
         except Exception as e:
-            logging.error(f"Error generating search queries: {str(e)}")
+            logger.error(f"Error generating search queries: {str(e)}")
             raise
 
     def generate_search_queries_for_project(self, project_id: int, num_queries: int = 3) -> list[str]:
@@ -133,11 +133,11 @@ class LeadsSerpService:
                 # Commit all queries at once
                 session.commit()
                 
-                logging.info(f"Uploaded {total_queries} queries to serp_queries table")
+                logger.info(f"Uploaded {total_queries} queries to serp_queries table")
                 return True
                 
         except Exception as e:
-            logging.error(f"❌ Error saving queries to database: {str(e)}")
+            logger.error(f"❌ Error saving queries to database: {str(e)}")
             # Check if it's a foreign key violation
             if "ForeignKeyViolation" in str(e):
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
@@ -179,7 +179,7 @@ class LeadsSerpService:
                 )
                 session.execute(statement)
                 session.commit()
-                logging.info(f"✅ Processed {len(all_urls)} URLs for {len(queries)} queries")
+                logger.info(f"✅ Processed {len(all_urls)} URLs for {len(queries)} queries")
             
             return {
                 "success": True,
@@ -189,7 +189,7 @@ class LeadsSerpService:
             }
                 
         except Exception as e:
-            logging.error(f"❌ Error saving queries to database: {str(e)}")
+            logger.error(f"❌ Error saving queries to database: {str(e)}")
             # Check if it's a foreign key violation
             if "ForeignKeyViolation" in str(e):
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
@@ -237,7 +237,7 @@ class LeadsSerpService:
         "Top 100 environmental companies" and you need more information than what is provided in the
         snippet and title to extract leads.
         """
-        logging.info(f"Scraping URL: {url}")
+        logger.info(f"Scraping URL: {url}")
         return jina_url_scraper(url)
     
     async def _lead_extractor(self, query, title, snippet, url) -> tuple[list, str | None]:
@@ -266,8 +266,8 @@ class LeadsSerpService:
                 scraped_content = getattr(item, "output", None)
 
                 # scraped content is already cleaned by jina_url_scraper
-                logging.info("Tool output (scraped content) found.")
-        logging.info(f"Final output (company names): {result.final_output}")
+                logger.info("Tool output (scraped content) found.")
+        logger.info(f"Final output (company names): {result.final_output}")
         # enforce list type for leads
         leads = result.final_output
         return leads, scraped_content
@@ -293,7 +293,7 @@ class LeadsSerpService:
                 ).all()
                 
                 if not unprocessed_urls:
-                    logging.info(f"No unprocessed or failed URLs found for project {project_id}")
+                    logger.info(f"No unprocessed or failed URLs found for project {project_id}")
                     return {
                         "success": True,
                         "urls_processed": 0,
@@ -304,7 +304,7 @@ class LeadsSerpService:
                         "message": "No unprocessed or failed URLs found to extract leads from"
                     }
                 
-                logging.info(f"Processing {len(unprocessed_urls)} URLs (unprocessed and failed) for project {project_id}")
+                logger.info(f"Processing {len(unprocessed_urls)} URLs (unprocessed and failed) for project {project_id}")
                 
                 processed_count = 0
                 skipped_count = 0
@@ -314,7 +314,7 @@ class LeadsSerpService:
                 # Step 2: Process each URL
                 for url_record in unprocessed_urls:
                     try:
-                        logging.info(f"Processing URL: {url_record.link}")
+                        logger.info(f"Processing URL: {url_record.link}")
                         
                         # Extract leads using the _lead_extractor method
                         try:
@@ -326,7 +326,7 @@ class LeadsSerpService:
                             )
                         except Exception as extract_error:
                             # Extraction failed - log but continue processing
-                            logging.error(f"❌ Extraction error for {url_record.link}: {str(extract_error)}")
+                            logger.error(f"❌ Extraction error for {url_record.link}: {str(extract_error)}")
                             url_record.status = "failed"
                             url_record.website_scraped = None
                             failed_count += 1
@@ -346,7 +346,7 @@ class LeadsSerpService:
                                     cleaned_leads.append(str(lead).strip())
                             
                             leads = cleaned_leads
-                            logging.info(f"Cleaned leads: {leads}")
+                            logger.info(f"Cleaned leads: {leads}")
                         
                         # Step 3: Update the URL record
                         url_record.website_scraped = scraped_content
@@ -368,10 +368,10 @@ class LeadsSerpService:
                                     session.add(lead_record)
                                     new_leads_count += 1
                                 
-                                logging.info(f"✅ Extracted {len(leads)} leads from {url_record.link}")
+                                logger.info(f"✅ Extracted {len(leads)} leads from {url_record.link}")
                             except Exception as save_error:
                                 # Failed to save leads - log but continue
-                                logging.error(f"❌ Failed to save leads for {url_record.link}: {str(save_error)}")
+                                logger.error(f"❌ Failed to save leads for {url_record.link}: {str(save_error)}")
                                 url_record.status = "failed"
                                 failed_count += 1
                                 continue
@@ -380,11 +380,11 @@ class LeadsSerpService:
                             # No leads found - mark as skip
                             url_record.status = "skip"
                             skipped_count += 1
-                            logging.info(f"⏭️ No leads found in {url_record.link} - marked as skip")
+                            logger.info(f"⏭️ No leads found in {url_record.link} - marked as skip")
                             
                     except Exception as e:
                         # Unexpected error - mark as failed and continue processing
-                        logging.error(f"❌ Unexpected error processing {url_record.link}: {str(e)}")
+                        logger.error(f"❌ Unexpected error processing {url_record.link}: {str(e)}")
                         url_record.status = "failed"
                         url_record.website_scraped = None
                         failed_count += 1
@@ -393,11 +393,11 @@ class LeadsSerpService:
                 # Commit all changes
                 session.commit()
                 
-                logging.info(f"✅ Lead extraction completed for project {project_id}:")
-                logging.info(f"   - Processed: {processed_count}")
-                logging.info(f"   - Skipped: {skipped_count}")
-                logging.info(f"   - Failed: {failed_count}")
-                logging.info(f"   - New leads extracted: {new_leads_count}")
+                logger.info(f"✅ Lead extraction completed for project {project_id}:")
+                logger.info(f"   - Processed: {processed_count}")
+                logger.info(f"   - Skipped: {skipped_count}")
+                logger.info(f"   - Failed: {failed_count}")
+                logger.info(f"   - New leads extracted: {new_leads_count}")
                                 
                 return {
                     "success": True,
@@ -410,7 +410,7 @@ class LeadsSerpService:
                 }
                 
         except Exception as e:
-            logging.error(f"❌ Error saving queries to database: {str(e)}")
+            logger.error(f"❌ Error saving queries to database: {str(e)}")
             # Check if it's a foreign key violation
             if "ForeignKeyViolation" in str(e):
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
@@ -498,7 +498,7 @@ class LeadsSerpService:
             return {"csv_files": csv_files}
                 
         except Exception as e:
-            logging.error(f"❌ Error exporting data as CSV: {str(e)}")
+            logger.error(f"❌ Error exporting data as CSV: {str(e)}")
             raise
 
     def export_all_data_as_zip(self, project_id: int) -> tuple[bytes, str]:
@@ -552,7 +552,7 @@ class LeadsSerpService:
             zip_buffer.seek(0)
             zip_bytes = zip_buffer.getvalue()
             
-            logging.info(f"✅ Generated ZIP file for project {project_id}: {zip_filename} ({len(zip_bytes)} bytes)")
+            logger.info(f"✅ Generated ZIP file for project {project_id}: {zip_filename} ({len(zip_bytes)} bytes)")
             
             return zip_bytes, zip_filename
                 
@@ -560,7 +560,7 @@ class LeadsSerpService:
             # Re-raise ValueError as-is (for "no data" or "project not found")
             raise
         except Exception as e:
-            logging.error(f"❌ Error exporting data as ZIP: {str(e)}")
+            logger.error(f"❌ Error exporting data as ZIP: {str(e)}")
             raise
 
 # Global project service instance
