@@ -6,7 +6,7 @@ from sqlalchemy import or_
 from typing import List, Optional
 import logging
 
-from ..models.tables import Project, SerpUrl, SerpLead, SerpQuery
+from ..models.tables import Project, SerpUrl, SerpLead, SerpQuery, ProjectDataset
 from .database_service import db_service
 
 logger = logging.getLogger(__name__)
@@ -111,7 +111,7 @@ class ProjectService:
                 session.delete(project)
                 session.commit()
                 
-                logger.info(f"✅ Deleted project {project_id} and {leads_count} leads, {urls_count} URLs, {queries_count} queries")
+                logger.info(f"✅ Deleted project {project_id} and {leads_count} leads, {urls_count} URLs, {queries_count} queries, {datasets_count} datasets (cascade delete)")
                 return True
         except SQLAlchemyError as e:
             logger.error(f"❌ Error deleting project {project_id}: {e}")
@@ -120,7 +120,8 @@ class ProjectService:
     def update_project_counts_from_db(self, project_id: Optional[int] = None) -> bool:
         """
         Recalculate and update project counts from database tables.
-        Counts only URLs with status='processed' or 'skip' from serp_urls and all leads from serp_leads.
+        Counts only URLs with status='processed' or 'skip' from serp_urls, all leads from serp_leads,
+        and all datasets from project_datasets.
         
         Args:
             project_id (int, optional): ID of the project to update. If None, updates all projects.
@@ -148,12 +149,18 @@ class ProjectService:
                         SerpLead.project_id == project_id
                     ).count()
                     
+                    # Count datasets for this project
+                    datasets_count = session.query(ProjectDataset).filter(
+                        ProjectDataset.project_id == project_id
+                    ).count()
+                    
                     # Update project counts
                     project.urls_processed = urls_count
                     project.leads_collected = leads_count
+                    project.datasets_added = datasets_count
                     
                     session.commit()
-                    logger.info(f"✅ Updated counts for project {project_id}: {urls_count} processed URLs, {leads_count} leads")
+                    logger.info(f"✅ Updated counts for project {project_id}: {urls_count} processed URLs, {leads_count} leads, {datasets_count} datasets")
                     return True
                 else:
                     # Update all projects
@@ -172,9 +179,15 @@ class ProjectService:
                             SerpLead.project_id == project.id
                         ).count()
                         
+                        # Count datasets for this project
+                        datasets_count = session.query(ProjectDataset).filter(
+                            ProjectDataset.project_id == project.id
+                        ).count()
+                        
                         # Update project counts
                         project.urls_processed = urls_count
                         project.leads_collected = leads_count
+                        project.datasets_added = datasets_count
                         updated_count += 1
                     
                     session.commit()
