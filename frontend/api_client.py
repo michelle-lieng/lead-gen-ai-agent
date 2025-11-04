@@ -30,14 +30,20 @@ _session.mount("http://", adapter)
 _session.mount("https://", adapter)
 _session.headers.update({"Accept": "application/json"})
 
-def _request(method: str, path: str, json_data=None, stream=False):
+def _request(method: str, path: str, json_data=None, stream=False, files=None, form_data=None):
     """Make HTTP request - returns response or None on error"""
     try:
         # Build full URL (BASE_URL already has no trailing slash, path has leading slash)
         url = f"{BASE_URL}{path}"
-        response = _session.request(
-            method, url, json=json_data, timeout=TIMEOUT, stream=stream
-        )
+        # Use files+form_data for multipart/form-data, otherwise use json_data
+        if files is not None:
+            response = _session.request(
+                method, url, files=files, data=form_data, timeout=TIMEOUT, stream=stream
+            )
+        else:
+            response = _session.request(
+                method, url, json=json_data, timeout=TIMEOUT, stream=stream
+            )
         
         if response.status_code >= 200 and response.status_code < 300:
             return response
@@ -104,3 +110,22 @@ def fetch_latest_run_zip(project_id: int):
         return response.content, filename
     
     return None, None
+
+# Dataset endpoints
+def upload_dataset(project_id: int, dataset_name: str, lead_column: str, enrichment_column: str, enrichment_column_exists: bool, csv_file):
+    """Upload a CSV dataset for a project via API"""
+    csv_file.seek(0)
+    file_content = csv_file.read()
+    csv_file.seek(0)
+    
+    files = {'csv_file': (csv_file.name, file_content, 'text/csv')}
+    form_data = {
+        'dataset_name': dataset_name,
+        'lead_column': lead_column,
+        'enrichment_column': enrichment_column,
+        'enrichment_column_exists': 'true' if enrichment_column_exists else 'false'
+    }
+    
+    response = _request("POST", f"/api/projects/{project_id}/datasets/upload", files=files, form_data=form_data)
+    return response.json() if response else None
+
