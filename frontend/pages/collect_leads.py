@@ -2,7 +2,8 @@
 Lead collection page
 """
 import streamlit as st
-from api_client import update_project, generate_queries, generate_urls, generate_leads, fetch_latest_run_zip, get_project
+import pandas as pd
+from api_client import update_project, generate_queries, generate_urls, generate_leads, fetch_latest_run_zip, get_project, upload_dataset, fetch_datasets_zip
 
 def fetch_and_store_zip_data(project_id: int):
     """Fetch ZIP file from API and store in session state"""
@@ -188,7 +189,7 @@ def show_web_search_tab(project):
     
     # Always show download section at the bottom of Web Search tab
     st.markdown("---")
-    st.markdown("### 📥 Download Latest Run Results")
+    st.markdown("### 📥 Download Webscraped Leads")
     
     # Check if project has processed data
     has_data = project.get('leads_collected', 0) > 0
@@ -230,6 +231,7 @@ def show_email_scraping_tab(project):
 def show_upload_dataset_tab(project):
     """Upload dataset tab content"""
     st.markdown("#### Upload existing dataset")
+    
     uploaded_file = st.file_uploader(
         "Choose a CSV file",
         type=['csv'],
@@ -240,10 +242,83 @@ def show_upload_dataset_tab(project):
     if uploaded_file is not None:
         st.success(f"✅ File uploaded: {uploaded_file.name}")
         
-        # Preview data
-        if st.button("👀 Preview Data"):
+        # Preview data to help identify columns
+        try:
+            uploaded_file.seek(0)
+            df = pd.read_csv(uploaded_file)
+            uploaded_file.seek(0)
+            
             st.markdown("#### 📊 Data Preview")
-            st.info("Preview functionality coming soon!")
+            st.dataframe(df.head(10), use_container_width=True)
+            st.info(f"📋 Found {len(df.columns)} columns: {', '.join(df.columns)}")
+            
+            # Upload form
+            st.markdown("#### ⚙️ Dataset Configuration")
+            
+            with st.form("upload_dataset_form", clear_on_submit=False):
+                dataset_name = st.text_input(
+                    "Dataset Name",
+                    value=uploaded_file.name.replace('.csv', ''),
+                    help="Give your dataset a descriptive name"
+                )
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    lead_column = st.selectbox(
+                        "Lead Column",
+                        options=df.columns.tolist(),
+                        help="Select the column containing company names/leads"
+                    )
+                
+                with col2:
+                    enrichment_column = st.text_input(
+                        "Enrichment Column Name",
+                        value="enriched",
+                        help="Name of the column for enrichment status (will be created if it doesn't exist)"
+                    )
+                
+                enrichment_column_exists = st.checkbox(
+                    "Enrichment column already exists in CSV",
+                    value=False,
+                    help="Check this if the enrichment column already exists in your CSV file"
+                )
+                
+                submitted = st.form_submit_button("📤 Upload Dataset", type="primary")
+                
+                if submitted:
+                    if not dataset_name or not dataset_name.strip():
+                        st.error("❌ Please provide a dataset name")
+                    elif not lead_column:
+                        st.error("❌ Please select a lead column")
+                    elif not enrichment_column or not enrichment_column.strip():
+                        st.error("❌ Please provide an enrichment column name")
+                    else:
+                        with st.spinner("📤 Uploading dataset..."):
+                            try:
+                                result = upload_dataset(
+                                    project_id=project['id'],
+                                    dataset_name=dataset_name.strip(),
+                                    lead_column=lead_column,
+                                    enrichment_column=enrichment_column.strip(),
+                                    enrichment_column_exists=enrichment_column_exists,
+                                    csv_file=uploaded_file
+                                )
+                                
+                                if result and result.get('success'):
+                                    # Show success message immediately
+                                    st.success(f"✅ {result.get('message', 'Dataset uploaded successfully')}")
+                                    st.info(f"📊 Processed {result.get('rows_processed', 0)} rows")
+                                    
+                                    # Refresh project data to show updated stats
+                                    project = get_project(project['id'])
+                                else:
+                                    st.error("❌ Failed to upload dataset. Please try again.")
+                            except Exception as e:
+                                st.error(f"❌ Error uploading dataset: {str(e)}")
+        except Exception as e:
+            st.error(f"❌ Error reading CSV file: {str(e)}")
+            st.info("Please make sure your file is a valid CSV file.")
     
     st.markdown("---")
     st.markdown("#### 📋 Existing Datasets")
