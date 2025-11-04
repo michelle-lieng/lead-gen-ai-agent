@@ -22,9 +22,9 @@ class Project(Base):
     urls_processed = Column(Integer, default=0)
     
     # Relationship to serp_queries, serp_urls, and serp_leads
-    serp_queries = relationship("SerpQuery", back_populates="project")
-    serp_urls = relationship("SerpUrl", back_populates="project")
-    serp_leads = relationship("SerpLead", back_populates="project")
+    serp_queries = relationship("SerpQuery", back_populates="project", cascade="all, delete-orphan")
+    serp_urls = relationship("SerpUrl", back_populates="project", cascade="all, delete-orphan")
+    serp_leads = relationship("SerpLead", back_populates="project", cascade="all, delete-orphan")
 
 class SerpQuery(Base):
     """PostgreSQL table: serp_queries - for generating search questions"""

@@ -92,7 +92,7 @@ class ProjectService:
             raise
     
     def delete_project(self, project_id: int) -> bool:
-        """Delete project by ID, including all related records (leads, URLs, queries)"""
+        """Delete project by ID, including all related records (cascade deletes automatically)"""
         try:
             with db_service.get_session() as session:
                 project = session.query(Project).filter(Project.id == project_id).first()
@@ -100,17 +100,14 @@ class ProjectService:
                     logger.warning(f"Project {project_id} not found")
                     return False
                 
-                # Delete all related records first (to avoid foreign key constraint violations)
-                # Delete leads first (they depend on serp_urls)
-                leads_count = session.query(SerpLead).filter(SerpLead.project_id == project_id).delete()
+                # Count related records for logging (before deletion)
+                leads_count = session.query(SerpLead).filter(SerpLead.project_id == project_id).count()
+                urls_count = session.query(SerpUrl).filter(SerpUrl.project_id == project_id).count()
+                queries_count = session.query(SerpQuery).filter(SerpQuery.project_id == project_id).count()
+                datasets_count = session.query(ProjectDataset).filter(ProjectDataset.project_id == project_id).count()
                 
-                # Delete URLs (they depend on serp_queries)
-                urls_count = session.query(SerpUrl).filter(SerpUrl.project_id == project_id).delete()
-                
-                # Delete queries
-                queries_count = session.query(SerpQuery).filter(SerpQuery.project_id == project_id).delete()
-                
-                # Now delete the project
+                # Delete the project - cascade will automatically delete all related records
+                # (serp_queries, serp_urls, serp_leads, project_datasets and their dataset rows)
                 session.delete(project)
                 session.commit()
                 
