@@ -129,3 +129,19 @@ def upload_dataset(project_id: int, dataset_name: str, lead_column: str, enrichm
     response = _request("POST", f"/api/projects/{project_id}/datasets/upload", files=files, form_data=form_data)
     return response.json() if response else None
 
+def fetch_datasets_zip(project_id: int):
+    """
+    Fetch ZIP file containing all dataset data.
+    Returns (zip_content: bytes, filename: str) or (None, None) on error
+    """
+    response = _request("GET", f"/api/projects/{project_id}/datasets/download", stream=True)
+    
+    if response:
+        # Get filename from Content-Disposition header (backend sets it)
+        cd = response.headers.get("Content-Disposition", "")
+        # Extract filename from header (format: "attachment; filename=name.zip")
+        filename = cd.split("filename=", 1)[1].strip().strip('"').strip("'")
+        
+        return response.content, filename
+    
+    return None, None

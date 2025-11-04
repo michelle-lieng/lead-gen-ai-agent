@@ -14,6 +14,15 @@ def fetch_and_store_zip_data(project_id: int):
         return True
     return False
 
+def fetch_and_store_datasets_zip(project_id: int):
+    """Fetch dataset ZIP file from API and store in session state"""
+    zip_content, filename = fetch_datasets_zip(project_id)
+    if zip_content and filename:
+        st.session_state["datasets_zip_data"] = zip_content
+        st.session_state["datasets_zip_filename"] = filename
+        return True
+    return False
+
 def show_collect_leads():
     """Lead collection page"""
     project = st.session_state.selected_project
@@ -320,10 +329,35 @@ def show_upload_dataset_tab(project):
             st.error(f"❌ Error reading CSV file: {str(e)}")
             st.info("Please make sure your file is a valid CSV file.")
     
+    # Always show download section at the bottom of Upload Dataset tab
     st.markdown("---")
-    st.markdown("#### 📋 Existing Datasets")
-    st.info("No datasets uploaded yet. Upload your first dataset above!")
+    st.markdown("### 📥 Download Dataset Data")
     
-    st.markdown("---")
-    st.markdown("### 📊 Current Leads")
-    st.info("No leads collected yet. Use the tools above to start collecting leads!")
+    # Check if project has dataset data
+    has_dataset_data = project.get('datasets_added', 0) > 0
+    
+    if has_dataset_data:
+        # Check if ZIP data is already in session state
+        has_datasets_zip = "datasets_zip_data" in st.session_state
+        
+        if not has_datasets_zip:
+            # Show button to load downloads
+            if st.button("📥 Load Dataset Downloads", help="Fetch ZIP file with all dataset data", key="load_datasets_zip"):
+                with st.spinner("📥 Loading dataset downloads..."):
+                    fetch_and_store_datasets_zip(project['id'])
+                    st.rerun()
+        
+        # Show single ZIP download button if data is available
+        if "datasets_zip_data" in st.session_state:
+            st.download_button(
+                label="📦 Download All Dataset Data (ZIP)",
+                data=st.session_state["datasets_zip_data"],
+                file_name=st.session_state.get("datasets_zip_filename"),
+                mime="application/zip",
+                key="dl_datasets",
+                use_container_width=True
+            )
+        else:
+            st.info("📥 Click 'Load Dataset Downloads' above to prepare the download file.")
+    else:
+        st.info("ℹ️ No dataset data available yet. Upload a dataset above to generate downloadable CSV files.")

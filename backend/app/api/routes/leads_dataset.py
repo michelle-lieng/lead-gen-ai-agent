@@ -59,3 +59,27 @@ async def upload_dataset(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading dataset: {str(e)}")
 
+@router.get("/projects/{project_id}/datasets/download")
+async def download_datasets(project_id: int):
+    """
+    Get ZIP file containing all dataset data for the project.
+    
+    Returns all dataset data (project_datasets, datasets) as a ZIP file with CSV files.
+    """
+    try:
+        zip_bytes, filename = leads_dataset_service.export_all_data_as_zip(project_id)
+        
+        return Response(
+            content=zip_bytes,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+        
+    except ValueError as e:
+        # Handle "no data" or "project not found" errors
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error downloading dataset data: {str(e)}")
+
