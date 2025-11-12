@@ -18,6 +18,7 @@ from sqlalchemy import func, distinct
 
 from .database_service import db_service
 from .project_service import project_service
+from .merged_results_service import merged_results_service
 
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..utils.lead_utils import normalize_lead_name
@@ -416,6 +417,15 @@ class LeadsSerpService:
                 # Transform leads to aggregated format after extraction
                 try:
                     aggregation_result = self._transform_leads_to_aggregated(project_id)
+                    logger.info(f"✅ Lead aggregation completed: {aggregation_result.get('message', '')}")
+                    
+                    # Merge aggregated leads into merged_results table
+                    try:
+                        merge_result = merged_results_service.merge_serp_leads(project_id)
+                        logger.info(f"✅ SERP leads merged: {merge_result.get('message', '')}")
+                    except Exception as merge_error:
+                        # Log merge error but don't fail the whole extraction
+                        logger.warning(f"⚠️ SERP leads merge failed (extraction still succeeded): {str(merge_error)}")
                 except Exception as agg_error:
                     # Log aggregation error but don't fail the whole extraction
                     logger.warning(f"⚠️ Lead aggregation failed (extraction still succeeded): {str(agg_error)}")
