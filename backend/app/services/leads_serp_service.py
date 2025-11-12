@@ -14,11 +14,13 @@ import zipfile
 from agents import Agent, Runner, function_tool,set_default_openai_key
 from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import func, distinct
 
 from .database_service import db_service
 from .project_service import project_service
 
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
+from ..utils.lead_utils import normalize_lead_name
 from ..config import settings
 from ..prompts import SERP_QUERIES_PROMPT, SERP_EXTRACTION_PROMPT
 from ..models.tables import SerpQuery, SerpUrl, SerpLead
@@ -277,7 +279,7 @@ class LeadsSerpService:
         leads = result.final_output
         return leads, scraped_content
     
-    async def extract_and_add_leads_to_table(self, project_id: int) -> bool:
+    async def extract_and_add_leads_to_table(self, project_id: int) -> dict:
         """
         Process unprocessed and failed URLs from serp_urls table:
         1. Get all URLs with status="unprocessed" or "failed" for the project (failed URLs can be retried)
@@ -362,13 +364,20 @@ class LeadsSerpService:
                             url_record.status = "processed"
                             processed_count += 1
                             
-                            # Step 5: Save leads to serp_leads table
+                            # Step 5: Save leads to serp_leads table (normalized)
                             try:
                                 for lead in leads:
+                                    # Normalize lead name before saving (lowercase, trim whitespace)
+                                    normalized_lead = normalize_lead_name(lead)
+                                    
+                                    # Skip empty leads after normalization
+                                    if not normalized_lead:
+                                        continue
+                                    
                                     lead_record = SerpLead(
                                         project_id=project_id,
                                         serp_url_id=url_record.id,
-                                        lead=lead
+                                        lead=normalized_lead  # Store normalized version
                                     )
                                     session.add(lead_record)
                                     new_leads_count += 1
