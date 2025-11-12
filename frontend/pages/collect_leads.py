@@ -164,10 +164,10 @@ def show_web_search_tab(project):
                         leads_result = generate_leads(project['id'])
                         
                         if leads_result.get('success'):
-                            # update project stats
-                            project = get_project(project['id'])
-                                
                             st.success("✅ Leads extracted successfully!")
+                            
+                            # Refresh project data to get updated stats
+                            st.session_state.selected_project = get_project(project['id'])
 
                             st.markdown("**📊 Search Results (This Run):**")
                                 
@@ -205,7 +205,8 @@ def show_web_search_tab(project):
     st.markdown("---")
     st.markdown("### 📥 Download Webscraped Leads")
     
-    # Check if project has processed data
+    # Use fresh project data from session state (may have been updated during this run)
+    project = st.session_state.selected_project
     has_data = project.get('leads_collected', 0) > 0
     
     if has_data:
