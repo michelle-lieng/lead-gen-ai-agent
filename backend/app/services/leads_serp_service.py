@@ -23,7 +23,7 @@ from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..utils.lead_utils import normalize_lead_name
 from ..config import settings
 from ..prompts import SERP_QUERIES_PROMPT, SERP_EXTRACTION_PROMPT
-from ..models.tables import SerpQuery, SerpUrl, SerpLead
+from ..models.tables import SerpQuery, SerpUrl, SerpLead, SerpLeadAggregated, Project
 from ..models.schemas import QueryListRequest
 
 logger = logging.getLogger(__name__)
@@ -412,6 +412,13 @@ class LeadsSerpService:
                 logger.info(f"   - Skipped: {skipped_count}")
                 logger.info(f"   - Failed: {failed_count}")
                 logger.info(f"   - New leads extracted: {new_leads_count}")
+                
+                # Transform leads to aggregated format after extraction
+                try:
+                    aggregation_result = self._transform_leads_to_aggregated(project_id)
+                except Exception as agg_error:
+                    # Log aggregation error but don't fail the whole extraction
+                    logger.warning(f"⚠️ Lead aggregation failed (extraction still succeeded): {str(agg_error)}")
                                 
                 return {
                     "success": True,
@@ -430,16 +437,88 @@ class LeadsSerpService:
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
     
+    
+    def _transform_leads_to_aggregated(self, project_id: int) -> dict:
+        """
+        Transform SerpLead data into aggregated format grouped by lead name.
+        Since leads are already normalized when saved, we can simply group by lead name
+        and count distinct SERP URLs each lead appears in.
+        
+        Args:
+            project_id: Project ID to aggregate leads for
+            
+        Returns:
+            dict: Success status and statistics
+        """
+        try:
+            with db_service.get_session() as session:
+                # Validate project exists
+                project = session.query(Project).filter(Project.id == project_id).first()
+                if not project:
+                    raise ValueError(f"Project {project_id} not found")
+                
+                # Query all SerpLead records for this project and group by lead name
+                # Count distinct serp_url_ids for each lead (leads are already normalized)
+                aggregated_data = session.query(
+                    SerpLead.lead,
+                    func.count(distinct(SerpLead.serp_url_id)).label('serp_count')
+                ).filter(
+                    SerpLead.project_id == project_id
+                ).group_by(
+                    SerpLead.lead
+                ).all()
+                
+                if not aggregated_data:
+                    logger.info(f"No leads found for project {project_id} to aggregate")
+                    return {
+                        "success": True,
+                        "leads_aggregated": 0,
+                        "message": "No leads found to aggregate"
+                    }
+                
+                # Delete existing aggregated leads for this project to refresh the data
+                session.query(SerpLeadAggregated).filter(
+                    SerpLeadAggregated.project_id == project_id
+                ).delete()
+                
+                # Insert fresh aggregated leads
+                leads_aggregated_count = 0
+                for lead_name, serp_count in aggregated_data:
+                    aggregated_lead = SerpLeadAggregated(
+                        project_id=project_id,
+                        leads=lead_name,  # Already normalized (lowercase)
+                        serp_count=serp_count
+                    )
+                    session.add(aggregated_lead)
+                    leads_aggregated_count += 1
+                
+                session.commit()
+                
+                logger.info(f"✅ Aggregated {leads_aggregated_count} unique leads (new and old) for project {project_id}")
+                
+                return {
+                    "success": True,
+                    "leads_aggregated": leads_aggregated_count,
+                    "message": f"Successfully aggregated {leads_aggregated_count} unique leads"
+                }
+                
+        except ValueError as e:
+            # Re-raise validation errors
+            raise
+        except Exception as e:
+            logger.error(f"❌ Error transforming leads to aggregated format: {str(e)}")
+            raise Exception(f"Error transforming leads: {str(e)}")
+    
     def _export_all_data_as_csv(self, project_id: int) -> dict:
         """
-        Export ALL data as CSV(s) for all tables (queries, URLs, leads) for the project.
+        Export ALL data as CSV(s) for all tables (queries, URLs, leads, leads_aggregated) for the project.
         No filtering - just returns everything.
         
         Args:
             project_id: Project ID
         
         Returns:
-            dict: Contains CSV content as strings for queries, urls, and leads
+            dict: Contains CSV content as strings for queries, urls, leads, and leads_aggregated
         """
         try:
             with db_service.get_session() as session:
@@ -508,6 +587,28 @@ class LeadsSerpService:
                             record.created_at.isoformat()
                         ])
                     csv_files["leads"] = output.getvalue()
+                
+                # Get all aggregated leads for this project, sorted by serp_count descending
+                aggregated_leads = session.query(SerpLeadAggregated).filter(
+                    SerpLeadAggregated.project_id == project_id
+                ).order_by(
+                    SerpLeadAggregated.serp_count.desc()
+                ).all()
+                
+                if aggregated_leads:
+                    output = StringIO()
+                    writer = csv.writer(output)
+                    writer.writerow(["id", "project_id", "leads", "serp_count", "created_at", "updated_at"])
+                    for record in aggregated_leads:
+                        writer.writerow([
+                            record.id,
+                            record.project_id,
+                            record.leads,
+                            record.serp_count,
+                            record.created_at.isoformat(),
+                            record.updated_at.isoformat() if record.updated_at else ""
+                        ])
+                    csv_files["leads_aggregated"] = output.getvalue()
             
             return {"csv_files": csv_files}
                 
@@ -520,7 +621,7 @@ class LeadsSerpService:
         Export all project data as a ZIP file containing CSV files.
         
         This is the main export method that should be used by API routes.
-        It generates a ZIP file with all project data (queries, URLs, leads) as CSV files.
+        It generates a ZIP file with all project data (queries, URLs, leads, leads_aggregated) as CSV files.
         
         Args:
             project_id: Project ID
