@@ -169,18 +169,20 @@ def show_web_search_tab(project):
                                 
                             st.success("✅ Leads extracted successfully!")
 
-                            st.markdown("**📊 Search Results:**")
+                            st.markdown("**📊 Search Results (This Run):**")
                                 
-                            # Always show the same 4-column dashboard
-                            col1, col2, col3, col4 = st.columns(4)
+                            # Show stats from this run only (5-column dashboard)
+                            col1, col2, col3, col4, col5 = st.columns(5)
                             with col1:
-                                st.metric("URLs Processed", project.get('urls_processed', 0))
+                                st.metric("Queries Processed", queries_processed)
                             with col2:
-                                st.metric("New Leads", project.get('new_leads_extracted', 0))
+                                st.metric("Leads Processed", leads_result.get('new_leads_extracted', 0))
                             with col3:
-                                st.metric("URLs Skipped", project.get('urls_skipped', 0))
+                                st.metric("URLs Processed", leads_result.get('urls_processed', 0))
                             with col4:
-                                st.metric("URLs Failed", project.get('urls_failed', 0))
+                                st.metric("URLs Skipped", leads_result.get('urls_skipped', 0))
+                            with col5:
+                                st.metric("URLs Failed", leads_result.get('urls_failed', 0))
                             
                             st.info("📝 For detailed statistics, check the backend logs.")
                             # Automatically fetch ZIP file after successful extraction
