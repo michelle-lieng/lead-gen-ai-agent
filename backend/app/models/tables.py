@@ -25,7 +25,9 @@ class Project(Base):
     serp_queries = relationship("SerpQuery", back_populates="project", cascade="all, delete-orphan")
     serp_urls = relationship("SerpUrl", back_populates="project", cascade="all, delete-orphan")
     serp_leads = relationship("SerpLead", back_populates="project", cascade="all, delete-orphan")
+    serp_leads_aggregated = relationship("SerpLeadAggregated", back_populates="project", cascade="all, delete-orphan")
     project_datasets = relationship("ProjectDataset", back_populates="project", cascade="all, delete-orphan")
+    merged_results = relationship("MergedResult", back_populates="project", cascade="all, delete-orphan")
 
 class SerpQuery(Base):
     """PostgreSQL table: serp_queries - for generating search questions"""
@@ -113,3 +115,18 @@ class Dataset(Base):
     
     # Relationships
     project_dataset = relationship("ProjectDataset", back_populates="dataset_rows")
+
+class MergedResult(Base):
+    """PostgreSQL table: merged_results - for storing merged leads from SERP and datasets with enrichment columns"""
+    __tablename__ = "merged_results"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)  # Foreign key to Project.id
+    lead = Column(Text, nullable=False)  # The lead/company name (normalized, case-insensitive, unique per project)
+    serp_count = Column(Integer, nullable=True, default=0)  # SERP count from aggregated leads
+    
+    # Relationships
+    project = relationship("Project", back_populates="merged_results")
+    
+    # Note: Enrichment columns (bcorp_score, sustainability_rating, etc.) are added dynamically
+    # via ALTER TABLE when datasets are uploaded. They are not defined in the model.
