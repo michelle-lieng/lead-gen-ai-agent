@@ -159,3 +159,110 @@ class MergedResultsService:
             logger.error(f"❌ Error merging SERP leads: {str(e)}")
             raise Exception(f"Error merging SERP leads: {str(e)}")
 
+    def merge_dataset_leads(self, project_id: int, project_dataset_id: int, enrichment_column: str) -> dict:
+        """
+        Merge dataset leads into merged_results table.
+        Adds enrichment column dynamically if it doesn't exist.
+        Called after dataset upload completes.
+        
+        Args:
+            project_id: Project ID to merge leads for
+            project_dataset_id: ProjectDataset ID that was just uploaded
+            enrichment_column: Name of the enrichment column (will be added dynamically if needed)
+            
+        Returns:
+            dict: Success status and statistics
+        """
+        try:
+            # Ensure enrichment column exists
+            if not self._ensure_enrichment_column_exists(enrichment_column):
+                raise Exception(f"Failed to ensure enrichment column '{enrichment_column}' exists")
+            
+            with db_service.get_session() as session:
+                # Get all dataset rows for this project_dataset
+                dataset_rows = session.query(Dataset).filter(
+                    Dataset.project_dataset_id == project_dataset_id
+                ).all()
+                
+                if not dataset_rows:
+                    logger.info(f"No dataset rows found for project_dataset {project_dataset_id} to merge")
+                    return {
+                        "success": True,
+                        "leads_merged": 0,
+                        "message": "No dataset rows found to merge"
+                    }
+                
+                merged_count = 0
+                updated_count = 0
+                
+                # Sanitize column name for SQL
+                safe_column_name = re.sub(r'[^a-zA-Z0-9_]', '', enrichment_column)
+                
+                for dataset_row in dataset_rows:
+                    # Normalize lead name
+                    normalized_lead = normalize_lead_name(dataset_row.lead)
+                    
+                    if not normalized_lead:
+                        continue
+                    
+                    # Check if lead already exists in merged_results
+                    existing = session.query(MergedResult).filter(
+                        MergedResult.project_id == project_id,
+                        MergedResult.lead == normalized_lead
+                    ).first()
+                    
+                    if existing:
+                        # Update existing record with enrichment value
+                        # Use raw SQL to update dynamic column
+                        update_query = text(f"""
+                            UPDATE merged_results 
+                            SET {safe_column_name} = :enrichment_value
+                            WHERE id = :id
+                        """)
+                        session.execute(update_query, {
+                            "enrichment_value": str(dataset_row.enrichment_value) if dataset_row.enrichment_value else None,
+                            "id": existing.id
+                        })
+                        updated_count += 1
+                    else:
+                        # Create new merged result
+                        # First insert with fixed columns
+                        merged_result = MergedResult(
+                            project_id=project_id,
+                            lead=normalized_lead,
+                            serp_count=0  # No SERP data yet
+                        )
+                        session.add(merged_result)
+                        session.flush()  # Get the ID
+                        
+                        # Then update the dynamic enrichment column
+                        if dataset_row.enrichment_value:
+                            update_query = text(f"""
+                                UPDATE merged_results 
+                                SET {safe_column_name} = :enrichment_value
+                                WHERE id = :id
+                            """)
+                            session.execute(update_query, {
+                                "enrichment_value": str(dataset_row.enrichment_value),
+                                "id": merged_result.id
+                            })
+                        
+                        merged_count += 1
+                
+                session.commit()
+                
+                total_processed = merged_count + updated_count
+                logger.info(f"✅ Merged {total_processed} dataset leads for project {project_id} ({merged_count} new, {updated_count} updated)")
+                
+                return {
+                    "success": True,
+                    "leads_merged": merged_count,
+                    "leads_updated": updated_count,
+                    "total_processed": total_processed,
+                    "message": f"Merged {total_processed} dataset leads ({merged_count} new, {updated_count} updated)"
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ Error merging dataset leads: {str(e)}")
+            raise Exception(f"Error merging dataset leads: {str(e)}")
+
