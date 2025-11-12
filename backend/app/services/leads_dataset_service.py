@@ -14,6 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from .database_service import db_service
 from .project_service import project_service
 from ..models.tables import ProjectDataset, Dataset, Project
+from ..utils.lead_utils import normalize_lead_name
 
 logger = logging.getLogger(__name__)
 
@@ -120,10 +121,18 @@ class LeadsDatasetService:
                 
                 for idx, row in df.iterrows():
                     try:
-                        # Get lead value
+                        # Get lead value and normalize it (lowercase, trim whitespace, etc.)
                         lead_value = str(row[lead_column]).strip()
                         if not lead_value or pd.isna(row[lead_column]):
                             logger.warning(f"Skipping row {idx}: empty lead value")
+                            continue
+                        
+                        # Normalize lead name before saving (lowercase, trim whitespace)
+                        normalized_lead = normalize_lead_name(lead_value)
+                        
+                        # Skip empty leads after normalization
+                        if not normalized_lead:
+                            logger.warning(f"Skipping row {idx}: lead became empty after normalization")
                             continue
                         
                         # Get enrichment value
@@ -134,10 +143,10 @@ class LeadsDatasetService:
                             # Column doesn't exist - set to True
                             enrichment_value = "true"
                         
-                        # Create Dataset record
+                        # Create Dataset record with normalized lead
                         dataset_row = Dataset(
                             project_dataset_id=project_dataset.id,
-                            lead=lead_value,
+                            lead=normalized_lead,  # Store normalized version
                             enrichment_value=enrichment_value
                         )
                         session.add(dataset_row)
