@@ -71,6 +71,20 @@ class SerpLead(Base):
     project = relationship("Project", back_populates="serp_leads")
     serp_url = relationship("SerpUrl", back_populates="serp_leads")
 
+class SerpLeadAggregated(Base):
+    """PostgreSQL table: serp_leads_aggregated - for storing aggregated leads grouped by name with SERP count"""
+    __tablename__ = "serp_leads_aggregated"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)  # Foreign key to Project.id
+    leads = Column(Text, nullable=False)  # The lead/company name (grouped)
+    serp_count = Column(Integer, nullable=False, default=0)  # Count of distinct SERP URLs this lead appears in
+    created_at = Column(DateTime, default=datetime.utcnow)  # When the aggregated record was created
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)  # When the aggregated record was last updated
+    
+    # Relationships
+    project = relationship("Project", back_populates="serp_leads_aggregated")
+
 class ProjectDataset(Base):
     """PostgreSQL table: project_datasets - metadata linking projects to datasets"""
     __tablename__ = "project_datasets"
