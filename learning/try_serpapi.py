@@ -12,7 +12,7 @@ import json
 load_dotenv()
 
 params = {
-  "engine": "google",
+  "engine": "google", #google_light_fast
   "q": "top environmental corporates in australia",
   "location": "Sydney, New South Wales, Australia",
   "hl": "en",
