@@ -96,8 +96,10 @@ class DatabaseService:
             "serp_queries",
             "serp_urls",
             "serp_leads",
+            "serp_leads_aggregated",
             "project_datasets",
-            "datasets"
+            "datasets",
+            "merged_results"
         ]
         for table_name in required_tables:
             if not self.check_table_exists(table_name):
