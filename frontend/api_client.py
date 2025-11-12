@@ -145,3 +145,26 @@ def fetch_datasets_zip(project_id: int):
         return response.content, filename
     
     return None, None
+
+# Merged results endpoints
+def get_merged_results(project_id: int):
+    """Get merged results table as JSON for displaying in frontend"""
+    response = _request("GET", f"/api/projects/{project_id}/leads/")
+    return response.json() if response else None
+
+def fetch_merged_results_zip(project_id: int):
+    """
+    Fetch ZIP file containing merged results table.
+    Returns (zip_content: bytes, filename: str) or (None, None) on error
+    """
+    response = _request("GET", f"/api/projects/{project_id}/leads/download", stream=True)
+    
+    if response:
+        # Get filename from Content-Disposition header (backend sets it)
+        cd = response.headers.get("Content-Disposition", "")
+        # Extract filename from header (format: "attachment; filename=name.zip")
+        filename = cd.split("filename=", 1)[1].strip().strip('"').strip("'")
+        
+        return response.content, filename
+    
+    return None, None
