@@ -211,26 +211,31 @@ def show_web_search_tab(project):
     
     if has_data:
         # Check if ZIP data is already in session state
-        has_csv_data = "csv_data_all" in st.session_state
+        has_csv_data = "csv_data_all" in st.session_state and st.session_state.get("csv_data_all") is not None
         
         if not has_csv_data:
             # Show button to load downloads
             if st.button("📥 Load Downloads", help="Fetch ZIP file from the latest run"):
                 with st.spinner("📥 Loading downloads..."):
-                    fetch_and_store_zip_data(project['id'])
-                    st.rerun()
+                    if fetch_and_store_zip_data(project['id']):
+                        st.success("✅ Downloads ready! The download button will appear below.")
+                        # Don't rerun - Streamlit will rerun automatically on button click anyway
+                    else:
+                        st.error("❌ Failed to load downloads. Please try again.")
         
         # Show single ZIP download button if data is available
-        if f"csv_data_all" in st.session_state:
+        if has_csv_data:
+            download_key = "dl_serp"
             st.download_button(
                 label="📦 Download All Results (ZIP)",
                 data=st.session_state["csv_data_all"],
-                file_name=st.session_state.get("csv_filename_all"),
+                file_name=st.session_state.get("csv_filename_all", "serp_results.zip"),
                 mime="application/zip",
-                key="dl_all",
+                key=download_key,
                 use_container_width=True
             )
-        else:
+            # Note: st.download_button does NOT cause a rerun - it just triggers the download
+        elif not has_csv_data:
             st.info("📥 Click 'Load Downloads' above to prepare the download file.")
     else:
         st.info("ℹ️ No data available yet. Run a web search to generate downloadable CSV files.")
@@ -342,8 +347,10 @@ def show_upload_dataset_tab(project):
             # Show button to load downloads
             if st.button("📥 Load Dataset Downloads", help="Fetch ZIP file with all dataset data", key="load_datasets_zip"):
                 with st.spinner("📥 Loading dataset downloads..."):
-                    fetch_and_store_datasets_zip(project['id'])
-                    st.rerun()
+                    if fetch_and_store_datasets_zip(project['id']):
+                        st.success("✅ Downloads ready! You can now download the ZIP file below.")
+                    else:
+                        st.error("❌ Failed to load dataset downloads. Please try again.")
         
         # Show single ZIP download button if data is available
         if "datasets_zip_data" in st.session_state:
