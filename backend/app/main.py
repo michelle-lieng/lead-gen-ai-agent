@@ -4,7 +4,7 @@ FastAPI application entry point
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api.routes import projects, leads_serp, leads_dataset
+from .api.routes import projects, leads_serp, leads_dataset, merged_results
 from .services.database_service import db_service
 
 # Configure logging
@@ -79,3 +79,7 @@ app.include_router(leads_serp.router, prefix="/api", tags=["queries"])
 ########## DATASET ENDPOINTS
 
 app.include_router(leads_dataset.router, prefix="/api", tags=["datasets"])
+
+########## MERGED RESULTS ENDPOINTS
+
+app.include_router(merged_results.router, prefix="/api", tags=["merged-results"])
