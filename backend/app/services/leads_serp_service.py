@@ -66,7 +66,7 @@ class LeadsSerpService:
             response = self.openai_client.responses.parse(
                 model="gpt-4o-2024-08-06",
                 input=[
-                    {"role": "system", "content": "You are an expert at generating targeted search queries for lead generation. Generate precise, effective search queries that will find relevant companies."},
+                    {"role": "system", "content": "You are an expert at generating effective Google search queries for lead generation. You create specific, descriptive queries that combine multiple terms, locations, and company characteristics to find the best potential leads. Your queries are natural, varied, creative, and optimized to discover company directories, lists, case studies, and business profiles."},
                     {"role": "user", "content": prompt}
                 ],
                 text_format=QueryListRequest,
