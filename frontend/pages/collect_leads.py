@@ -188,6 +188,12 @@ def show_web_search_tab(project):
                             # Automatically fetch ZIP file after successful extraction
                             with st.spinner("📥 Preparing download..."):
                                 fetch_and_store_zip_data(project['id'])
+                            
+                            # Clear queries after successful completion so they don't persist on page reset
+                            if 'generated_queries' in st.session_state:
+                                st.session_state.generated_queries = {}
+                            if 'query_counter' in st.session_state:
+                                st.session_state.query_counter = 0
                         else:
                             st.error(f"❌ Failed to generate leads")
                     else:
