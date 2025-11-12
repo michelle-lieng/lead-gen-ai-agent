@@ -1,7 +1,11 @@
 WORK_LOG.md
-learning/openai_agent_full_output.txt
-learning/serpapi_example_output.json
+learning
 output
+CODE_REVIEW.md
+src
+config.yaml
+lead_datasets
+fixtures
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
