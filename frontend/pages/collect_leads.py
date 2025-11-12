@@ -32,15 +32,12 @@ def show_collect_leads():
     st.markdown("### 🔍 Lead Collection Tools")
     
     # Lead collection methods - 3 ways to collect leads
-    tab1, tab2, tab3 = st.tabs(["🌐 Web Search", "📧 Email Scraping", "📁 Upload Dataset"])
+    tab1, tab2 = st.tabs(["🌐 Web Search", "📁 Upload Dataset"])
     
     with tab1:
         show_web_search_tab(project)
     
     with tab2:
-        show_email_scraping_tab(project)
-    
-    with tab3:
         show_upload_dataset_tab(project)
 
 def show_web_search_tab(project):
@@ -228,14 +225,6 @@ def show_web_search_tab(project):
             st.info("📥 Click 'Load Downloads' above to prepare the download file.")
     else:
         st.info("ℹ️ No data available yet. Run a web search to generate downloadable CSV files.")
-
-def show_email_scraping_tab(project):
-    """Email scraping tab content"""
-    st.markdown("#### Extract emails from websites")
-    website_url = st.text_input("Website URL", placeholder="https://example.com")
-    if st.button("📧 Extract Emails"):
-        st.info("📧 Extracting emails from website...")
-        # TODO: Implement email extraction
 
 def show_upload_dataset_tab(project):
     """Upload dataset tab content"""
