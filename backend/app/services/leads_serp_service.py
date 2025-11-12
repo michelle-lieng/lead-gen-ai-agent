@@ -70,7 +70,7 @@ class LeadsSerpService:
                     {"role": "user", "content": prompt}
                 ],
                 text_format=QueryListRequest,
-                temperature=0.2
+                temperature=0.7  # Higher temperature for more creative and varied queries
             )
             
             # Parse the response
