@@ -69,3 +69,93 @@ class MergedResultsService:
             logger.error(f"❌ Error ensuring enrichment column '{column_name}' exists: {str(e)}")
             return False
 
+    def merge_serp_leads(self, project_id: int) -> dict:
+        """
+        Merge aggregated SERP leads into merged_results table.
+        Called after SERP aggregation completes.
+        
+        Strategy: Refresh SERP data by:
+        1. Setting all existing merged_results serp_count to NULL (preserve enrichment columns)
+        2. Insert/update with latest SERP counts from aggregated leads
+        This ensures we always have the latest SERP counts without losing enrichment data.
+        
+        Args:
+            project_id: Project ID to merge leads for
+            
+        Returns:
+            dict: Success status and statistics
+        """
+        try:
+            with db_service.get_session() as session:
+                # Get all aggregated SERP leads for this project
+                aggregated_leads = session.query(SerpLeadAggregated).filter(
+                    SerpLeadAggregated.project_id == project_id
+                ).all()
+                
+                if not aggregated_leads:
+                    logger.info(f"No aggregated SERP leads found for project {project_id} to merge")
+                    # Clear SERP counts for existing records (they may have been removed)
+                    session.query(MergedResult).filter(
+                        MergedResult.project_id == project_id
+                    ).update({"serp_count": None})
+                    session.commit()
+                    return {
+                        "success": True,
+                        "leads_merged": 0,
+                        "message": "No aggregated SERP leads found to merge"
+                    }
+                
+                # Step 1: Reset all SERP counts to NULL (preserve enrichment columns)
+                # This handles cases where leads were removed from SERP results
+                session.query(MergedResult).filter(
+                    MergedResult.project_id == project_id
+                ).update({"serp_count": None})
+                
+                merged_count = 0
+                updated_count = 0
+                
+                # Step 2: Insert or update with latest SERP counts
+                for agg_lead in aggregated_leads:
+                    # Normalize lead name (already normalized in aggregation, but ensure consistency)
+                    normalized_lead = normalize_lead_name(agg_lead.leads)
+                    
+                    if not normalized_lead:
+                        continue
+                    
+                    # Check if lead already exists in merged_results
+                    existing = session.query(MergedResult).filter(
+                        MergedResult.project_id == project_id,
+                        MergedResult.lead == normalized_lead
+                    ).first()
+                    
+                    if existing:
+                        # Update existing record with latest SERP count
+                        existing.serp_count = agg_lead.serp_count
+                        updated_count += 1
+                    else:
+                        # Create new merged result (only SERP data, no enrichment yet)
+                        merged_result = MergedResult(
+                            project_id=project_id,
+                            lead=normalized_lead,
+                            serp_count=agg_lead.serp_count
+                        )
+                        session.add(merged_result)
+                        merged_count += 1
+                
+                session.commit()
+                
+                total_processed = merged_count + updated_count
+                logger.info(f"✅ Merged {total_processed} SERP leads for project {project_id} ({merged_count} new, {updated_count} updated)")
+                
+                return {
+                    "success": True,
+                    "leads_merged": merged_count,
+                    "leads_updated": updated_count,
+                    "total_processed": total_processed,
+                    "message": f"Merged {total_processed} SERP leads ({merged_count} new, {updated_count} updated)"
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ Error merging SERP leads: {str(e)}")
+            raise Exception(f"Error merging SERP leads: {str(e)}")
+
