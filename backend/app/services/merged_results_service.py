@@ -266,3 +266,198 @@ class MergedResultsService:
             logger.error(f"❌ Error merging dataset leads: {str(e)}")
             raise Exception(f"Error merging dataset leads: {str(e)}")
 
+    def get_merged_results(self, project_id: int) -> dict:
+        """
+        Get merged_results table as list of dictionaries (JSON-friendly).
+        Handles dynamic enrichment columns.
+        
+        Args:
+            project_id: Project ID to get merged results for
+            
+        Returns:
+            dict: Dictionary with 'data' (list of dicts) and 'columns' (list of column names)
+        """
+        try:
+            with db_service.get_session() as session:
+                # First, get all column names for merged_results table (including dynamic ones)
+                columns_query = text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'merged_results'
+                    ORDER BY ordinal_position
+                """)
+                columns_result = session.execute(columns_query).fetchall()
+                column_names = [row[0] for row in columns_result]
+                
+                # Get all merged results for this project using raw SQL to include dynamic columns
+                columns_str = ", ".join([f'"{col}"' for col in column_names])
+                
+                select_query = text(f"""
+                    SELECT {columns_str}
+                    FROM merged_results
+                    WHERE project_id = :project_id
+                    ORDER BY serp_count DESC NULLS LAST, lead ASC
+                """)
+                
+                results = session.execute(select_query, {"project_id": project_id}).fetchall()
+                
+                if not results:
+                    return {"data": [], "columns": column_names, "count": 0}
+                
+                # Convert to list of dictionaries
+                data = []
+                for row_data in results:
+                    row_dict = {}
+                    for idx, col_name in enumerate(column_names):
+                        value = row_data[idx]
+                        
+                        # Format the value for JSON
+                        if value is None:
+                            row_dict[col_name] = None
+                        elif isinstance(value, datetime):
+                            row_dict[col_name] = value.isoformat()
+                        else:
+                            row_dict[col_name] = value
+                    
+                    data.append(row_dict)
+                
+                logger.info(f"✅ Retrieved {len(data)} merged results for project {project_id}")
+                
+                return {"data": data, "columns": column_names, "count": len(data)}
+                
+        except Exception as e:
+            logger.error(f"❌ Error getting merged results: {str(e)}")
+            raise
+
+    def export_merged_results_as_csv(self, project_id: int) -> dict:
+        """
+        Export merged_results table as CSV for a project.
+        Handles dynamic enrichment columns.
+        
+        Args:
+            project_id: Project ID to export merged results for
+            
+        Returns:
+            dict: Dictionary with CSV content as string
+        """
+        try:
+            with db_service.get_session() as session:
+                # First, get all column names for merged_results table (including dynamic ones)
+                columns_query = text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'merged_results'
+                    ORDER BY ordinal_position
+                """)
+                columns_result = session.execute(columns_query).fetchall()
+                column_names = [row[0] for row in columns_result]
+                
+                # Get all merged results for this project using raw SQL to include dynamic columns
+                # Build dynamic column list for SELECT
+                columns_str = ", ".join([f'"{col}"' for col in column_names])
+                
+                select_query = text(f"""
+                    SELECT {columns_str}
+                    FROM merged_results
+                    WHERE project_id = :project_id
+                """)
+                
+                results = session.execute(select_query, {"project_id": project_id}).fetchall()
+                
+                if not results:
+                    return {"csv_content": None, "message": "No merged results found for this project"}
+                
+                # Create CSV
+                output = StringIO()
+                writer = csv.writer(output)
+                
+                # Write header row
+                writer.writerow(column_names)
+                
+                # Write data rows
+                for row_data in results:
+                    row = []
+                    for idx, col_name in enumerate(column_names):
+                        value = row_data[idx]
+                        
+                        # Format the value
+                        if value is None:
+                            row.append("")
+                        elif isinstance(value, datetime):
+                            row.append(value.isoformat())
+                        else:
+                            row.append(str(value))
+                    
+                    writer.writerow(row)
+                
+                csv_content = output.getvalue()
+                
+                logger.info(f"✅ Exported {len(results)} merged results for project {project_id}")
+                
+                return {"csv_content": csv_content, "row_count": len(results)}
+                
+        except Exception as e:
+            logger.error(f"❌ Error exporting merged results as CSV: {str(e)}")
+            raise
+
+    def export_merged_results_as_zip(self, project_id: int) -> tuple[bytes, str]:
+        """
+        Export merged_results table as a ZIP file containing CSV.
+        
+        Args:
+            project_id: Project ID to export merged results for
+            
+        Returns:
+            tuple[bytes, str]: 
+                - zip_file_bytes: Binary content of the ZIP file
+                - filename: Suggested filename for download
+                
+        Raises:
+            ValueError: If no data found for project or project doesn't exist
+        """
+        try:
+            # Step 1: Get CSV data
+            export_result = self.export_merged_results_as_csv(project_id)
+            csv_content = export_result.get("csv_content")
+            
+            # Step 2: Validate that we have data
+            if not csv_content:
+                raise ValueError("No merged results found for this project")
+            
+            # Step 3: Generate timestamp for filename
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Step 4: Get project name for meaningful filename
+            project = project_service.get_project(project_id)
+            project_name = project.project_name
+            
+            # Step 5: Sanitize project name for filename
+            safe_project_name = re.sub(r'[^\w\s-]', '', project_name).strip().replace(' ', '_')
+            
+            # Step 6: Generate ZIP filename
+            zip_filename = f"{safe_project_name}_merged_results_{timestamp_str}.zip"
+            
+            # Step 7: Create ZIP file in memory
+            zip_buffer = BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                # Encode CSV with UTF-8 BOM for Excel compatibility
+                zip_file.writestr("merged_results.csv", csv_content.encode('utf-8-sig'))
+            
+            zip_buffer.seek(0)
+            zip_bytes = zip_buffer.getvalue()
+            
+            logger.info(f"✅ Generated merged results ZIP file for project {project_id}: {zip_filename} ({len(zip_bytes)} bytes)")
+            
+            return zip_bytes, zip_filename
+                
+        except ValueError:
+            # Re-raise ValueError as-is (for "no data" or "project not found")
+            raise
+        except Exception as e:
+            logger.error(f"❌ Error exporting merged results as ZIP: {str(e)}")
+            raise
+
+
+# Global service instance
+merged_results_service = MergedResultsService()
+
