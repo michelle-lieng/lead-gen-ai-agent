@@ -14,6 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from .database_service import db_service
 from .project_service import project_service
 from ..models.tables import ProjectDataset, Dataset, Project
+from .merged_results_service import merged_results_service
 from ..utils.lead_utils import normalize_lead_name
 
 logger = logging.getLogger(__name__)
@@ -169,6 +170,18 @@ class LeadsDatasetService:
                     f"✅ Dataset '{dataset_name}' uploaded: "
                     f"{rows_processed} rows processed"
                 )
+                
+                # Merge dataset leads into merged_results table
+                try:
+                    merge_result = merged_results_service.merge_dataset_leads(
+                        project_id=project_id,
+                        project_dataset_id=project_dataset.id,
+                        enrichment_column=enrichment_column
+                    )
+                    logger.info(f"✅ Dataset leads merged: {merge_result.get('message', '')}")
+                except Exception as merge_error:
+                    # Log merge error but don't fail the upload
+                    logger.warning(f"⚠️ Dataset leads merge failed (upload still succeeded): {str(merge_error)}")
                 
                 return {
                     "success": True,
