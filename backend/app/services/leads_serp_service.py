@@ -153,20 +153,25 @@ class LeadsSerpService:
         """
         try:
             with db_service.get_session() as session:
-                all_urls = []
-
                 # STEP 1: Collect all generated urls first using jina_serp_scraper
+                all_urls = []
+                seen_links = set()  # Track unique links to avoid duplicates
+                
                 for query in queries:
                     # extract the urls using Serpapi
                     serp_object = jina_serp_scraper(query)
                     for serp_result in serp_object:
-                        all_urls.append({
-                            'project_id': project_id,
-                            'query': query,
-                            'title': serp_result.get('title'),
-                            'link': serp_result.get('url'),
-                            'snippet': serp_result.get('description')
-                        })
+                        link = serp_result.get('url')
+                        # Only add if we haven't seen this link before in this batch
+                        if link and link not in seen_links:
+                            seen_links.add(link)
+                            all_urls.append({
+                                'project_id': project_id,
+                                'query': query,
+                                'title': serp_result.get('title'),
+                                'link': link,
+                                'snippet': serp_result.get('description')
+                            })
 
                 # Step 2: Batch upsert using SQLAlchemy core
                 statement = insert(SerpUrl).values(all_urls)
