@@ -81,6 +81,29 @@ class LeadsDatasetService:
                 else:
                     logger.info(f"Creating column '{enrichment_column}' with value True")
                 
+                # Check for duplicate leads in the CSV (case-insensitive, whitespace-trimmed)
+                lead_values = df[lead_column].astype(str).str.strip()
+                # Remove empty/NaN values for duplicate check
+                non_empty_leads = lead_values[lead_values != ''].str.lower()
+                duplicates = non_empty_leads[non_empty_leads.duplicated(keep=False)]
+                
+                if not duplicates.empty:
+                    # Get unique duplicate lead names (original case from first occurrence)
+                    duplicate_leads = []
+                    seen_lower = set()
+                    for idx, lead_lower in duplicates.items():
+                        if lead_lower not in seen_lower:
+                            seen_lower.add(lead_lower)
+                            # Get original case from dataframe
+                            original_lead = str(df.loc[idx, lead_column]).strip()
+                            duplicate_leads.append(original_lead)
+                    
+                    raise ValueError(
+                        f"Duplicate leads found in CSV. Each lead must be unique. "
+                        f"Found duplicates: {', '.join(duplicate_leads[:10])}"
+                        f"{'...' if len(duplicate_leads) > 10 else ''}"
+                    )
+                
                 # Create ProjectDataset record
                 project_dataset = ProjectDataset(
                     project_id=project_id,
