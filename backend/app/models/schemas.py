@@ -28,6 +28,8 @@ class ProjectUpdate(BaseModel):
     leads_collected: Optional[int] = None
     datasets_added: Optional[int] = None
     urls_processed: Optional[int] = None
+    query_generation_prompt: Optional[str] = None
+    lead_extraction_prompt: Optional[str] = None
     
     @field_validator('project_name', 'description')
     @classmethod
@@ -47,6 +49,8 @@ class ProjectResponse(BaseModel):
     leads_collected: int
     datasets_added: int
     urls_processed: int
+    query_generation_prompt: Optional[str] = None
+    lead_extraction_prompt: Optional[str] = None
     
     class Config:
         from_attributes = True
