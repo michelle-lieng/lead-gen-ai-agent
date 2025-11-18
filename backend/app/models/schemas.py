@@ -13,9 +13,9 @@ def validate_not_empty_string(v: str) -> str:
 class ProjectCreate(BaseModel):
     """Schema for creating a new project"""
     project_name: str
-    description: str  # Required field
+    description: Optional[str] = None  # Optional field
     
-    @field_validator('project_name', 'description')
+    @field_validator('project_name')
     @classmethod
     def validate_not_empty(cls, v: str) -> str:
         """Ensure field is not empty or just whitespace"""
@@ -43,7 +43,7 @@ class ProjectResponse(BaseModel):
     """Schema for project API responses"""
     id: int
     project_name: str
-    description: str  # Required field
+    description: Optional[str] = None  # Optional field
     date_added: str
     last_updated: str
     leads_collected: int
