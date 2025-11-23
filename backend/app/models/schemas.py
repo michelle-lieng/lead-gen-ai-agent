@@ -63,3 +63,17 @@ class ProjectResponse(BaseModel):
 class QueryListRequest(BaseModel):
     """Schema for query list requests"""
     queries: list[str]
+
+class QueryGenerationRequest(BaseModel):
+    """Schema for AI query generation requests"""
+    num_queries: Optional[int] = 3
+    
+    @field_validator('num_queries')
+    @classmethod
+    def validate_num_queries(cls, v: Optional[int]) -> int:
+        """Validate num_queries is between 1 and 20"""
+        if v is None:
+            return 3
+        if v < 1 or v > 20:
+            raise ValueError('num_queries must be between 1 and 20')
+        return v
