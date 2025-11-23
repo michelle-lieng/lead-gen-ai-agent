@@ -5,19 +5,26 @@ from fastapi import APIRouter, HTTPException, Response
 
 from ...services.leads_serp_service import leads_serp_service
 
-from ...models.schemas import QueryListRequest
+from ...models.schemas import QueryListRequest, QueryGenerationRequest
 
 router = APIRouter()
 
 @router.post("/projects/{project_id}/leads/serp/queries")
-async def generate_queries(project_id: int) -> list:
+async def generate_queries(
+    project_id: int,
+    request: QueryGenerationRequest
+) -> list:
     """
     Generate AI-powered search queries for a project based on its description.
+    
+    Args:
+        project_id: ID of the project
+        request: Request body with num_queries (defaults to 3 if not provided)
     
     Gets the project id -> service handles fetching description and generating queries
     """
     try:
-        query_list = leads_serp_service.generate_search_queries_for_project(project_id)
+        query_list = leads_serp_service.generate_search_queries_for_project(project_id, num_queries=request.num_queries)
         return query_list
     except ValueError as e:
         # Handle project not found (ValueError from service)
