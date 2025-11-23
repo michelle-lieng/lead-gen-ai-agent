@@ -14,7 +14,12 @@ logger = logging.getLogger(__name__)
 class ProjectService:
     """Service for project-related database operations"""
 
-    def create_project(self, project_name: str, description: str) -> Project:
+    def create_project(self, 
+        project_name: str, 
+        description: Optional[str] = None,
+        query_search_target: Optional[str] = None,
+        lead_features_we_want: Optional[str] = None,
+        lead_features_to_avoid: Optional[str] = None) -> Project:
         """Create a new project"""
         try:
             # this line returns a SQL Alchemy Session object --> have the query(), filter(), first() methods
@@ -26,8 +31,11 @@ class ProjectService:
                 
                 project = Project(
                     project_name=project_name,
-                    description=description
-                )
+                    description=description,
+                    query_search_target=query_search_target,
+                    lead_features_we_want=lead_features_we_want,
+                    lead_features_to_avoid=lead_features_to_avoid
+                    )
                 session.add(project)
                 session.commit() #save data to database
                 session.refresh(project) # updates python object with database values to return 
@@ -223,8 +231,11 @@ if __name__ == "__main__":
         print("\n1️⃣ Testing create_project...")
         test_project = project_service.create_project(
             project_name="Test Project",
-            description="This is a test project"
-        )
+            description="This is a test project",
+            query_search_target="Companies with cats and dogs and from Australia",
+            lead_features_we_want="Companies that sell cats",
+            lead_features_to_avoid="Companies that sell petrol"
+            )
         print(f"✅ Created project: {test_project.project_name} (ID: {test_project.id})")
         
         # Test 2: Get all projects
