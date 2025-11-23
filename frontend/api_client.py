@@ -79,9 +79,15 @@ def delete_project(project_id: int):
     return response is not None
 
 # Lead generation endpoints
-def generate_queries(project_id: int):
-    """Generate search queries for a project via API"""
-    response = _request("POST", f"/api/projects/{project_id}/leads/serp/queries")
+def generate_queries(project_id: int, num_queries: int = 3):
+    """
+    Generate search queries for a project via API
+    
+    Args:
+        project_id: ID of the project
+        num_queries: Number of queries to generate (1-20, default: 3)
+    """
+    response = _request("POST", f"/api/projects/{project_id}/leads/serp/queries", json_data={"num_queries": num_queries})
     return response.json() if response else None
 
 def generate_urls(project_id: int, queries: list[str]):
