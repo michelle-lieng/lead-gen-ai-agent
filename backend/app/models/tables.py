@@ -14,15 +14,16 @@ class Project(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     project_name = Column(String(255), nullable=False, unique=True)  # Added unique constraint
-    description = Column(Text, nullable=True)  # Optional field
+    description = Column(Text, nullable=True) # Used for notes
+    query_search_target = Column(Text, nullable=True) # Used to generate query prompts
+    lead_features_we_want = Column(Text, nullable=True)  # Used to generating SERP prompts 
+    lead_features_to_avoid = Column(Text, nullable=True) # Used to generating SERP prompts 
     date_added = Column(DateTime, default=datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     leads_collected = Column(Integer, default=0)
     datasets_added = Column(Integer, default=0)
     urls_processed = Column(Integer, default=0)
-    query_generation_prompt = Column(Text, nullable=True)  # Custom prompt for generating search queries
-    lead_extraction_prompt = Column(Text, nullable=True)  # Custom prompt for extracting leads from search results
-    
+
     # Relationship to serp_queries, serp_urls, and serp_leads
     serp_queries = relationship("SerpQuery", back_populates="project", cascade="all, delete-orphan")
     serp_urls = relationship("SerpUrl", back_populates="project", cascade="all, delete-orphan")
