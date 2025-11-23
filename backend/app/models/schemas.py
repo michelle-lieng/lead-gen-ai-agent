@@ -13,9 +13,12 @@ def validate_not_empty_string(v: str) -> str:
 class ProjectCreate(BaseModel):
     """Schema for creating a new project"""
     project_name: str
-    description: str
+    description: Optional[str] = None
+    query_search_target: Optional[str] = None
+    lead_features_we_want: Optional[str] = None
+    lead_features_to_avoid: Optional[str] = None
     
-    @field_validator('project_name', 'description')
+    @field_validator('project_name')
     @classmethod
     def validate_not_empty(cls, v: str) -> str:
         """Ensure field is not empty or just whitespace"""
@@ -25,13 +28,14 @@ class ProjectUpdate(BaseModel):
     """Schema for updating an existing project"""
     project_name: Optional[str] = None
     description: Optional[str] = None
+    query_search_target: Optional[str] = None
+    lead_features_we_want: Optional[str] = None
+    lead_features_to_avoid: Optional[str] = None
     leads_collected: Optional[int] = None
     datasets_added: Optional[int] = None
     urls_processed: Optional[int] = None
-    query_generation_prompt: Optional[str] = None
-    lead_extraction_prompt: Optional[str] = None
     
-    @field_validator('project_name', 'description')
+    @field_validator('project_name')
     @classmethod
     def validate_not_empty_if_provided(cls, v: Optional[str]) -> Optional[str]:
         """If provided, ensure field is not empty or just whitespace"""
@@ -43,14 +47,15 @@ class ProjectResponse(BaseModel):
     """Schema for project API responses"""
     id: int
     project_name: str
-    description: str
+    description: Optional[str] = None
+    query_search_target: Optional[str] = None
+    lead_features_we_want: Optional[str] = None
+    lead_features_to_avoid: Optional[str] = None
     date_added: str
     last_updated: str
     leads_collected: int
     datasets_added: int
     urls_processed: int
-    query_generation_prompt: Optional[str] = None
-    lead_extraction_prompt: Optional[str] = None
     
     class Config:
         from_attributes = True
