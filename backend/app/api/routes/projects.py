@@ -9,22 +9,28 @@ from ...models.schemas import ProjectCreate, ProjectUpdate, ProjectResponse
 router = APIRouter()
 
 @router.post("/", response_model=ProjectResponse)
-async def create_project(project: ProjectCreate):
+async def create_project(project_data: ProjectCreate):
     """Create a new project"""
     try:
-        db_project = project_service.create_project(
-            project_name=project.project_name,
-            description=project.description
+        project = project_service.create_project(
+            project_name=project_data.project_name,
+            description=project_data.description,
+            query_search_target=project_data.query_search_target,
+            lead_features_we_want=project_data.lead_features_we_want,
+            lead_features_to_avoid=project_data.lead_features_to_avoid,
         )
         return ProjectResponse(
-            id=db_project.id,
-            project_name=db_project.project_name,
-            description=db_project.description,
-            date_added=db_project.date_added.isoformat(),
-            last_updated=db_project.last_updated.isoformat(),
-            leads_collected=db_project.leads_collected,
-            datasets_added=db_project.datasets_added,
-            urls_processed=db_project.urls_processed
+            id=project.id,
+            project_name=project.project_name,
+            description=project.description,
+            query_search_target=project.query_search_target,
+            lead_features_we_want=project.lead_features_we_want,
+            lead_features_to_avoid=project.lead_features_to_avoid,
+            date_added=project.date_added.isoformat(),
+            last_updated=project.last_updated.isoformat(),
+            leads_collected=project.leads_collected,
+            datasets_added=project.datasets_added,
+            urls_processed=project.urls_processed
         )
     except ValueError as e:
         # Handle duplicate project name
@@ -39,15 +45,18 @@ async def list_projects():
         projects = project_service.get_projects()
         return [
             ProjectResponse(
-                id=p.id,
-                project_name=p.project_name,
-                description=p.description,
-                date_added=p.date_added.isoformat(),
-                last_updated=p.last_updated.isoformat(),
-                leads_collected=p.leads_collected,
-                datasets_added=p.datasets_added,
-                urls_processed=p.urls_processed
-            ) for p in projects
+                id=project.id,
+                project_name=project.project_name,
+                description=project.description,
+                query_search_target=project.query_search_target,
+                lead_features_we_want=project.lead_features_we_want,
+                lead_features_to_avoid=project.lead_features_to_avoid,
+                date_added=project.date_added.isoformat(),
+                last_updated=project.last_updated.isoformat(),
+                leads_collected=project.leads_collected,
+                datasets_added=project.datasets_added,
+                urls_processed=project.urls_processed
+            ) for project in projects
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching projects: {str(e)}")
@@ -64,6 +73,9 @@ async def get_project(project_id: int):
             id=project.id,
             project_name=project.project_name,
             description=project.description,
+            query_search_target=project.query_search_target,
+            lead_features_we_want=project.lead_features_we_want,
+            lead_features_to_avoid=project.lead_features_to_avoid,
             date_added=project.date_added.isoformat(),
             last_updated=project.last_updated.isoformat(),
             leads_collected=project.leads_collected,
@@ -76,28 +88,31 @@ async def get_project(project_id: int):
         raise HTTPException(status_code=500, detail=f"Error fetching project: {str(e)}")
 
 @router.put("/{project_id}", response_model=ProjectResponse)
-async def update_project(project_id: int, project: ProjectUpdate):
+async def update_project(project_id: int, project_data: ProjectUpdate):
     """Update project by ID"""
     try:
         # Convert Pydantic model to dict, excluding None values
-        update_data = {k: v for k, v in project.dict().items() if v is not None}
+        update_data = {k: v for k, v in project_data.dict().items() if v is not None}
         
         if not update_data:
             raise HTTPException(status_code=400, detail="No fields to update")
         
-        updated_project = project_service.update_project(project_id, **update_data)
-        if not updated_project:
+        project = project_service.update_project(project_id, **update_data)
+        if not project:
             raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
         
         return ProjectResponse(
-            id=updated_project.id,
-            project_name=updated_project.project_name,
-            description=updated_project.description,
-            date_added=updated_project.date_added.isoformat(),
-            last_updated=updated_project.last_updated.isoformat(),
-            leads_collected=updated_project.leads_collected,
-            datasets_added=updated_project.datasets_added,
-            urls_processed=updated_project.urls_processed
+            id=project.id,
+            project_name=project.project_name,
+            description=project.description,
+            query_search_target=project.query_search_target,
+            lead_features_we_want=project.lead_features_we_want,
+            lead_features_to_avoid=project.lead_features_to_avoid,
+            date_added=project.date_added.isoformat(),
+            last_updated=project.last_updated.isoformat(),
+            leads_collected=project.leads_collected,
+            datasets_added=project.datasets_added,
+            urls_processed=project.urls_processed
         )
     except HTTPException:
         raise
