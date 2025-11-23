@@ -5,7 +5,11 @@ import streamlit as st
 import pandas as pd
 from api_client import update_project, generate_queries, generate_urls, generate_leads, fetch_latest_run_zip, get_project, upload_dataset, fetch_datasets_zip
 
-def fetch_and_store_zip_data(project_id: int):
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+def _fetch_and_store_zip_data(project_id: int):
     """Fetch ZIP file from API and store in session state"""
     zip_content, filename = fetch_latest_run_zip(project_id)
     if zip_content and filename:
@@ -14,7 +18,7 @@ def fetch_and_store_zip_data(project_id: int):
         return True
     return False
 
-def fetch_and_store_datasets_zip(project_id: int):
+def _fetch_and_store_datasets_zip(project_id: int):
     """Fetch dataset ZIP file from API and store in session state"""
     zip_content, filename = fetch_datasets_zip(project_id)
     if zip_content and filename:
@@ -22,6 +26,10 @@ def fetch_and_store_datasets_zip(project_id: int):
         st.session_state["datasets_zip_filename"] = filename
         return True
     return False
+
+# =============================================================================
+# MAIN PAGE
+# =============================================================================
 
 def show_collect_leads():
     """Lead collection page"""
@@ -37,21 +45,30 @@ def show_collect_leads():
     with tab2:
         show_upload_dataset_tab(project)
 
-def show_web_search_tab(project):
-    """Web search tab content"""    
-    # Step 1: Search Queries
-    st.markdown("## Step 1: Search Queries")
-    
-    # Initialize queries dict if it doesn't exist (use dict for easy deletion by ID)
+# =============================================================================
+# SESSION STATE INITIALIZATION
+# =============================================================================
+
+def init_collect_leads_session_state():
+    """Initialize session state variables for collect leads page"""
     if 'generated_queries' not in st.session_state:
         st.session_state.generated_queries = {}
-    # Counter for unique IDs
     if 'query_counter' not in st.session_state:
         st.session_state.query_counter = 0
-    # Initialize num_queries if it doesn't exist
     if 'num_queries' not in st.session_state:
         st.session_state.num_queries = 3
+
+# =============================================================================
+# MAIN PAGE - WEB SEARCH TAB
+# =============================================================================
+
+def show_web_search_tab(project):
+    """Web search tab content"""
+    # Initialize page-specific session state
+    init_collect_leads_session_state()
     
+    # Step 1: Search Queries
+    st.markdown("## Step 1: Search Queries")
     st.markdown("**Generate AI queries:**")
     
     # Query Search Target editor (required for AI generation)
@@ -87,7 +104,7 @@ def show_web_search_tab(project):
 
         # Generate button (form submit button)
         generate_submitted = st.form_submit_button(
-            "🤖 Generate Smart Queries",
+            "Generate Smart Queries",
             type="primary"
         )
 
@@ -166,109 +183,118 @@ def show_web_search_tab(project):
                 st.session_state.generated_queries.pop(query_id, None)
             st.rerun()
 
-        # Step 2: Start search
-        st.markdown("---")
-        st.markdown("## Step 2: Start the search")
-        
-        # Get current project values for lead features (use latest from session state)
-        current_project = st.session_state.selected_project
-        current_lead_features_we_want = current_project.get('lead_features_we_want', '') or ''
-        current_lead_features_to_avoid = current_project.get('lead_features_to_avoid', '') or ''
-        
-        # Lead features input boxes
-        col1, col2 = st.columns(2)
-        with col1:
-            lead_features_we_want = st.text_area(
-                "Lead Features We Want",
-                value=current_lead_features_we_want,
-                placeholder="e.g., Companies focused on sustainability, B2B SaaS companies, etc.",
-                height=100,
-                help="Describe the features or characteristics you want in your leads",
-                key="lead_features_we_want_input"
-            )
-        with col2:
-            lead_features_to_avoid = st.text_area(
-                "Lead Features to Avoid",
-                value=current_lead_features_to_avoid,
-                placeholder="e.g., Companies that sell to consumers, companies in specific industries, etc.",
-                height=100,
-                help="Describe the features or characteristics you want to avoid in your leads",
-                key="lead_features_to_avoid_input"
-            )
-        
+    # Step 2: Start search (always visible)
+    st.markdown("---")
+    st.markdown("## Step 2: Start the search")
+    
+    # Test Prompts button at the top
+    if st.button("🧪 Test Extraction Prompts First", help="Test your lead features prompts before running the full extraction"):
+        st.session_state.current_page = "test_prompts"
+        st.rerun()
+    
+    # Get current project values for lead features (use latest from session state)
+    current_project = st.session_state.selected_project
+    current_lead_features_we_want = current_project.get('lead_features_we_want', '') or ''
+    current_lead_features_to_avoid = current_project.get('lead_features_to_avoid', '') or ''
+    
+    # Lead features input boxes
+    col1, col2 = st.columns(2)
+    with col1:
+        lead_features_we_want = st.text_area(
+            "Lead Features We Want",
+            value=current_lead_features_we_want,
+            placeholder="e.g., Companies focused on sustainability, B2B SaaS companies, etc.",
+            height=100,
+            help="Describe the features or characteristics you want in your leads",
+            key="lead_features_we_want_input"
+        )
+    with col2:
+        lead_features_to_avoid = st.text_area(
+            "Lead Features to Avoid",
+            value=current_lead_features_to_avoid,
+            placeholder="e.g., Companies that sell to consumers, companies in specific industries, etc.",
+            height=100,
+            help="Describe the features or characteristics you want to avoid in your leads",
+            key="lead_features_to_avoid_input"
+        )
+    
+    # Check if queries exist
+    has_queries = bool(st.session_state.generated_queries)
+    
+    if not has_queries:
+        st.info("ℹ️ Add at least one search query in Step 1 before you can start the web search.")
+        st.button("🔍 Start Web Search", type="primary", disabled=True)
+    else:
         if st.button("🔍 Start Web Search", type="primary"):
-            if st.session_state.generated_queries:
-                # Save lead features if they have changed
-                features_changed = (
-                    lead_features_we_want.strip() != current_lead_features_we_want or
-                    lead_features_to_avoid.strip() != current_lead_features_to_avoid
-                )
-                
-                if features_changed:
-                    with st.spinner("💾 Saving lead features..."):
-                        result = update_project(
-                            project['id'],
-                            lead_features_we_want=lead_features_we_want.strip() if lead_features_we_want.strip() else None,
-                            lead_features_to_avoid=lead_features_to_avoid.strip() if lead_features_to_avoid.strip() else None
-                        )
-                        if result:
-                            st.session_state.selected_project = result
-                        else:
-                            st.error("❌ Failed to save lead features")
-                            st.stop()
-                
-                with st.spinner("🔍 Starting web search..."):
-                    # Convert dict to list for API call
-                    queries_list = list(st.session_state.generated_queries.values())
-                    # Step 2.1: Generate URLs from queries
-                    st.info(f"📊 Generating URLs from {len(queries_list)} queries...")
-                    urls_result = generate_urls(project['id'], queries_list)
-                    
-                    if urls_result.get('success'):
-                        urls_info = urls_result.get('urls_result', {})
-                        st.success(f"✅ Generated {urls_info.get('urls_added', 0)} URLs from {urls_info.get('queries_processed', 0)} search queries")
-                        
-                        # Step 2.2: Extract leads from URLs
-                        st.info("🤖 Extracting leads from URLs (this may take several minutes)...")
-                        leads_result = generate_leads(project['id'])
-                        
-                        if leads_result.get('success'):
-                            st.success("✅ Leads extracted successfully!")
-                            
-                            # Refresh project data to get updated stats
-                            st.session_state.selected_project = get_project(project['id'])
-
-                            st.markdown("**📊 Search Results (This Run):**")
-
-                            # Show stats from this run only (5-column dashboard)
-                            col1, col2, col3, col4, col5 = st.columns(5)
-                            with col1:
-                                st.metric("Queries Processed", urls_info.get('queries_processed', 0))
-                            with col2:
-                                st.metric("Leads Processed", leads_result.get('new_leads_extracted', 0))
-                            with col3:
-                                st.metric("URLs Processed", leads_result.get('urls_processed', 0))
-                            with col4:
-                                st.metric("URLs Skipped", leads_result.get('urls_skipped', 0))
-                            with col5:
-                                st.metric("URLs Failed", leads_result.get('urls_failed', 0))
-                            
-                            st.info("📝 For detailed statistics, check the backend logs.")
-                            # Automatically fetch ZIP file after successful extraction
-                            with st.spinner("📥 Preparing download..."):
-                                fetch_and_store_zip_data(project['id'])
-                            
-                            # Clear queries after successful completion so they don't persist on page reset
-                            if 'generated_queries' in st.session_state:
-                                st.session_state.generated_queries = {}
-                            if 'query_counter' in st.session_state:
-                                st.session_state.query_counter = 0
-                        else:
-                            st.error(f"❌ Failed to generate leads")
+            # Save lead features if they have changed
+            features_changed = (
+                lead_features_we_want.strip() != current_lead_features_we_want or
+                lead_features_to_avoid.strip() != current_lead_features_to_avoid
+            )
+            
+            if features_changed:
+                with st.spinner("💾 Saving lead features..."):
+                    result = update_project(
+                        project['id'],
+                        lead_features_we_want=lead_features_we_want.strip() if lead_features_we_want.strip() else None,
+                        lead_features_to_avoid=lead_features_to_avoid.strip() if lead_features_to_avoid.strip() else None
+                    )
+                    if result:
+                        st.session_state.selected_project = result
                     else:
-                        st.error(f"❌ Failed to generate URLs")
-            else:
-                st.error("❌ Please add at least one query before starting the search.")
+                        st.error("❌ Failed to save lead features")
+                        st.stop()
+            
+            with st.spinner("🔍 Starting web search..."):
+                # Convert dict to list for API call
+                queries_list = list(st.session_state.generated_queries.values())
+                # Step 2.1: Generate URLs from queries
+                st.info(f"📊 Generating URLs from {len(queries_list)} queries...")
+                urls_result = generate_urls(project['id'], queries_list)
+                
+                if urls_result.get('success'):
+                    urls_info = urls_result.get('urls_result', {})
+                    st.success(f"✅ Generated {urls_info.get('urls_added', 0)} URLs from {urls_info.get('queries_processed', 0)} search queries")
+                    
+                    # Step 2.2: Extract leads from URLs
+                    st.info("🤖 Extracting leads from URLs (this may take several minutes)...")
+                    leads_result = generate_leads(project['id'])
+                    
+                    if leads_result.get('success'):
+                        st.success("✅ Leads extracted successfully!")
+                        
+                        # Refresh project data to get updated stats
+                        st.session_state.selected_project = get_project(project['id'])
+
+                        st.markdown("**📊 Search Results (This Run):**")
+
+                        # Show stats from this run only (5-column dashboard)
+                        col1, col2, col3, col4, col5 = st.columns(5)
+                        with col1:
+                            st.metric("Queries Processed", urls_info.get('queries_processed', 0))
+                        with col2:
+                            st.metric("Leads Processed", leads_result.get('new_leads_extracted', 0))
+                        with col3:
+                            st.metric("URLs Processed", leads_result.get('urls_processed', 0))
+                        with col4:
+                            st.metric("URLs Skipped", leads_result.get('urls_skipped', 0))
+                        with col5:
+                            st.metric("URLs Failed", leads_result.get('urls_failed', 0))
+                        
+                        st.info("📝 For detailed statistics, check the backend logs.")
+                        # Automatically fetch ZIP file after successful extraction
+                        with st.spinner("📥 Preparing download..."):
+                            _fetch_and_store_zip_data(project['id'])
+                        
+                        # Clear queries after successful completion so they don't persist on page reset
+                        if 'generated_queries' in st.session_state:
+                            st.session_state.generated_queries = {}
+                        if 'query_counter' in st.session_state:
+                            st.session_state.query_counter = 0
+                    else:
+                        st.error(f"❌ Failed to generate leads")
+                else:
+                    st.error(f"❌ Failed to generate URLs")
     
     # Always show download section at the bottom of Web Search tab
     st.markdown("---")
@@ -286,7 +312,7 @@ def show_web_search_tab(project):
             # Show button to load downloads
             if st.button("📥 Load Downloads", help="Fetch ZIP file from the latest run"):
                 with st.spinner("📥 Loading downloads..."):
-                    if fetch_and_store_zip_data(project['id']):
+                    if _fetch_and_store_zip_data(project['id']):
                         st.success("✅ Downloads ready! The download button will appear below.")
                         # Don't rerun - Streamlit will rerun automatically on button click anyway
                     else:
@@ -416,7 +442,7 @@ def show_upload_dataset_tab(project):
             # Show button to load downloads
             if st.button("📥 Load Dataset Downloads", help="Fetch ZIP file with all dataset data", key="load_datasets_zip"):
                 with st.spinner("📥 Loading dataset downloads..."):
-                    if fetch_and_store_datasets_zip(project['id']):
+                    if _fetch_and_store_datasets_zip(project['id']):
                         st.success("✅ Downloads ready! You can now download the ZIP file below.")
                     else:
                         st.error("❌ Failed to load dataset downloads. Please try again.")
