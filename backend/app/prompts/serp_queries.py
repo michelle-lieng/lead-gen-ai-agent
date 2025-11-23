@@ -22,8 +22,9 @@ INSTRUCTIONS:
 2. Mix 2-4 relevant attributes in each query.
 3. Vary the angle of each query to capture different result types.
 4. Prioritise queries likely to return lists, directories, associations, award pages, case studies, supplier lists, or curated company sets.
+5. If no country given use Australia
 
-Project Description: {description}
+Description: {query_search_target}
 
 Generate {num_queries} diverse, specific, high-quality search queries.
 """

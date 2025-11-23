@@ -46,12 +46,12 @@ class LeadsSerpService:
         # for openai agents sdk
         set_default_openai_key(settings.openai_api_key)
 
-    def _generate_search_queries(self, description: str, num_queries: int = 3) -> list[str]:
+    def _generate_search_queries(self, query_search_target: str, num_queries: int = 3) -> list[str]:
         """
-        Generate AI-powered search queries based on project description using ChatGPT
+        Generate AI-powered search queries based on project query_search_target using ChatGPT
         
         Args:
-            description (str): Project description to base queries on
+            query_search_target (str): Project query_search_target to base queries on
             num_queries (int): Number of queries to generate (default: 3)
         
         Returns:
@@ -61,7 +61,7 @@ class LeadsSerpService:
             
             # Create the prompt for ChatGPT
             prompt = SERP_QUERIES_PROMPT.format(
-                description=description, 
+                query_search_target=query_search_target, 
                 num_queries=num_queries
             )
             
@@ -95,7 +95,7 @@ class LeadsSerpService:
     def generate_search_queries_for_project(self, project_id: int, num_queries: int = 3) -> list[str]:
         """
         Generate AI-powered search queries for a project by project_id.
-        Fetches the project description internally.
+        Fetches the project query_search_target internally.
         
         Args:
             project_id (int): ID of the project
@@ -108,7 +108,7 @@ class LeadsSerpService:
             ValueError: If project with project_id does not exist
         """
         project = project_service.get_project(project_id)
-        return self._generate_search_queries(project.description, num_queries)
+        return self._generate_search_queries(project.query_search_target, num_queries)
 
     def _add_queries_to_table(self, project_id: int, queries: list[str]) -> bool:
         """
