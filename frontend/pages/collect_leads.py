@@ -26,13 +26,10 @@ def fetch_and_store_datasets_zip(project_id: int):
 def show_collect_leads():
     """Lead collection page"""
     project = st.session_state.selected_project
-    st.markdown(f"# 🎯 Collect Leads - {project['project_name']}")
-    st.markdown("---")
-    
-    st.markdown("### 🔍 Lead Collection Tools")
-    
+    st.markdown(f"# Lead Collection Tools: {project['project_name']}")
+        
     # Lead collection methods - 3 ways to collect leads
-    tab1, tab2 = st.tabs(["🌐 Web Search", "📁 Upload Dataset"])
+    tab1, tab2 = st.tabs(["🌐 AI Web Search", "📁 Upload Dataset"])
     
     with tab1:
         show_web_search_tab(project)
@@ -41,37 +38,9 @@ def show_collect_leads():
         show_upload_dataset_tab(project)
 
 def show_web_search_tab(project):
-    """Web search tab content"""
-    st.markdown("#### 🧠 AI-Powered Web Search")
-    
-    # Step 1: Editable project description (always loaded from database)
-    st.markdown("**Step 1: Project Description**")
-    
-    # Get description from database (via project object)
-    current_description = project.get('description', '')
-    # Editable description with inline save
-    updated_description = st.text_area(
-        "Edit your project description", 
-        value=current_description,
-        placeholder="e.g., Find sustainable energy companies in California that are focused on solar and wind power, preferably startups or mid-size companies with 10-500 employees...",
-        height=250,
-        help="Describe your target companies. Be specific about industry, location, company size, and any other criteria"
-    )
-    
-    # Inline save button
-    if st.button("💾 Save"):
-        with st.spinner("Saving..."):
-            result = update_project(project['id'], description=updated_description)
-            if result:
-                st.success("✅ Description updated!")
-                # Update the project in session state
-                st.session_state.selected_project = result
-                st.rerun()
-            else:
-                st.error("❌ Failed to update description")
-    
-    # Step 2: Search Queries
-    st.markdown("**Step 2: Search Queries**")
+    """Web search tab content"""    
+    # Step 1: Search Queries
+    st.markdown("## Step 1: Search Queries")
     
     # Initialize queries dict if it doesn't exist (use dict for easy deletion by ID)
     if 'generated_queries' not in st.session_state:
@@ -79,36 +48,89 @@ def show_web_search_tab(project):
     # Counter for unique IDs
     if 'query_counter' not in st.session_state:
         st.session_state.query_counter = 0
+    # Initialize num_queries if it doesn't exist
+    if 'num_queries' not in st.session_state:
+        st.session_state.num_queries = 3
     
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.markdown("**Add your own search queries:**")
-        # Use a form to handle input clearing properly
-        with st.form("add_query_form", clear_on_submit=True):
-            new_query = st.text_input("Add custom query", placeholder="Enter your own search query...", key="new_query_input")
-            submitted = st.form_submit_button("➕ Add Query")
-            if submitted and new_query and new_query.strip():
-                query_id = f"q{st.session_state.query_counter}"
-                st.session_state.query_counter += 1
-                st.session_state.generated_queries[query_id] = new_query.strip()
-                st.rerun()
+    st.markdown("**Generate AI queries:**")
     
-    with col2:
-        st.markdown("**Or generate AI queries:**")
-        if st.button("🤖 Generate Smart Queries"):
-            with st.spinner("🤖 AI is generating targeted search queries..."):
-                generated_queries = generate_queries(project['id'])
-                if generated_queries:
-                    # Assign unique IDs to all new AI queries
-                    for query in generated_queries:
-                        query_id = f"q{st.session_state.query_counter}"
-                        st.session_state.query_counter += 1
-                        st.session_state.generated_queries[query_id] = query
-                    st.success(f"✅ Generated {len(generated_queries)} search queries!")
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to generate queries. Please try again.")
-    
+    # Query Search Target editor (required for AI generation)
+    # Use latest project data from session state
+    current_project = st.session_state.selected_project
+    current_target = current_project.get('query_search_target', '')
+
+    with st.form("generate_queries_form"):
+        # Text area on left, number of queries on right
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            # Editable field
+            updated_target = st.text_area(
+                "Edit Query Search Target",
+                value=current_target,
+                placeholder="e.g., Find sustainable energy companies in California that are focused on solar and wind power...",
+                height=100,
+                help="Describe what you're looking for. This helps AI generate better search queries.",
+                key="query_search_target_input"
+            )
+
+        with col2:
+            num_queries = st.number_input(
+                "Number of queries to generate",
+                min_value=1,
+                max_value=20,
+                value=st.session_state.num_queries,
+                step=1,
+                help="How many AI-generated queries would you like? (1-20)",
+                key="num_queries_input"
+            )
+            st.session_state.num_queries = num_queries
+
+        # Generate button (form submit button)
+        generate_submitted = st.form_submit_button(
+            "🤖 Generate Smart Queries",
+            type="primary"
+        )
+
+        if generate_submitted:
+            # Validate input
+            if not updated_target or not updated_target.strip():
+                st.error("❌ Query Search Target cannot be empty")
+            else:
+                # Save query_search_target if it has changed
+                if updated_target.strip() != current_target:
+                    with st.spinner("Saving Query Search Target..."):
+                        result = update_project(project['id'], query_search_target=updated_target.strip())
+                        if result:
+                            st.session_state.selected_project = result
+                        else:
+                            st.error("❌ Failed to save Query Search Target")
+                            st.stop()
+                
+                # Generate queries
+                with st.spinner(f"🤖 AI is generating {st.session_state.num_queries} targeted search queries..."):
+                    generated_queries = generate_queries(project['id'], num_queries=st.session_state.num_queries)
+                    if generated_queries:
+                        # Assign unique IDs to all new AI queries
+                        for query in generated_queries:
+                            query_id = f"q{st.session_state.query_counter}"
+                            st.session_state.query_counter += 1
+                            st.session_state.generated_queries[query_id] = query
+                        st.success(f"✅ Generated {len(generated_queries)} search queries!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to generate queries. Please try again.")
+
+    st.markdown("**Or add your own search queries:**")
+    # Use a form to handle input clearing properly
+    with st.form("add_query_form", clear_on_submit=True):
+        new_query = st.text_input("Add custom query", placeholder="Enter your own search query...", key="new_query_input")
+        submitted = st.form_submit_button("➕ Add Query", type="primary")
+        if submitted and new_query and new_query.strip():
+            query_id = f"q{st.session_state.query_counter}"
+            st.session_state.query_counter += 1
+            st.session_state.generated_queries[query_id] = new_query.strip()
+            st.rerun()
+
     # Display and edit queries (always show if queries exist)
     if st.session_state.generated_queries:
         st.markdown("**Your search queries:**")
@@ -143,15 +165,62 @@ def show_web_search_tab(project):
             for query_id in queries_to_delete:
                 st.session_state.generated_queries.pop(query_id, None)
             st.rerun()
+
+        # Step 2: Start search
+        st.markdown("---")
+        st.markdown("## Step 2: Start the search")
         
-        # Step 3: Start search
-        st.markdown("**Step 3: Start the search**")
+        # Get current project values for lead features (use latest from session state)
+        current_project = st.session_state.selected_project
+        current_lead_features_we_want = current_project.get('lead_features_we_want', '') or ''
+        current_lead_features_to_avoid = current_project.get('lead_features_to_avoid', '') or ''
+        
+        # Lead features input boxes
+        col1, col2 = st.columns(2)
+        with col1:
+            lead_features_we_want = st.text_area(
+                "Lead Features We Want",
+                value=current_lead_features_we_want,
+                placeholder="e.g., Companies focused on sustainability, B2B SaaS companies, etc.",
+                height=100,
+                help="Describe the features or characteristics you want in your leads",
+                key="lead_features_we_want_input"
+            )
+        with col2:
+            lead_features_to_avoid = st.text_area(
+                "Lead Features to Avoid",
+                value=current_lead_features_to_avoid,
+                placeholder="e.g., Companies that sell to consumers, companies in specific industries, etc.",
+                height=100,
+                help="Describe the features or characteristics you want to avoid in your leads",
+                key="lead_features_to_avoid_input"
+            )
+        
         if st.button("🔍 Start Web Search", type="primary"):
             if st.session_state.generated_queries:
+                # Save lead features if they have changed
+                features_changed = (
+                    lead_features_we_want.strip() != current_lead_features_we_want or
+                    lead_features_to_avoid.strip() != current_lead_features_to_avoid
+                )
+                
+                if features_changed:
+                    with st.spinner("💾 Saving lead features..."):
+                        result = update_project(
+                            project['id'],
+                            lead_features_we_want=lead_features_we_want.strip() if lead_features_we_want.strip() else None,
+                            lead_features_to_avoid=lead_features_to_avoid.strip() if lead_features_to_avoid.strip() else None
+                        )
+                        if result:
+                            st.session_state.selected_project = result
+                        else:
+                            st.error("❌ Failed to save lead features")
+                            st.stop()
+                
                 with st.spinner("🔍 Starting web search..."):
                     # Convert dict to list for API call
                     queries_list = list(st.session_state.generated_queries.values())
-                    # Step 1: Generate URLs from queries
+                    # Step 2.1: Generate URLs from queries
                     st.info(f"📊 Generating URLs from {len(queries_list)} queries...")
                     urls_result = generate_urls(project['id'], queries_list)
                     
@@ -159,7 +228,7 @@ def show_web_search_tab(project):
                         urls_info = urls_result.get('urls_result', {})
                         st.success(f"✅ Generated {urls_info.get('urls_added', 0)} URLs from {urls_info.get('queries_processed', 0)} search queries")
                         
-                        # Step 2: Extract leads from URLs
+                        # Step 2.2: Extract leads from URLs
                         st.info("🤖 Extracting leads from URLs (this may take several minutes)...")
                         leads_result = generate_leads(project['id'])
                         
@@ -170,11 +239,11 @@ def show_web_search_tab(project):
                             st.session_state.selected_project = get_project(project['id'])
 
                             st.markdown("**📊 Search Results (This Run):**")
-                                
+
                             # Show stats from this run only (5-column dashboard)
                             col1, col2, col3, col4, col5 = st.columns(5)
                             with col1:
-                                st.metric("Queries Processed", queries_processed)
+                                st.metric("Queries Processed", urls_info.get('queries_processed', 0))
                             with col2:
                                 st.metric("Leads Processed", leads_result.get('new_leads_extracted', 0))
                             with col3:
@@ -242,7 +311,7 @@ def show_web_search_tab(project):
 
 def show_upload_dataset_tab(project):
     """Upload dataset tab content"""
-    st.markdown("#### Upload existing dataset")
+    st.markdown("#### 📁 Upload Existing Dataset")
     
     uploaded_file = st.file_uploader(
         "Choose a CSV file",
