@@ -60,7 +60,7 @@ class SerpUrl(Base):
     
     # Relationship back to project and forward to leads
     project = relationship("Project", back_populates="serp_urls")
-    serp_leads = relationship("SerpLead", back_populates="serp_url")
+    serp_leads = relationship("SerpLead", back_populates="serp_url", cascade="all, delete-orphan")
 
 class SerpLead(Base):
     """PostgreSQL table: serp_leads - for storing leads extracted from serp urls"""
