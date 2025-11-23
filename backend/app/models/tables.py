@@ -37,7 +37,7 @@ class SerpQuery(Base):
     __tablename__ = "serp_queries"
     
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)  # Foreign key to Project.id
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete='CASCADE'), nullable=False)  # Foreign key to Project.id
     query = Column(Text)
     date_added = Column(DateTime, default=datetime.utcnow)
     
@@ -49,7 +49,7 @@ class SerpUrl(Base):
     __tablename__ = "serp_urls"
     
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)  # Foreign key to Project.id
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete='CASCADE'), nullable=False)  # Foreign key to Project.id
     query = Column(Text, nullable=False)  # original search query
     title = Column(Text)  # title of the result
     link = Column(Text, unique=True)  # final URL (unique constraint)
@@ -67,8 +67,8 @@ class SerpLead(Base):
     __tablename__ = "serp_leads"
     
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)  # Foreign key to Project.id
-    serp_url_id = Column(Integer, ForeignKey("serp_urls.id"), nullable=False)  # Foreign key to SerpUrl.id
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete='CASCADE'), nullable=False)  # Foreign key to Project.id
+    serp_url_id = Column(Integer, ForeignKey("serp_urls.id", ondelete='CASCADE'), nullable=False)  # Foreign key to SerpUrl.id
     lead = Column(Text, nullable=False)  # The extracted lead/company name
     created_at = Column(DateTime, default=datetime.utcnow)  # When the lead was extracted
     
@@ -81,7 +81,7 @@ class SerpLeadAggregated(Base):
     __tablename__ = "serp_leads_aggregated"
     
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)  # Foreign key to Project.id
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete='CASCADE'), nullable=False)  # Foreign key to Project.id
     leads = Column(Text, nullable=False)  # The lead/company name (grouped)
     serp_count = Column(Integer, nullable=False, default=0)  # Count of distinct SERP URLs this lead appears in
     created_at = Column(DateTime, default=datetime.utcnow)  # When the aggregated record was created
@@ -95,7 +95,7 @@ class ProjectDataset(Base):
     __tablename__ = "project_datasets"
     
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)  # Foreign key to Project.id
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete='CASCADE'), nullable=False)  # Foreign key to Project.id
     dataset_name = Column(String(255), nullable=False)  # User-friendly name
     lead_column = Column(String(100), nullable=False)  # Which column contains leads (e.g., "company_name")
     enrichment_column = Column(String(100), nullable=False)  # Which column for enrichment (e.g., "overall_score")
@@ -111,7 +111,7 @@ class Dataset(Base):
     __tablename__ = "datasets"
     
     id = Column(Integer, primary_key=True, index=True)
-    project_dataset_id = Column(Integer, ForeignKey("project_datasets.id"), nullable=False)  # Foreign key to ProjectDataset.id
+    project_dataset_id = Column(Integer, ForeignKey("project_datasets.id", ondelete='CASCADE'), nullable=False)  # Foreign key to ProjectDataset.id
     lead = Column(Text, nullable=False)  # The lead value from lead_column (e.g., company name)
     enrichment_value = Column(Text)  # The enrichment value - stored as text for flexibility (can be int, bool, float, etc.)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -124,7 +124,7 @@ class MergedResult(Base):
     __tablename__ = "merged_results"
     
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)  # Foreign key to Project.id
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete='CASCADE'), nullable=False)  # Foreign key to Project.id
     lead = Column(Text, nullable=False)  # The lead/company name (normalized, case-insensitive, unique per project)
     serp_count = Column(Integer, nullable=True, default=0)  # SERP count from aggregated leads
     
