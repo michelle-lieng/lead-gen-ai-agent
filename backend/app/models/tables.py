@@ -104,7 +104,7 @@ class ProjectDataset(Base):
     
     # Relationships
     project = relationship("Project", back_populates="project_datasets")
-    dataset_rows = relationship("Dataset", back_populates="project_dataset", cascade="all, delete-orphan")
+    datasets = relationship("Dataset", back_populates="project_dataset", cascade="all, delete-orphan")
 
 class Dataset(Base):
     """PostgreSQL table: datasets - actual dataset rows with lead and enrichment values"""
@@ -117,7 +117,7 @@ class Dataset(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    project_dataset = relationship("ProjectDataset", back_populates="dataset_rows")
+    project_dataset = relationship("ProjectDataset", back_populates="datasets")
 
 class MergedResult(Base):
     """PostgreSQL table: merged_results - for storing merged leads from SERP and datasets with enrichment columns"""
