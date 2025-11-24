@@ -27,6 +27,7 @@ class Project(Base):
     # Relationship to serp_queries, serp_urls, and serp_leads
     serp_queries = relationship("SerpQuery", back_populates="project", cascade="all, delete-orphan")
     serp_urls = relationship("SerpUrl", back_populates="project", cascade="all, delete-orphan")
+    test_serp_urls = relationship("TestSerpUrl", back_populates="project", cascade="all, delete-orphan")
     serp_leads = relationship("SerpLead", back_populates="project", cascade="all, delete-orphan")
     serp_leads_aggregated = relationship("SerpLeadAggregated", back_populates="project", cascade="all, delete-orphan")
     project_datasets = relationship("ProjectDataset", back_populates="project", cascade="all, delete-orphan")
@@ -133,3 +134,20 @@ class MergedResult(Base):
     
     # Note: Enrichment columns (bcorp_score, sustainability_rating, etc.) are added dynamically
     # via ALTER TABLE when datasets are uploaded. They are not defined in the model.
+
+class TestSerpUrl(Base):
+    """PostgreSQL table: test_serp_urls - for storing search result test SERP URLs"""
+    __tablename__ = "test_serp_urls"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete='CASCADE'), nullable=False)  # Foreign key to Project.id
+    query = Column(Text, nullable=True)  # original search query
+    title = Column(Text)  # title of the result
+    link = Column(Text, unique=True)  # final URL (unique constraint)
+    snippet = Column(Text)  # snippet/description from search
+    website_scraped = Column(Text)  # website scraped status
+    status = Column(String(50), default="unprocessed")  # processing status
+    created_at = Column(DateTime, default=datetime.utcnow)  # creation timestamp
+    
+    # Relationship back to project and forward to leads
+    project = relationship("Project", back_populates="test_serp_urls")
