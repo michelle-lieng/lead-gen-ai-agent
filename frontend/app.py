@@ -6,6 +6,14 @@ from pages.dashboard import show_dashboard
 from pages.project_overview import show_project_overview
 from pages.collect_leads import show_collect_leads
 from pages.review_leads import show_review_leads
+from pages.test_prompts import show_test_prompts
+
+def init_session_state():
+    """Initialize global session state variables"""
+    if 'selected_project' not in st.session_state:
+        st.session_state.selected_project = None
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = "dashboard"
 
 def main():
     st.set_page_config(
@@ -15,10 +23,7 @@ def main():
     )
     
     # Initialize session state
-    if 'selected_project' not in st.session_state:
-        st.session_state.selected_project = None
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = "dashboard"
+    init_session_state()
     
     # Sidebar navigation
     with st.sidebar:
@@ -73,6 +78,8 @@ def main():
         show_collect_leads()
     elif st.session_state.current_page == "review_leads":
         show_review_leads()
+    elif st.session_state.current_page == "test_prompts":
+        show_test_prompts()
 
 if __name__ == "__main__":
     main()
