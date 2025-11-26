@@ -74,7 +74,7 @@ app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 
 ########## QUERY ENDPOINTS
 
-app.include_router(leads_serp.router, prefix="/api", tags=["queries"])
+app.include_router(leads_serp.router, prefix="/api", tags=["serp-leads"])
 
 ########## DATASET ENDPOINTS
 

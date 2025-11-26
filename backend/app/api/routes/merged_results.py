@@ -6,7 +6,7 @@ from ...services.merged_results_service import merged_results_service
 
 router = APIRouter()
 
-@router.get("/projects/{project_id}/leads/")
+@router.get("/projects/{project_id}/results")
 async def get_merged_results(project_id: int):
     """
     Get merged results table as JSON for displaying in frontend table.
@@ -23,7 +23,7 @@ async def get_merged_results(project_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting merged results: {str(e)}")
 
-@router.get("/projects/{project_id}/leads/download")
+@router.get("/projects/{project_id}/results/download")
 async def download_merged_results(project_id: int):
     """
     Get ZIP file containing merged results table for the project.

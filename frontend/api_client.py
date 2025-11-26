@@ -87,17 +87,17 @@ def generate_queries(project_id: int, num_queries: int = 3):
         project_id: ID of the project
         num_queries: Number of queries to generate (1-20, default: 3)
     """
-    response = _request("POST", f"/api/projects/{project_id}/leads/serp/queries", json_data={"num_queries": num_queries})
+    response = _request("POST", f"/api/projects/{project_id}/queries", json_data={"num_queries": num_queries})
     return response.json() if response else None
 
 def generate_urls(project_id: int, queries: list[str]):
     """Generate URLs from search queries and save them"""
-    response = _request("POST", f"/api/projects/{project_id}/leads/serp/urls", json_data={"queries": queries})
+    response = _request("POST", f"/api/projects/{project_id}/urls", json_data={"queries": queries})
     return response.json() if response else None
 
 def generate_leads(project_id: int):
     """Extract leads from URLs and save them"""
-    response = _request("POST", f"/api/projects/{project_id}/leads/serp/results")
+    response = _request("POST", f"/api/projects/{project_id}/leads")
     return response.json() if response else None
 
 def fetch_latest_run_zip(project_id: int):
@@ -105,7 +105,7 @@ def fetch_latest_run_zip(project_id: int):
     Fetch ZIP file containing latest run results.
     Returns (zip_content: bytes, filename: str) or (None, None) on error
     """
-    response = _request("GET", f"/api/projects/{project_id}/leads/serp/results", stream=True)
+    response = _request("GET", f"/api/projects/{project_id}/leads", stream=True)
     
     if response:
         # Get filename from Content-Disposition header (backend sets it)
@@ -132,7 +132,7 @@ def upload_dataset(project_id: int, dataset_name: str, lead_column: str, enrichm
         'enrichment_column_exists': 'true' if enrichment_column_exists else 'false'
     }
     
-    response = _request("POST", f"/api/projects/{project_id}/datasets/upload", files=files, form_data=form_data)
+    response = _request("POST", f"/api/projects/{project_id}/datasets", files=files, form_data=form_data)
     return response.json() if response else None
 
 def fetch_datasets_zip(project_id: int):
@@ -155,7 +155,7 @@ def fetch_datasets_zip(project_id: int):
 # Merged results endpoints
 def get_merged_results(project_id: int):
     """Get merged results table as JSON for displaying in frontend"""
-    response = _request("GET", f"/api/projects/{project_id}/leads/")
+    response = _request("GET", f"/api/projects/{project_id}/results")
     return response.json() if response else None
 
 def fetch_merged_results_zip(project_id: int):
@@ -163,7 +163,7 @@ def fetch_merged_results_zip(project_id: int):
     Fetch ZIP file containing merged results table.
     Returns (zip_content: bytes, filename: str) or (None, None) on error
     """
-    response = _request("GET", f"/api/projects/{project_id}/leads/download", stream=True)
+    response = _request("GET", f"/api/projects/{project_id}/results/download", stream=True)
     
     if response:
         # Get filename from Content-Disposition header (backend sets it)

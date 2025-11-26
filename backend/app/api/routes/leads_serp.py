@@ -9,7 +9,7 @@ from ...models.schemas import QueryListRequest, QueryGenerationRequest
 
 router = APIRouter()
 
-@router.post("/projects/{project_id}/leads/serp/queries")
+@router.post("/projects/{project_id}/queries")
 async def generate_queries(
     project_id: int,
     request: QueryGenerationRequest
@@ -32,7 +32,7 @@ async def generate_queries(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating queries: {str(e)}")
 
-@router.post("/projects/{project_id}/leads/serp/urls")
+@router.post("/projects/{project_id}/urls")
 async def generate_urls(project_id: int, request: QueryListRequest):
     """
     Save queries and generate URLs for a project.
@@ -50,7 +50,7 @@ async def generate_urls(project_id: int, request: QueryListRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving queries: {str(e)}")
 
-@router.post("/projects/{project_id}/leads/serp/results")
+@router.post("/projects/{project_id}/leads")
 async def generate_leads(project_id: int):
     """
     For given project_id
@@ -69,7 +69,7 @@ async def generate_leads(project_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving queries: {str(e)}")
 
-@router.get("/projects/{project_id}/leads/serp/results")
+@router.get("/projects/{project_id}/leads")
 async def get_latest_run_results(project_id: int):
     """
     Get ZIP file containing all project data (queries, URLs, leads).

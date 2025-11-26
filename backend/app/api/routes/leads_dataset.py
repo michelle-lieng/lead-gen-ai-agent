@@ -6,7 +6,7 @@ from ...services.leads_dataset_service import leads_dataset_service
 
 router = APIRouter()
 
-@router.post("/projects/{project_id}/datasets/upload")
+@router.post("/projects/{project_id}/datasets")
 async def upload_dataset(
     project_id: int,
     dataset_name: str = Form(...),
