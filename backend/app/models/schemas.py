@@ -77,3 +77,12 @@ class QueryGenerationRequest(BaseModel):
         if v < 1 or v > 20:
             raise ValueError('num_queries must be between 1 and 20')
         return v
+
+class TestQueryRequest(BaseModel):
+    query: str
+
+class TestUrlUpdate(BaseModel):
+    title: Optional[str] = None
+    snippet: Optional[str] = None
+    query: Optional[str] = None
+    status: Optional[str] = None

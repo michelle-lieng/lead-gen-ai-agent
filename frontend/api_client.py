@@ -174,3 +174,39 @@ def fetch_merged_results_zip(project_id: int):
         return response.content, filename
     
     return None, None
+
+# Test lead extraction prompts endpoints
+def generate_test_urls(project_id: int, query: str):
+    """Generate test URLs from a search query and save them to test_serp_urls table"""
+    response = _request("POST", f"/api/projects/{project_id}/test/urls", json_data={"query": query})
+    return response.json() if response else None
+
+def get_test_urls(project_id: int):
+    """Get all test URLs for a project"""
+    response = _request("GET", f"/api/projects/{project_id}/test/urls")
+    return response.json() if response else []
+
+def update_test_url(project_id: int, url_id: int, title: str = None, snippet: str = None, query: str = None, status: str = None):
+    """Update a test URL"""
+    data = {}
+    if title is not None:
+        data["title"] = title
+    if snippet is not None:
+        data["snippet"] = snippet
+    if query is not None:
+        data["query"] = query
+    if status is not None:
+        data["status"] = status
+    
+    response = _request("PUT", f"/api/projects/{project_id}/test/urls/{url_id}", json_data=data)
+    return response.json() if response else None
+
+def delete_test_url(project_id: int, url_id: int):
+    """Delete a test URL"""
+    response = _request("DELETE", f"/api/projects/{project_id}/test/urls/{url_id}")
+    return response.json() if response else None
+
+def extract_test_leads(project_id: int):
+    """Extract leads from test URLs and return them (without saving to database)"""
+    response = _request("POST", f"/api/projects/{project_id}/test/leads")
+    return response.json() if response else None
