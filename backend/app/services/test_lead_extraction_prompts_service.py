@@ -131,29 +131,36 @@ class TestLeadExtractionPromptsService:
     
     async def extract_test_leads(self, project_id: int) -> dict:
         """
-        Process unprocessed and failed URLs from test_serp_urls table:
-        1. Get all test URLs with status="unprocessed" or "failed" for the project
-        2. Extract leads using _test_lead_extractor
-        3. Update website_scraped column with scraped content
-        4. Update status based on results:
+        Process all URLs from test_serp_urls table:
+        1. Reset all test URLs for the project to status="unprocessed" (allows re-running extraction)
+        2. Get all test URLs for the project
+        3. Extract leads using _test_lead_extractor
+        4. Update website_scraped column with scraped content
+        5. Update status based on results:
            - "processed" if leads found
            - "skip" if no leads found (empty list)
            - "failed" if extraction failed
-        5. Return extracted leads in response (DO NOT save to database - these are just for prompt testing)
+        6. Return extracted leads in response (DO NOT save to database - these are just for prompt testing)
         
         Note: Test leads are NOT saved to serp_leads table. They're only returned for review
         to help iterate on the extraction prompt.
         """
         try:
             with db_service.get_session() as session:
-                # Step 1: Get all unprocessed and failed test URLs for this project
+                # Step 1: Reset all test URLs for this project to "unprocessed" status
+                # This allows re-running extraction on all URLs when testing prompts
+                session.query(TestSerpUrl).filter(
+                    TestSerpUrl.project_id == project_id
+                ).update({"status": "unprocessed"})
+                session.commit()
+                
+                # Step 2: Get all test URLs for this project (now all are unprocessed)
                 unprocessed_urls = session.query(TestSerpUrl).filter(
-                    TestSerpUrl.project_id == project_id,
-                    TestSerpUrl.status.in_(["unprocessed", "failed"])
+                    TestSerpUrl.project_id == project_id
                 ).all()
                 
                 if not unprocessed_urls:
-                    logger.info(f"No unprocessed or failed test URLs found for project {project_id}")
+                    logger.info(f"No test URLs found for project {project_id}")
                     return {
                         "success": True,
                         "urls_processed": 0,
@@ -161,10 +168,10 @@ class TestLeadExtractionPromptsService:
                         "urls_failed": 0,
                         "total_urls_attempted": 0,
                         "extracted_leads": [],
-                        "message": "No unprocessed or failed test URLs found to extract leads from"
+                        "message": "No test URLs found to extract leads from"
                     }
                 
-                logger.info(f"Processing {len(unprocessed_urls)} test URLs (unprocessed and failed) for project {project_id}")
+                logger.info(f"Processing {len(unprocessed_urls)} test URLs for project {project_id} (all statuses reset to unprocessed)")
                 
                 processed_count = 0
                 skipped_count = 0
