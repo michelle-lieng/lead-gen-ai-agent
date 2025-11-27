@@ -7,7 +7,7 @@ from typing import Optional
 
 from ...services.test_lead_extraction_prompts_service import test_lead_extraction_prompts_service
 from ...models.tables import TestSerpUrl
-from ...models.schemas import TestQueryRequest, TestUrlUpdate
+from ...models.schemas import TestQueryRequest, TestUrlUpdate, TestUrlCreate
 from ...services.database_service import db_service
 
 router = APIRouter()
@@ -56,6 +56,53 @@ async def get_test_urls(project_id: int):
             ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching test URLs: {str(e)}")
+
+@router.post("/projects/{project_id}/test/urls/create")
+async def create_test_url(project_id: int, url_data: TestUrlCreate):
+    """
+    Create a single test URL manually.
+    """
+    try:
+        with db_service.get_session() as session:
+            # Check if URL already exists (link is unique)
+            existing = session.query(TestSerpUrl).filter(
+                TestSerpUrl.link == url_data.link
+            ).first()
+            
+            if existing:
+                raise HTTPException(status_code=400, detail=f"URL already exists: {url_data.link}")
+            
+            # Create new test URL
+            new_url = TestSerpUrl(
+                project_id=project_id,
+                link=url_data.link,
+                title=url_data.title or '',
+                snippet=url_data.snippet or '',
+                query=None,
+                status="unprocessed"
+            )
+            
+            session.add(new_url)
+            session.commit()
+            session.refresh(new_url)
+            
+            return {
+                "success": True,
+                "message": "Test URL created successfully",
+                "url": {
+                    "id": new_url.id,
+                    "project_id": new_url.project_id,
+                    "query": new_url.query,
+                    "title": new_url.title,
+                    "link": new_url.link,
+                    "snippet": new_url.snippet,
+                    "status": new_url.status
+                }
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating test URL: {str(e)}")
 
 @router.put("/projects/{project_id}/test/urls/{url_id}")
 async def update_test_url(project_id: int, url_id: int, update: TestUrlUpdate):
