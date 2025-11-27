@@ -176,7 +176,7 @@ class TestLeadExtractionPromptsService:
                 processed_count = 0
                 skipped_count = 0
                 failed_count = 0
-                all_extracted_leads = []  # Collect all leads to return in response
+                all_extracted_leads = []  # Collect all results to return in response (including skipped/failed)
                 
                 # Step 2: Process each URL
                 for url_record in unprocessed_urls:
@@ -184,6 +184,8 @@ class TestLeadExtractionPromptsService:
                         logger.info(f"Processing test URL: {url_record.link}")
                         
                         # Extract leads using the _test_lead_extractor method
+                        leads = []
+                        scraped_content = None
                         try:
                             leads, scraped_content = await self._test_lead_extractor(
                                 query=url_record.query,
@@ -197,6 +199,17 @@ class TestLeadExtractionPromptsService:
                             url_record.status = "failed"
                             url_record.website_scraped = None
                             failed_count += 1
+                            
+                            # Add failed URL to results
+                            all_extracted_leads.append({
+                                "url": url_record.link,
+                                "title": url_record.title,
+                                "query": url_record.query,
+                                "snippet": url_record.snippet,
+                                "status": "failed",
+                                "website_scraped": None,
+                                "leads": []
+                            })
                             continue  # Skip to next URL
                         
                         # Clean up leads - handle AI returning ['[]'] or similar
@@ -224,14 +237,6 @@ class TestLeadExtractionPromptsService:
                             url_record.status = "processed"
                             processed_count += 1
                             
-                            # Store leads with URL info for response (but don't save to database)
-                            all_extracted_leads.append({
-                                "url": url_record.link,
-                                "title": url_record.title,
-                                "query": url_record.query,
-                                "leads": leads
-                            })
-                            
                             logger.info(f"✅ Extracted {len(leads)} leads from {url_record.link}")
                             
                         else:
@@ -239,6 +244,17 @@ class TestLeadExtractionPromptsService:
                             url_record.status = "skip"
                             skipped_count += 1
                             logger.info(f"⏭️ No leads found in {url_record.link} - marked as skip")
+                        
+                        # Store ALL results (processed, skipped) with status and scraped content
+                        all_extracted_leads.append({
+                            "url": url_record.link,
+                            "title": url_record.title,
+                            "query": url_record.query,
+                            "snippet": url_record.snippet,
+                            "status": url_record.status,
+                            "website_scraped": url_record.website_scraped,
+                            "leads": leads if leads else []
+                        })
                             
                     except Exception as e:
                         # Unexpected error - mark as failed and continue processing
@@ -246,6 +262,17 @@ class TestLeadExtractionPromptsService:
                         url_record.status = "failed"
                         url_record.website_scraped = None
                         failed_count += 1
+                        
+                        # Add failed URL to results
+                        all_extracted_leads.append({
+                            "url": url_record.link,
+                            "title": url_record.title,
+                            "query": url_record.query,
+                            "snippet": url_record.snippet,
+                            "status": "failed",
+                            "website_scraped": None,
+                            "leads": []
+                        })
                         # Continue to next URL - don't let one failure stop the whole process
                 
                 # Commit all changes (status and website_scraped updates)
