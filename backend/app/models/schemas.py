@@ -81,6 +81,12 @@ class QueryGenerationRequest(BaseModel):
 class TestQueryRequest(BaseModel):
     query: str
 
+class TestUrlCreate(BaseModel):
+    """Schema for creating a new test URL"""
+    link: str
+    title: Optional[str] = None
+    snippet: Optional[str] = None
+
 class TestUrlUpdate(BaseModel):
     title: Optional[str] = None
     snippet: Optional[str] = None
