@@ -186,17 +186,28 @@ def get_test_urls(project_id: int):
     response = _request("GET", f"/api/projects/{project_id}/test/urls")
     return response.json() if response else []
 
-def update_test_url(project_id: int, url_id: int, title: str = None, snippet: str = None, query: str = None, status: str = None):
+def create_test_url(project_id: int, link: str, title: str = None, snippet: str = None):
+    """Create a new test URL"""
+    data = {
+        "link": link
+    }
+    if title is not None:
+        data["title"] = title
+    if snippet is not None:
+        data["snippet"] = snippet
+    
+    response = _request("POST", f"/api/projects/{project_id}/test/urls/create", json_data=data)
+    return response.json() if response else None
+
+def update_test_url(project_id: int, url_id: int, title: str = None, snippet: str = None, link: str = None):
     """Update a test URL"""
     data = {}
     if title is not None:
         data["title"] = title
     if snippet is not None:
         data["snippet"] = snippet
-    if query is not None:
-        data["query"] = query
-    if status is not None:
-        data["status"] = status
+    if link is not None:
+        data["link"] = link
     
     response = _request("PUT", f"/api/projects/{project_id}/test/urls/{url_id}", json_data=data)
     return response.json() if response else None
