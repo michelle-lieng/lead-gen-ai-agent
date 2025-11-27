@@ -3,7 +3,7 @@ Lead collection page
 """
 import streamlit as st
 import pandas as pd
-from api_client import update_project, generate_queries, generate_urls, generate_leads, fetch_latest_run_zip, get_project, upload_dataset, fetch_datasets_zip
+from api_client import update_project, generate_queries, generate_urls, generate_leads, fetch_latest_run_zip, get_project, upload_dataset
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -18,14 +18,6 @@ def _fetch_and_store_zip_data(project_id: int):
         return True
     return False
 
-def _fetch_and_store_datasets_zip(project_id: int):
-    """Fetch dataset ZIP file from API and store in session state"""
-    zip_content, filename = fetch_datasets_zip(project_id)
-    if zip_content and filename:
-        st.session_state["datasets_zip_data"] = zip_content
-        st.session_state["datasets_zip_filename"] = filename
-        return True
-    return False
 
 # =============================================================================
 # MAIN PAGE
@@ -432,37 +424,3 @@ def show_upload_dataset_tab(project):
             st.error(f"❌ Error reading CSV file: {str(e)}")
             st.info("Please make sure your file is a valid CSV file.")
     
-    # Always show download section at the bottom of Upload Dataset tab
-    st.markdown("---")
-    st.markdown("### 📥 Download Dataset Data")
-    
-    # Check if project has dataset data
-    has_dataset_data = project.get('datasets_added', 0) > 0
-    
-    if has_dataset_data:
-        # Check if ZIP data is already in session state
-        has_datasets_zip = "datasets_zip_data" in st.session_state
-        
-        if not has_datasets_zip:
-            # Show button to load downloads
-            if st.button("📥 Load Dataset Downloads", help="Fetch ZIP file with all dataset data", key="load_datasets_zip"):
-                with st.spinner("📥 Loading dataset downloads..."):
-                    if _fetch_and_store_datasets_zip(project['id']):
-                        st.success("✅ Downloads ready! You can now download the ZIP file below.")
-                    else:
-                        st.error("❌ Failed to load dataset downloads. Please try again.")
-        
-        # Show single ZIP download button if data is available
-        if "datasets_zip_data" in st.session_state:
-            st.download_button(
-                label="📦 Download All Dataset Data (ZIP)",
-                data=st.session_state["datasets_zip_data"],
-                file_name=st.session_state.get("datasets_zip_filename"),
-                mime="application/zip",
-                key="dl_datasets",
-                use_container_width=True
-            )
-        else:
-            st.info("📥 Click 'Load Dataset Downloads' above to prepare the download file.")
-    else:
-        st.info("ℹ️ No dataset data available yet. Upload a dataset above to generate downloadable CSV files.")
