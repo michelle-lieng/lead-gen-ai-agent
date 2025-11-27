@@ -104,8 +104,7 @@ def show_web_search_tab(project):
 
         # Generate button (form submit button)
         generate_submitted = st.form_submit_button(
-            "Generate Smart Queries",
-            type="primary"
+            "🔍 Generate Smart Queries"
         )
 
         if generate_submitted:
@@ -141,7 +140,7 @@ def show_web_search_tab(project):
     # Use a form to handle input clearing properly
     with st.form("add_query_form", clear_on_submit=True):
         new_query = st.text_input("Add custom query", placeholder="Enter your own search query...", key="new_query_input")
-        submitted = st.form_submit_button("➕ Add Query", type="primary")
+        submitted = st.form_submit_button("➕ Add Query")
         if submitted and new_query and new_query.strip():
             query_id = f"q{st.session_state.query_counter}"
             st.session_state.query_counter += 1
@@ -227,12 +226,12 @@ def show_web_search_tab(project):
     
     if not has_queries:
         st.info("ℹ️ Add at least one search query in Step 1 before you can start the web search.")
-        st.button("🔍 Start Web Search", type="primary", disabled=True)
+        st.button("🔍 Start Web Search", disabled=True)
     elif not has_lead_features:
         st.warning("⚠️ Please configure lead features before starting the web search. Use the 'Test Extraction Prompts' button above to set them.")
-        st.button("🔍 Start Web Search", type="primary", disabled=True)
+        st.button("🔍 Start Web Search", disabled=True)
     else:
-        if st.button("🔍 Start Web Search", type="primary"):
+        if st.button("🔍 Start Web Search"):
             # Save lead features if they have changed
             features_changed = (
                 lead_features_we_want.strip() != current_lead_features_we_want or
@@ -364,7 +363,6 @@ def show_upload_dataset_tab(project):
             
             st.markdown("#### 📊 Data Preview")
             st.dataframe(df.head(10), use_container_width=True)
-            st.info(f"📋 Found {len(df.columns)} columns: {', '.join(df.columns)}")
             
             # Upload form
             st.markdown("#### ⚙️ Dataset Configuration")
@@ -398,7 +396,7 @@ def show_upload_dataset_tab(project):
                     help="Check this if the enrichment column already exists in your CSV file"
                 )
                 
-                submitted = st.form_submit_button("📤 Upload Dataset", type="primary")
+                submitted = st.form_submit_button("📤 Upload Dataset")
                 
                 if submitted:
                     if not dataset_name or not dataset_name.strip():
