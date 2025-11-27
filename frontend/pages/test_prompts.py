@@ -248,8 +248,8 @@ def show_test_prompts():
     st.markdown("Configure the criteria for what makes a good lead. These features will be used in the extraction prompt.")
     
     # Get current values
-    current_lead_features_we_want = project.get('lead_features_we_want', '') or ''
-    current_lead_features_to_avoid = project.get('lead_features_to_avoid', '') or ''
+    current_lead_features_we_want = project.get('lead_features_we_want', '')
+    current_lead_features_to_avoid = project.get('lead_features_to_avoid', '')
     
     col1, col2 = st.columns(2)
     with col1:
