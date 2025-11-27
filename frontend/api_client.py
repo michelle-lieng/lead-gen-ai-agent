@@ -105,7 +105,7 @@ def fetch_latest_run_zip(project_id: int):
     Fetch ZIP file containing latest run results.
     Returns (zip_content: bytes, filename: str) or (None, None) on error
     """
-    response = _request("GET", f"/api/projects/{project_id}/leads", stream=True)
+    response = _request("GET", f"/api/projects/{project_id}/leads/download", stream=True)
     
     if response:
         # Get filename from Content-Disposition header (backend sets it)

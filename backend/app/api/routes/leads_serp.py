@@ -69,7 +69,7 @@ async def generate_leads(project_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving queries: {str(e)}")
 
-@router.get("/projects/{project_id}/leads")
+@router.get("/projects/{project_id}/leads/download")
 async def get_latest_run_results(project_id: int):
     """
     Get ZIP file containing all project data (queries, URLs, leads).
