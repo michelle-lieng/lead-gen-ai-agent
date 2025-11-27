@@ -107,7 +107,7 @@ async def create_test_url(project_id: int, url_data: TestUrlCreate):
 @router.put("/projects/{project_id}/test/urls/{url_id}")
 async def update_test_url(project_id: int, url_id: int, update: TestUrlUpdate):
     """
-    Update a test URL (title, snippet, query, or status).
+    Update a test URL (title, snippet or link).
     """
     try:
         with db_service.get_session() as session:
@@ -124,10 +124,8 @@ async def update_test_url(project_id: int, url_id: int, update: TestUrlUpdate):
                 url.title = update.title
             if update.snippet is not None:
                 url.snippet = update.snippet
-            if update.query is not None:
-                url.query = update.query
-            if update.status is not None:
-                url.status = update.status
+            if update.link is not None:
+                url.link = update.link
             
             session.commit()
             
