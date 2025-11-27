@@ -90,5 +90,14 @@ class TestUrlCreate(BaseModel):
 class TestUrlUpdate(BaseModel):
     title: Optional[str] = None
     snippet: Optional[str] = None
-    query: Optional[str] = None
-    status: Optional[str] = None
+    link: Optional[str] = None
+    
+    @field_validator('link')
+    @classmethod
+    def validate_link_if_provided(cls, v: Optional[str]) -> Optional[str]:
+        """If link is provided, ensure it's not empty or just whitespace (prevents accidentally clearing the link)"""
+        if v is not None:
+            if not v or not v.strip():
+                raise ValueError('Link cannot be empty or whitespace only. Omit the field if you do not want to update it.')
+            return v.strip()
+        return None
