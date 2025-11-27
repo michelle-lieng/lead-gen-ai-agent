@@ -28,7 +28,7 @@ def show_test_prompts():
     if project:
         st.session_state.selected_project = project
     
-    st.markdown(f"# 🧪 Test Extraction Prompts - {project['project_name']}")
+    st.markdown(f"# Test Extraction Prompts: {project['project_name']}")
     
     # Back button
     if st.button("← Back to Lead Collection", type="secondary"):
@@ -38,18 +38,17 @@ def show_test_prompts():
     st.markdown("---")
     
     # Section 1: Manage Test URLs
-    st.markdown("## 🔗 Manage Test URLs")
-    st.markdown("Generate URLs from a search query to test on. URLs are saved to the database and can be edited.")
-    
+    st.markdown("## Step 1: Create Test URLs")
+
     # Generate URLs from Query
-    st.markdown("### 🔍 Generate URLs from Query")
+    st.markdown(f"Generate URLS from a search query to test lead extraction on:")
     with st.form("generate_urls_form", clear_on_submit=True):
         test_query_for_urls = st.text_input(
             "Search Query",
             placeholder="e.g., top sustainable companies in Australia",
             help="Enter a search query to generate URLs from"
         )
-        generate_submitted = st.form_submit_button("🔍 Generate URLs", type="primary", use_container_width=True)
+        generate_submitted = st.form_submit_button("🔍 Generate URLs")
         
         if generate_submitted and test_query_for_urls:
             with st.spinner("🔍 Generating URLs from query..."):
@@ -72,8 +71,7 @@ def show_test_prompts():
     
     # Display test URLs as editable table
     if test_urls:
-        st.markdown("### 📊 Test URLs Table")
-        st.markdown(f"**{len(test_urls)} URL(s) in database**")
+        st.markdown(f"Below you can add, edit and delete URLs:")
         
         # Convert to DataFrame for display
         urls_df = pd.DataFrame([
@@ -141,9 +139,6 @@ def show_test_prompts():
             with col2:
                 st.caption("💡 Make changes above and click 'Save Changes' to update the database")
         
-        # Delete URLs section
-        st.markdown("### 🗑️ Delete URLs")
-        st.markdown("Select URLs to delete:")
         
         # Create checkboxes for deletion
         urls_to_delete = []
@@ -174,7 +169,7 @@ def show_test_prompts():
     st.markdown("---")
     
     # Section 2: Edit Lead Features
-    st.markdown("## 📝 Edit Lead Features")
+    st.markdown("## Step 2: Edit Lead Extraction Prompts")
     st.markdown("Configure the criteria for what makes a good lead. These features will be used in the extraction prompt.")
     
     # Get current values
@@ -195,7 +190,7 @@ def show_test_prompts():
         lead_features_to_avoid = st.text_area(
             "Lead Features to Avoid",
             value=current_lead_features_to_avoid,
-            placeholder="e.g., Companies that sell to consumers, companies in specific industries, etc.",
+            placeholder="e.g., Polluters, greenwashing lists, fossil fuel companies, etc.",
             height=120,
             help="Describe the features or characteristics you want to avoid in your leads",
             key="test_lead_features_to_avoid"
@@ -204,7 +199,7 @@ def show_test_prompts():
     # Save button
     col1, col2, col3 = st.columns([1, 1, 2])
     with col1:
-        if st.button("💾 Save to Project", type="primary", use_container_width=True):
+        if st.button("💾 Save Prompts"):
             features_changed = (
                 lead_features_we_want.strip() != current_lead_features_we_want or
                 lead_features_to_avoid.strip() != current_lead_features_to_avoid
@@ -229,13 +224,14 @@ def show_test_prompts():
     st.markdown("---")
     
     # Section 3: Run Lead Extraction
-    st.markdown("## 🚀 Run Lead Extraction")
+    st.markdown("## Step 3: Run Lead Extraction")
+    st.markdown("View the extracted leads from your test URLs:")
     
     if not test_urls:
         st.warning("⚠️ Please add at least one test URL above before running extraction.")
-        st.button("🚀 Run Lead Extraction", type="primary", disabled=True, use_container_width=True)
+        st.button("🚀 Run Lead Extraction", disabled=True)
     else:
-        if st.button("🚀 Run Lead Extraction", type="primary", use_container_width=True):
+        if st.button("🚀 Run Lead Extraction"):
             # Clear previous results
             st.session_state.test_results = []
             
@@ -299,6 +295,6 @@ def show_test_prompts():
     st.markdown("---")
     
     # Back button at the end
-    if st.button("← Back to Lead Collection", type="secondary", use_container_width=True, key="back_bottom"):
+    if st.button("← Back to Lead Collection", type="secondary", key="back_bottom"):
         st.session_state.current_page = "collect_leads"
         st.rerun()
