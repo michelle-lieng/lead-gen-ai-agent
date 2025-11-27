@@ -333,9 +333,19 @@ def show_test_prompts():
         results_data = []
         for result in st.session_state.test_results:
             leads = result.get('leads', [])
+            status = result.get('status', 'unknown')
+            # Color code status
+            status_display = {
+                'processed': '✅ Processed',
+                'skip': '⏭️ Skipped',
+                'failed': '❌ Failed',
+                'unprocessed': '⏳ Unprocessed'
+            }.get(status, status)
+            
             results_data.append({
-                'URL': result['url'][:60] + '...' if len(result['url']) > 60 else result['url'],
+                'Status': status_display,
                 'Query': result.get('query', 'N/A'),
+                'URL': result['url'][:60] + '...' if len(result['url']) > 60 else result['url'],
                 'Leads Found': len(leads),
                 'Leads': ', '.join(leads[:5]) + ('...' if len(leads) > 5 else '') if leads else 'None'
             })
@@ -347,26 +357,56 @@ def show_test_prompts():
         st.markdown("### 📋 Detailed Results")
         for i, result in enumerate(st.session_state.test_results):
             leads = result.get('leads', [])
-            with st.expander(f"🔗 URL {i+1}: {result['url'][:80]}... ({len(leads)} leads)"):
+            status = result.get('status', 'unknown')
+            status_display = {
+                'processed': '✅ Processed',
+                'skip': '⏭️ Skipped',
+                'failed': '❌ Failed',
+                'unprocessed': '⏳ Unprocessed'
+            }.get(status, status)
+            
+            with st.expander(f"{status_display} | URL {i+1}: {result['url'][:70]}... ({len(leads)} leads)"):
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown(f"**Query:** {result.get('query', 'N/A')}")
                     st.markdown(f"**Title:** {result.get('title', 'N/A')}")
+                    st.markdown(f"**Snippet:** {result.get('snippet', 'N/A')}")
                 with col2:
                     st.markdown(f"**Leads Found:** {len(leads)}")
+                    st.markdown(f"**URL:** {result['url']}")
                 
-                if result.get('snippet'):
-                    st.markdown(f"**Snippet:** {result.get('snippet', '')}")
+                # Show scraped content if available
+                if result.get('website_scraped'):
+                    st.markdown("**Scraped Website Content:**")
+                    # Use text area for proper text wrapping (not disabled, but read-only appearance)
+                    st.text_area(
+                        "Scraped Content",
+                        value=result.get('website_scraped', ''),
+                        height=300,
+                        disabled=False,
+                        key=f"scraped_{i}",
+                        label_visibility="collapsed",
+                        help="Scraped website content"
+                    )
+                elif status == 'failed':
+                    st.warning("⚠️ Website scraping failed or was not attempted")
+                elif status == 'skip':
+                    st.info("ℹ️ No scraped content (leads extracted from snippet/title only)")
+                else:
+                    st.info("ℹ️ No scraped content available")
                 
                 if leads:
                     st.markdown("**Extracted Leads:**")
                     for lead in leads:
                         st.markdown(f"- {lead}")
                 else:
-                    st.info("No leads extracted from this URL")
-    elif test_urls:
-        st.info("ℹ️ Click 'Run Lead Extraction' above to see results for your test URLs.")
-    
+                    if status == 'skip':
+                        st.info("⏭️ No leads extracted from this URL (skipped)")
+                    elif status == 'failed':
+                        st.error("❌ Failed to extract leads from this URL")
+                    else:
+                        st.info("No leads extracted from this URL")
+
     st.markdown("---")
     
     # Back button at the end
