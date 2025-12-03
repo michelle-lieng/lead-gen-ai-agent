@@ -2,6 +2,7 @@
 Dataset management endpoints
 """
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Response
+import json
 from ...services.leads_dataset_service import leads_dataset_service
 
 router = APIRouter()
@@ -11,7 +12,7 @@ async def upload_dataset(
     project_id: int,
     dataset_name: str = Form(...),
     lead_column: str = Form(...),
-    enrichment_column: str = Form(...),
+    enrichment_column_list: str = Form(...),  # JSON-encoded list of enrichment column names
     enrichment_column_exists: bool = Form(...),
     csv_file: UploadFile = File(...)
 ):
@@ -22,7 +23,7 @@ async def upload_dataset(
         project_id: Project ID to link dataset to
         dataset_name: User-friendly name for the dataset
         lead_column: Name of column containing leads (company names)
-        enrichment_column: Name of column for enrichment values
+        enrichment_column_list: JSON-encoded list of enrichment column names
         enrichment_column_exists: Whether the enrichment column exists in CSV
         csv_file: CSV file to upload
     """
@@ -38,12 +39,25 @@ async def upload_dataset(
         if not csv_content:
             raise HTTPException(status_code=400, detail="CSV file is empty")
         
+        # Parse JSON-encoded enrichment_column_list string into list 
+        enrichment_column_list = []
+        if enrichment_column_list:
+            try:
+                enrichment_column_list = json.loads(enrichment_column_list)
+                if not isinstance(enrichment_column_list, list):
+                    raise ValueError(f"enrichment_column_list must be a JSON array, got: {type(enrichment_column_list).__name__}")
+            except json.JSONDecodeError as e:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Invalid JSON format for enrichment_column_list. Error: {str(e)}. Received: {repr(enrichment_column_list)}"
+                )
+        
         # Call service to process the dataset
         result = leads_dataset_service.upload_dataset(
             project_id=project_id,
             dataset_name=dataset_name,
             lead_column=lead_column,
-            enrichment_column=enrichment_column,
+            enrichment_column_list=enrichment_column_list,
             enrichment_column_exists=enrichment_column_exists,
             csv_content=csv_content
         )
@@ -58,5 +72,3 @@ async def upload_dataset(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading dataset: {str(e)}")
-
-

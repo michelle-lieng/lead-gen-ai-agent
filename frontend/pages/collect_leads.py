@@ -336,12 +336,15 @@ def show_web_search_tab(project):
 def show_upload_dataset_tab(project):
     """Upload dataset tab content"""
     st.markdown("#### 📁 Upload Existing Dataset")
-    
+
+    # Show persistent success message
+    upload_success_key = f"upload_success_{project['id']}"
+
     uploaded_file = st.file_uploader(
         "Choose a CSV file",
         type=['csv'],
         help="Upload a CSV file with company data",
-        key="dataset_upload"
+        key=f"dataset_upload_{project['id']}"
     )
     
     if uploaded_file is not None:
@@ -359,68 +362,154 @@ def show_upload_dataset_tab(project):
             # Upload form
             st.markdown("#### ⚙️ Dataset Configuration")
             
-            with st.form("upload_dataset_form", clear_on_submit=False):
-                dataset_name = st.text_input(
-                    "Dataset Name",
-                    value=uploaded_file.name.replace('.csv', ''),
-                    help="Give your dataset a descriptive name"
-                )
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    lead_column = st.selectbox(
-                        "Lead Column",
-                        options=df.columns.tolist(),
-                        help="Select the column containing company names/leads"
+            # Configuration section (outside form for dynamic updates)
+            dataset_name_key = f"dataset_name_{project['id']}_{uploaded_file.name}"
+            lead_column_key = f"lead_column_{project['id']}_{uploaded_file.name}"
+            checkbox_key = f"add_enrichment_{project['id']}_{uploaded_file.name}"
+            enrichment_columns_key = f"enrichment_columns_{project['id']}_{uploaded_file.name}"
+            
+            # Track previous form state to detect changes
+            form_state_key = f"form_state_{project['id']}_{uploaded_file.name}"
+            previous_state = st.session_state.get(form_state_key, {})
+            
+            dataset_name = st.text_input(
+                "Dataset Name",
+                value=uploaded_file.name.replace('.csv', ''),
+                help="Give your dataset a descriptive name",
+                key=dataset_name_key
+            )
+            
+            lead_column = st.selectbox(
+                "Lead Column",
+                options=df.columns.tolist(),
+                help="Select the column containing company names/leads",
+                key=lead_column_key
+            )
+            
+            # Check if there are any columns available for enrichment (excluding lead column)
+            available_columns = [col for col in df.columns.tolist() if col != lead_column]
+            has_available_columns = len(available_columns) > 0
+            
+            # Checkbox to enable enrichment columns from dataset (outside form for immediate updates)
+            if checkbox_key not in st.session_state:
+                st.session_state[checkbox_key] = False
+            
+            add_enrichment_from_dataset = st.checkbox(
+                "Add enrichment columns from dataset",
+                value=st.session_state[checkbox_key],
+                disabled=not has_available_columns,
+                help="If checked, you can select columns from your CSV to use as enrichment columns. If unchecked, a single column named '{dataset_name}_exists' with all values TRUE will be created." + 
+                     (" ⚠️ No other columns available (only lead column found)." if not has_available_columns else ""),
+                key=checkbox_key
+            )
+            
+            # Store selected enrichment columns in session state
+            if add_enrichment_from_dataset:
+                # Show multi-select for enrichment columns
+                if available_columns:
+                    # Get previously selected columns from session state
+                    default_selection = st.session_state.get(enrichment_columns_key, [])
+                    
+                    enrichment_columns = st.multiselect(
+                        "Select Enrichment Columns",
+                        options=available_columns,
+                        default=default_selection,
+                        help="Select one or more columns from your CSV to use as enrichment columns. Each selected column will become a separate column in the merged results table.",
+                        key=enrichment_columns_key
                     )
-                
-                with col2:
-                    enrichment_column = st.text_input(
-                        "Enrichment Column Name",
-                        value="enriched",
-                        help="Name of the column for enrichment status (will be created if it doesn't exist)"
-                    )
-                
-                enrichment_column_exists = st.checkbox(
-                    "Enrichment column already exists in CSV",
-                    value=False,
-                    help="Check this if the enrichment column already exists in your CSV file"
-                )
-                
-                submitted = st.form_submit_button("📤 Upload Dataset")
-                
-                if submitted:
-                    if not dataset_name or not dataset_name.strip():
-                        st.error("❌ Please provide a dataset name")
-                    elif not lead_column:
-                        st.error("❌ Please select a lead column")
-                    elif not enrichment_column or not enrichment_column.strip():
-                        st.error("❌ Please provide an enrichment column name")
+                                        
+                    if enrichment_columns:
+                        st.success(f"✅ {len(enrichment_columns)} column(s) selected: {', '.join(enrichment_columns)}")
                     else:
-                        with st.spinner("📤 Uploading dataset..."):
-                            try:
-                                result = upload_dataset(
-                                    project_id=project['id'],
-                                    dataset_name=dataset_name.strip(),
-                                    lead_column=lead_column,
-                                    enrichment_column=enrichment_column.strip(),
-                                    enrichment_column_exists=enrichment_column_exists,
-                                    csv_file=uploaded_file
-                                )
+                        st.warning("⚠️ Please select at least one enrichment column")
+                else:
+                    enrichment_columns = []
+            else:
+                # Single column will be created: {dataset_name}_exists with all TRUE values
+                safe_dataset_name = dataset_name.strip().lower().replace(' ', '_')
+                st.info(f"ℹ️ A single enrichment column named `{safe_dataset_name}_exists` will be created with all values set to TRUE")
+                enrichment_columns = None
+                # Clear session state when checkbox is unchecked
+                if enrichment_columns_key in st.session_state:
+                    del st.session_state[enrichment_columns_key]
+            
+            # Check if any form value changed and clear success message
+            current_state = {
+                'dataset_name': st.session_state.get(dataset_name_key),
+                'lead_column': st.session_state.get(lead_column_key),
+                'add_enrichment': st.session_state.get(checkbox_key, False),
+                'enrichment_columns': tuple(sorted(st.session_state.get(enrichment_columns_key, []))) if st.session_state.get(checkbox_key) else None
+            }
+            
+            if previous_state and previous_state != current_state:
+                # Form values changed - clear success message
+                if upload_success_key in st.session_state:
+                    del st.session_state[upload_success_key]
+            
+            # Store current state for next comparison
+            st.session_state[form_state_key] = current_state
+            
+            st.markdown("---")
+            
+            # Upload button (outside form)
+            upload_button_key = f"upload_btn_{project['id']}_{uploaded_file.name}"
+            if st.button("📤 Upload Dataset", type="primary", use_container_width=True, key=upload_button_key):
+                # Clear previous success message when starting a new upload
+                if upload_success_key in st.session_state:
+                    del st.session_state[upload_success_key]
+                
+                # Validation
+                if not dataset_name or not dataset_name.strip():
+                    st.error("❌ Please provide a dataset name")
+                elif not lead_column:
+                    st.error("❌ Please select a lead column")
+                elif add_enrichment_from_dataset and not enrichment_columns:
+                    st.error("❌ Please select at least one enrichment column")
+                else:
+                    with st.spinner("📤 Uploading dataset..."):
+                        try:
+                            # Prepare enrichment columns data
+                            if add_enrichment_from_dataset:
+                                # Multiple enrichment columns from CSV - join with comma
+                                enrichment_column_data = enrichment_columns
+                                enrichment_column_exists = True
+                            else:
+                                # Single enrichment column - backend will generate {dataset_name}_exists
+                                enrichment_column_data = None
+                                enrichment_column_exists = False
+                            
+                            result = upload_dataset(
+                                project_id=project['id'],
+                                dataset_name=dataset_name.strip(),
+                                lead_column=lead_column,
+                                enrichment_column_list=enrichment_column_data,
+                                enrichment_column_exists=enrichment_column_exists,
+                                csv_file=uploaded_file
+                            )
+                            
+                            if result and result.get('success'):
+                                # Store success message in session state to persist
+                                success_message = f"✅ {result.get('message', 'Dataset uploaded successfully')}"
+                                st.session_state[upload_success_key] = success_message
+                                                                
+                                # Clear form-related session state after successful upload
+                                if checkbox_key in st.session_state:
+                                    del st.session_state[checkbox_key]
+                                if enrichment_columns_key in st.session_state:
+                                    del st.session_state[enrichment_columns_key]
                                 
-                                if result and result.get('success'):
-                                    # Show success message immediately
-                                    st.success(f"✅ {result.get('message', 'Dataset uploaded successfully')}")
-                                    st.info(f"📊 Processed {result.get('rows_processed', 0)} rows")
-                                    
-                                    # Refresh project data to show updated stats
-                                    project = get_project(project['id'])
-                                else:
-                                    st.error("❌ Failed to upload dataset. Please try again.")
-                            except Exception as e:
-                                st.error(f"❌ Error uploading dataset: {str(e)}")
+                                # Refresh project data in session state to show updated stats
+                                updated_project = get_project(project['id'])
+                                if updated_project:
+                                    st.session_state.selected_project = get_project(project['id'])
+                            else:
+                                st.error("❌ Failed to upload dataset. Please try again.")
+                        except Exception as e:
+                            st.error(f"❌ Error uploading dataset: {str(e)}")
         except Exception as e:
             st.error(f"❌ Error reading CSV file: {str(e)}")
             st.info("Please make sure your file is a valid CSV file.")
-    
+
+        if upload_success_key in st.session_state:
+            st.success(st.session_state[upload_success_key])
+

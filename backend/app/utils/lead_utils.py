@@ -3,6 +3,8 @@ Lead utility functions for normalizing and processing lead names
 """
 import re
 
+def sanitize_value(value: str) -> str:
+    return re.sub(r'[^a-zA-Z0-9_]', '', value).lower()
 
 def normalize_lead_name(lead_name: str) -> str:
     """

@@ -99,7 +99,7 @@ class ProjectDataset(Base):
     project_id = Column(Integer, ForeignKey("projects.id", ondelete='CASCADE'), nullable=False)  # Foreign key to Project.id
     dataset_name = Column(String(255), nullable=False)  # User-friendly name
     lead_column = Column(String(100), nullable=False)  # Which column contains leads (e.g., "company_name")
-    enrichment_column = Column(Text, nullable=False)  # Which column(s) for enrichment - can be single column or comma-separated list
+    enrichment_column_list = Column(Text, nullable=False)  # Which column(s) for enrichment - can be single column or comma-separated list
     row_count = Column(Integer, default=0)  # Number of rows in the dataset
     created_at = Column(DateTime, default=datetime.utcnow)
     

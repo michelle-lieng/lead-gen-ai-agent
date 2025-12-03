@@ -5,16 +5,16 @@ import logging
 import pandas as pd
 import csv
 import re
+import json
 from io import BytesIO, StringIO
 from datetime import datetime
-from typing import Optional
 from sqlalchemy.exc import SQLAlchemyError
 
 from .database_service import db_service
 from .project_service import project_service
 from ..models.tables import ProjectDataset, Dataset, Project
 from .merged_results_service import merged_results_service
-from ..utils.lead_utils import normalize_lead_name
+from ..utils.lead_utils import normalize_lead_name, sanitize_value
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class LeadsDatasetService:
         project_id: int,
         dataset_name: str,
         lead_column: str,
-        enrichment_column: str,
+        enrichment_column_list: list[str],  # Always a list (empty if no enrichment columns)
         enrichment_column_exists: bool,
         csv_content: bytes  # CSV file as bytes
     ) -> dict:
@@ -38,7 +38,7 @@ class LeadsDatasetService:
             project_id: Project ID to link dataset to
             dataset_name: User-friendly name for the dataset
             lead_column: Name of column containing leads (company names)
-            enrichment_column: Name of column for enrichment values
+            enrichment_column_list: Name of column(s) for enrichment values in list
             enrichment_column_exists: Whether the enrichment column exists in CSV
             csv_content: CSV file content as bytes
             
@@ -53,34 +53,41 @@ class LeadsDatasetService:
                     raise ValueError(f"Project {project_id} not found")
                 
                 # Parse CSV
+                # csv_content is always bytes from FastAPI UploadFile.read()
                 try:
-                    # Try reading as bytes first (if uploaded file)
-                    df = pd.read_csv(BytesIO(csv_content))
-                except:
-                    # Fallback to string if already decoded
-                    df = pd.read_csv(StringIO(csv_content.decode('utf-8')))
+                    df = pd.read_csv(BytesIO(csv_content), encoding='utf-8', encoding_errors='replace')
+                except Exception as e:
+                    raise ValueError(f"Failed to parse CSV file: {str(e)}")
                 
-                # Normalize column names (strip whitespace, handle case)
+                # Normalize column names (strip whitespace)
                 df.columns = df.columns.str.strip()
                 lead_column = lead_column.strip()
-                enrichment_column = enrichment_column.strip()
+                enrichment_column_list = [col.strip() for col in enrichment_column_list]
                 
                 # Validate lead_column exists
                 if lead_column not in df.columns:
                     raise ValueError(f"Lead column '{lead_column}' not found in CSV. Available columns: {', '.join(df.columns)}")
                 
-                # Handle enrichment column
-                enrichment_exists_in_csv = enrichment_column in df.columns
-                
+                # Handle enrichment columns (can be single or multiple)
                 if enrichment_column_exists:
-                    # User says column exists - verify it does
-                    if not enrichment_exists_in_csv:
+                    # User selected columns from CSV - verify they all exist
+                    if len(enrichment_column_list) == 0:
+                        raise ValueError("enrichment_column_list cannot be empty when enrichment_column_exists is True")
+                    
+                    missing_columns = [col for col in enrichment_column_list if col not in df.columns]
+                    if missing_columns:
                         raise ValueError(
-                            f"Enrichment column '{enrichment_column}' not found in CSV, "
-                            f"but you indicated it exists. Available columns: {', '.join(df.columns)}"
-                        )                    
+                            f"Enrichment column(s) not found in CSV: {', '.join(missing_columns)}. "
+                            f"Available columns: {', '.join(df.columns)}"
+                        )
+    
+                    enrichment_column_for_merge = enrichment_column_list
+                    logger.info(f"Using {len(enrichment_column_list)} enrichment column(s) from CSV: {', '.join(enrichment_column_list)}")
                 else:
-                    logger.info(f"Creating column '{enrichment_column}' with value True")
+                    # Single enrichment column - will be created with value True
+                    safe_dataset_name = sanitize_value(dataset_name)
+                    enrichment_column_for_merge = [f"{safe_dataset_name}_exists"]
+                    logger.info(f"Creating column '{safe_dataset_name}_exists' with value True")
                 
                 # Check for duplicate leads in the CSV (case-insensitive, whitespace-trimmed)
                 lead_values = df[lead_column].astype(str).str.strip()
@@ -110,7 +117,7 @@ class LeadsDatasetService:
                     project_id=project_id,
                     dataset_name=dataset_name,
                     lead_column=lead_column,
-                    enrichment_column=enrichment_column,
+                    enrichment_column_list=",".join(enrichment_column_for_merge),  # Store as comma-separated string in DB
                     row_count=0  # Will update after processing
                 )
                 session.add(project_dataset)
@@ -135,12 +142,18 @@ class LeadsDatasetService:
                             logger.warning(f"Skipping row {idx}: lead became empty after normalization")
                             continue
                         
-                        # Get enrichment value
-                        if enrichment_column_exists and enrichment_exists_in_csv:
-                            # Use actual value from CSV
-                            enrichment_value = row[enrichment_column]
+                        # Get enrichment value(s)
+                        if enrichment_column_exists and len(enrichment_column_list) > 0:
+                            # Multiple or single enrichment columns from CSV
+                            if len(enrichment_column_list) == 1:
+                                # Single column - store value directly
+                                enrichment_value = str(row[enrichment_column_list[0]])
+                            else:
+                                # Multiple columns - store as JSON object
+                                enrichment_dict = {col: str(row[col]) for col in enrichment_column_list}
+                                enrichment_value = json.dumps(enrichment_dict)
                         else:
-                            # Column doesn't exist - set to True
+                            # Column doesn't exist (for col {safe_dataset_name}_exists) - set to True
                             enrichment_value = "true"
                         
                         # Create Dataset record with normalized lead
@@ -175,7 +188,7 @@ class LeadsDatasetService:
                     merge_result = merged_results_service.merge_dataset_leads(
                         project_id=project_id,
                         project_dataset_id=project_dataset.id,
-                        enrichment_column=enrichment_column
+                        enrichment_column_list=enrichment_column_for_merge
                     )
                     logger.info(f"✅ Dataset leads merged: {merge_result.get('message', '')}")
                 except Exception as merge_error:

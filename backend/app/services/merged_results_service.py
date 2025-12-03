@@ -9,11 +9,12 @@ from io import StringIO, BytesIO
 from datetime import datetime
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+import json
 
 from .database_service import db_service
 from .project_service import project_service
 from ..models.tables import SerpLeadAggregated, Dataset, ProjectDataset, MergedResult
-from ..utils.lead_utils import normalize_lead_name
+from ..utils.lead_utils import normalize_lead_name, sanitize_value
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class MergedResultsService:
         try:
             # Sanitize column name to prevent SQL injection
             # Only allow alphanumeric and underscores
-            safe_column_name = re.sub(r'[^a-zA-Z0-9_]', '', column_name)
+            safe_column_name = sanitize_value(column_name)
             if not safe_column_name or safe_column_name != column_name:
                 logger.error(f"Invalid column name: {column_name}")
                 return False
@@ -159,24 +160,25 @@ class MergedResultsService:
             logger.error(f"❌ Error merging SERP leads: {str(e)}")
             raise Exception(f"Error merging SERP leads: {str(e)}")
 
-    def merge_dataset_leads(self, project_id: int, project_dataset_id: int, enrichment_column: str) -> dict:
+    def merge_dataset_leads(self, project_id: int, project_dataset_id: int, enrichment_column_list: list[str]) -> dict:
         """
         Merge dataset leads into merged_results table.
-        Adds enrichment column dynamically if it doesn't exist.
+        Adds enrichment column(s) dynamically if they don't exist.
         Called after dataset upload completes.
         
         Args:
             project_id: Project ID to merge leads for
             project_dataset_id: ProjectDataset ID that was just uploaded
-            enrichment_column: Name of the enrichment column (will be added dynamically if needed)
+            enrichment_column_list: List of enrichment column name(s)
             
         Returns:
             dict: Success status and statistics
         """
-        try:
-            # Ensure enrichment column exists
-            if not self._ensure_enrichment_column_exists(enrichment_column):
-                raise Exception(f"Failed to ensure enrichment column '{enrichment_column}' exists")
+        try:                        
+            # Ensure all enrichment columns exist
+            for col in enrichment_column_list:
+                if not self._ensure_enrichment_column_exists(col):
+                    raise Exception(f"Failed to ensure enrichment column '{col}' exists")
             
             with db_service.get_session() as session:
                 # Get all dataset rows for this project_dataset
@@ -195,9 +197,6 @@ class MergedResultsService:
                 merged_count = 0
                 updated_count = 0
                 
-                # Sanitize column name for SQL
-                safe_column_name = re.sub(r'[^a-zA-Z0-9_]', '', enrichment_column)
-                
                 for dataset_row in dataset_rows:
                     # Normalize lead name
                     normalized_lead = normalize_lead_name(dataset_row.lead)
@@ -211,18 +210,30 @@ class MergedResultsService:
                         MergedResult.lead == normalized_lead
                     ).first()
                     
+                    # Parse enrichment value(s)
+                    if len(enrichment_column_list) == 1:
+                        # Single column - use value directly
+                        enrichment_values = {enrichment_column_list[0]: str(dataset_row.enrichment_value) if dataset_row.enrichment_value else None}
+                    else:
+                        # Multiple columns - parse JSON
+                        try:
+                            enrichment_values = json.loads(dataset_row.enrichment_value) if dataset_row.enrichment_value else {}
+                        except:
+                            enrichment_values = {}
+                    
                     if existing:
-                        # Update existing record with enrichment value
-                        # Use raw SQL to update dynamic column
-                        update_query = text(f"""
-                            UPDATE merged_results 
-                            SET {safe_column_name} = :enrichment_value
-                            WHERE id = :id
-                        """)
-                        session.execute(update_query, {
-                            "enrichment_value": str(dataset_row.enrichment_value) if dataset_row.enrichment_value else None,
-                            "id": existing.id
-                        })
+                        # Update existing record with enrichment value(s)
+                        for col_name, col_value in enrichment_values.items():
+                            safe_column_name = sanitize_value(col_name)
+                            update_query = text(f"""
+                                UPDATE merged_results 
+                                SET {safe_column_name} = :enrichment_value
+                                WHERE id = :id
+                            """)
+                            session.execute(update_query, {
+                                "enrichment_value": col_value,
+                                "id": existing.id
+                            })
                         updated_count += 1
                     else:
                         # Create new merged result
@@ -235,15 +246,16 @@ class MergedResultsService:
                         session.add(merged_result)
                         session.flush()  # Get the ID
                         
-                        # Then update the dynamic enrichment column
-                        if dataset_row.enrichment_value:
+                        # Then update the dynamic enrichment column(s)
+                        for col_name, col_value in enrichment_values.items():
+                            safe_column_name = sanitize_value(col_name)
                             update_query = text(f"""
                                 UPDATE merged_results 
                                 SET {safe_column_name} = :enrichment_value
                                 WHERE id = :id
                             """)
                             session.execute(update_query, {
-                                "enrichment_value": str(dataset_row.enrichment_value),
+                                "enrichment_value": col_value,
                                 "id": merged_result.id
                             })
                         
