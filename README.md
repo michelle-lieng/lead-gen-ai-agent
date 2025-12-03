@@ -4,7 +4,7 @@ An AI-powered lead generation platform that discovers and enriches potential cor
 
 ## 🎬 Demo
 
-[Watch the Demo](https://www.youtube.com/watch?v=ChB0G_PbmNI)
+[Watch the Demo]()
 
 ## 🚀 Features
 
