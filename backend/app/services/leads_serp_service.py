@@ -515,6 +515,7 @@ Scraped Content:
                         "urls_failed": 0,
                         "total_urls_attempted": 0,
                         "new_leads_extracted": 0,
+                        "extracted_leads": [],
                         "message": "No unprocessed URLs found to extract leads from"
                     }
                 
@@ -524,6 +525,7 @@ Scraped Content:
                 skipped_count = 0
                 failed_count = 0
                 new_leads_count = 0
+                all_extracted_leads = []  # Collect all results to return in response
                 
                 # Step 2: Process each URL
                 for url_record in unprocessed_urls:
@@ -531,6 +533,8 @@ Scraped Content:
                         logger.info(f"Processing URL: {url_record.link}")
                         
                         # Extract leads using the _lead_extractor method
+                        leads = []
+                        scraped_content = None
                         try:
                             leads, scraped_content = await self._lead_extractor(
                                 query=url_record.query,
@@ -544,6 +548,17 @@ Scraped Content:
                             url_record.status = "failed"
                             url_record.website_scraped = None
                             failed_count += 1
+                            
+                            # Add failed URL to results
+                            all_extracted_leads.append({
+                                "url": url_record.link,
+                                "title": url_record.title,
+                                "query": url_record.query,
+                                "snippet": url_record.snippet,
+                                "status": "failed",
+                                "website_scraped": None,
+                                "leads": []
+                            })
                             continue  # Skip to next URL
                         
                         # Clean up leads - handle AI returning ['[]'] or similar
@@ -602,6 +617,17 @@ Scraped Content:
                             url_record.status = "skip"
                             skipped_count += 1
                             logger.info(f"⏭️ No leads found in {url_record.link} - marked as skip")
+                        
+                        # Store ALL results (processed, skipped) with status and scraped content
+                        all_extracted_leads.append({
+                            "url": url_record.link,
+                            "title": url_record.title,
+                            "query": url_record.query,
+                            "snippet": url_record.snippet,
+                            "status": url_record.status,
+                            "website_scraped": url_record.website_scraped,
+                            "leads": leads if leads else []
+                        })
                             
                     except Exception as e:
                         # Unexpected error - mark as failed and continue processing
@@ -609,6 +635,17 @@ Scraped Content:
                         url_record.status = "failed"
                         url_record.website_scraped = None
                         failed_count += 1
+                        
+                        # Add failed URL to results
+                        all_extracted_leads.append({
+                            "url": url_record.link,
+                            "title": url_record.title,
+                            "query": url_record.query,
+                            "snippet": url_record.snippet,
+                            "status": "failed",
+                            "website_scraped": None,
+                            "leads": []
+                        })
                         # Continue to next URL - don't let one failure stop the whole process
                 
                 # Commit all changes
@@ -643,6 +680,7 @@ Scraped Content:
                     "urls_failed": failed_count,
                     "total_urls_attempted": len(unprocessed_urls),
                     "new_leads_extracted": new_leads_count,
+                    "extracted_leads": all_extracted_leads,  # Return detailed results for each URL
                     "message": f"Processed {processed_count} URLs, extracted {new_leads_count} new leads ({skipped_count} skipped, {failed_count} failed)"
                 }
                 
