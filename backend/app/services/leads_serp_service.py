@@ -449,45 +449,38 @@ class LeadsSerpService:
             logger.error(f"Error deleting URL {url_id} for project {project_id}: {str(e)}")
             raise
 
-    # we use this decorator for tools to openai agent sdk
-    @function_tool
-    async def _scrape_url(url: str) -> str:
-        """
-        This tool asynchronously scrapes the url provided and returns a string of the website scraped.
-        Use this tool when the search result seems to provide relevant leads e.g. 
-        "Top 100 environmental companies" and you need more information than what is provided in the
-        snippet and title to extract leads.
-        """
-        logger.info(f"Scraping URL: {url}")
-        return jina_url_scraper(url)
-    
     async def _lead_extractor(self, query, title, snippet, url) -> tuple[list, str | None]:
         """
-        If on table serp_urls the status is unprocessed then we will scrape it.
+        Extract leads from a search result by always scraping the URL first, then passing
+        the scraped content to the LLM for extraction.
         """
+        # Always scrape the URL first
+        logger.info(f"Scraping URL: {url}")
+        scraped_content = jina_url_scraper(url)
+        
+        # Create agent without tools (no tool calls needed)
         agent = Agent(
             name="Lead Generator",
             instructions=SERP_EXTRACTION_PROMPT,
-            tools=[self._scrape_url],
+            tools=[],  # No tools - we always scrape first
             output_type=list[str], # Specify the output type as a list of strings
-
         )
-        # this runner class is async -> Runner.run(), which runs async and returns a RunResult. 
-        result = await Runner.run(agent, 
-                                input=f"""
-                                    Search Result:
-                                    Query: {query}
-                                    Title: {title}
-                                    Snippet: {snippet}
-                                    URL: {url}
-                                """)
-        scraped_content = None #initial value
-        for item in result.new_items:
-            if getattr(item, "type", None) == "tool_call_output_item":
-                scraped_content = getattr(item, "output", None)
+        
+        # Build input with scraped content included
+        input_text = f"""
+Search Result:
+Query: {query}
+Title: {title}
+Snippet: {snippet}
+URL: {url}
 
-                # scraped content is already cleaned by jina_url_scraper
-                logger.info("Tool output (scraped content) found.")
+Scraped Content:
+{scraped_content if scraped_content else "No content available"}
+"""
+        
+        # Run the agent with scraped content already in the input
+        result = await Runner.run(agent, input=input_text)
+        
         logger.info(f"Final output (company names): {result.final_output}")
         # enforce list type for leads
         leads = result.final_output
