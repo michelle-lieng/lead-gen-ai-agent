@@ -6,7 +6,7 @@ from sqlalchemy import or_
 from typing import List, Optional
 import logging
 
-from ..models.tables import Project, SerpUrl, SerpLead, SerpQuery, ProjectDataset
+from ..models.tables import Project, SerpUrl, SerpLead, SerpQuery, ProjectDataset, MergedResult
 from .database_service import db_service
 
 logger = logging.getLogger(__name__)
@@ -123,7 +123,7 @@ class ProjectService:
     def update_project_counts_from_db(self, project_id: Optional[int] = None) -> bool:
         """
         Recalculate and update project counts from database tables.
-        Counts only URLs with status='processed' or 'skip' from serp_urls, all leads from serp_leads,
+        Counts only URLs with status='processed' or 'skip' from serp_urls, total unique leads from merged_results,
         and all datasets from project_datasets.
         
         Args:
@@ -147,9 +147,9 @@ class ProjectService:
                         or_(SerpUrl.status == "processed", SerpUrl.status == "skip")
                     ).count()
                     
-                    # Count leads for this project
-                    leads_count = session.query(SerpLead).filter(
-                        SerpLead.project_id == project_id
+                    # Count leads from merged_results table (total unique leads)
+                    leads_count = session.query(MergedResult).filter(
+                        MergedResult.project_id == project_id
                     ).count()
                     
                     # Count datasets for this project
@@ -177,9 +177,9 @@ class ProjectService:
                             or_(SerpUrl.status == "processed", SerpUrl.status == "skip")
                         ).count()
                         
-                        # Count leads for this project
-                        leads_count = session.query(SerpLead).filter(
-                            SerpLead.project_id == project.id
+                        # Count leads from merged_results table (total unique leads)
+                        leads_count = session.query(MergedResult).filter(
+                            MergedResult.project_id == project.id
                         ).count()
                         
                         # Count datasets for this project
