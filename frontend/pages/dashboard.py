@@ -23,10 +23,17 @@ def show_dashboard():
                 st.error("Please enter a project name")
             else:
                 with st.spinner("Creating project..."):
-                    result = create_project(project_name, description)
-                    if result:
-                        st.success(f"✅ Project '{project_name}' created successfully!")
-                        st.rerun()
+                    try:
+                        result = create_project(project_name, description)
+                        if result:
+                            st.success(f"✅ Project '{project_name}' created successfully!")
+                            st.rerun()
+                    except Exception as e:
+                        error_message = str(e)
+                        if "already exists" in error_message.lower():
+                            st.error(f"❌ Project name '{project_name}' already exists. Please choose a different name and try again.")
+                        else:
+                            st.error(f"❌ Failed to create project: {error_message}")
     
     st.markdown("---")
     
