@@ -236,6 +236,219 @@ class LeadsSerpService:
             "message": f"Saved {len(queries)} queries and {urls_result.get('urls_added', 0)} URLs"
         }
 
+    def get_urls(self, project_id: int) -> list[dict]:
+        """
+        Get all unprocessed production URLs for a project.
+        
+        Args:
+            project_id (int): ID of the project
+            
+        Returns:
+            list[dict]: List of URL dictionaries with id, project_id, query, title, link, 
+                       snippet, website_scraped, status, created_at (only URLs with status="unprocessed")
+                       
+        Raises:
+            ValueError: If project does not exist
+        """
+        try:
+            with db_service.get_session() as session:
+                urls = session.query(SerpUrl).filter(
+                    SerpUrl.project_id == project_id,
+                    SerpUrl.status == "unprocessed"
+                ).order_by(SerpUrl.created_at.desc()).all()
+                
+                return [
+                    {
+                        "id": url.id,
+                        "project_id": url.project_id,
+                        "query": url.query,
+                        "title": url.title,
+                        "link": url.link,
+                        "snippet": url.snippet,
+                        "website_scraped": url.website_scraped,
+                        "status": url.status,
+                        "created_at": url.created_at.isoformat() if url.created_at else None
+                    }
+                    for url in urls
+                ]
+        except Exception as e:
+            logger.error(f"Error fetching URLs for project {project_id}: {str(e)}")
+            raise
+
+    def create_url(self, project_id: int, link: str, title: str = None, snippet: str = None) -> dict:
+        """
+        Create a single production URL manually.
+        
+        Args:
+            project_id (int): ID of the project
+            link (str): URL link (required)
+            title (str, optional): Title of the URL
+            snippet (str, optional): Snippet/description of the URL
+            
+        Returns:
+            dict: Contains success status, message, and created URL data
+            
+        Raises:
+            ValueError: If URL already exists or project does not exist
+        """
+        try:
+            with db_service.get_session() as session:
+                # Check if URL already exists (link is unique)
+                existing = session.query(SerpUrl).filter(
+                    SerpUrl.link == link
+                ).first()
+                
+                if existing:
+                    raise ValueError(f"URL already exists: {link}")
+                
+                # Create new URL
+                # Query is automatically set to "Manual Entry" for manually created URLs
+                new_url = SerpUrl(
+                    project_id=project_id,
+                    link=link,
+                    title=title or '',
+                    snippet=snippet or '',
+                    query='Manual Entry',  # Automatically set for manually created URLs
+                    status="unprocessed"
+                )
+                
+                session.add(new_url)
+                session.commit()
+                session.refresh(new_url)
+                
+                logger.info(f"Created URL {new_url.id} for project {project_id}")
+                
+                return {
+                    "success": True,
+                    "message": "URL created successfully",
+                    "url": {
+                        "id": new_url.id,
+                        "project_id": new_url.project_id,
+                        "query": new_url.query,
+                        "title": new_url.title,
+                        "link": new_url.link,
+                        "snippet": new_url.snippet,
+                        "status": new_url.status
+                    }
+                }
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error creating URL for project {project_id}: {str(e)}")
+            raise
+
+    def update_url(self, project_id: int, url_id: int, title: str = None, snippet: str = None, link: str = None) -> dict:
+        """
+        Update a production URL (title, snippet or link).
+        
+        Args:
+            project_id (int): ID of the project
+            url_id (int): ID of the URL to update
+            title (str, optional): New title
+            snippet (str, optional): New snippet
+            link (str, optional): New link
+            
+        Returns:
+            dict: Contains success status, message, and updated URL data
+            
+        Raises:
+            ValueError: If URL not found
+        """
+        try:
+            with db_service.get_session() as session:
+                url = session.query(SerpUrl).filter(
+                    SerpUrl.id == url_id,
+                    SerpUrl.project_id == project_id
+                ).first()
+                
+                if not url:
+                    raise ValueError("URL not found")
+                
+                # Update fields if provided
+                if title is not None:
+                    url.title = title
+                if snippet is not None:
+                    url.snippet = snippet
+                if link is not None:
+                    url.link = link
+                
+                session.commit()
+                
+                logger.info(f"Updated URL {url_id} for project {project_id}")
+                
+                return {
+                    "success": True,
+                    "message": "URL updated successfully",
+                    "url": {
+                        "id": url.id,
+                        "project_id": url.project_id,
+                        "query": url.query,
+                        "title": url.title,
+                        "link": url.link,
+                        "snippet": url.snippet,
+                        "status": url.status
+                    }
+                }
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating URL {url_id} for project {project_id}: {str(e)}")
+            raise
+
+    def delete_url(self, project_id: int, url_id: int) -> dict:
+        """
+        Delete a production URL.
+        
+        Args:
+            project_id (int): ID of the project
+            url_id (int): ID of the URL to delete
+            
+        Returns:
+            dict: Contains success status and message
+            
+        Raises:
+            ValueError: If URL not found
+        """
+        try:
+            with db_service.get_session() as session:
+                # Debug: Check if URL exists at all (any project)
+                url_any_project = session.query(SerpUrl).filter(SerpUrl.id == url_id).first()
+                # Debug: Check if URL exists for this project
+                url = session.query(SerpUrl).filter(
+                    SerpUrl.id == url_id,
+                    SerpUrl.project_id == project_id
+                ).first()
+                
+                if not url:
+                    # Enhanced error message with debug info
+                    if url_any_project:
+                        raise ValueError(f"URL {url_id} exists but belongs to project {url_any_project.project_id}, not project {project_id}")
+                    else:
+                        # Check all URLs for this project to see what IDs exist
+                        all_urls = session.query(SerpUrl.id, SerpUrl.status).filter(
+                            SerpUrl.project_id == project_id
+                        ).all()
+                        existing_ids = [u.id for u in all_urls]
+                        logger.error(f"URL {url_id} not found for project {project_id}. Existing URL IDs: {existing_ids[:20]}")  # Log first 20
+                        # Include debug info in error message so it shows in API response
+                        existing_ids_str = str(existing_ids[:20]) if existing_ids else "none"
+                        raise ValueError(f"URL {url_id} not found for project {project_id}. Existing URL IDs for this project: {existing_ids_str}")
+                
+                session.delete(url)
+                session.commit()
+                
+                logger.info(f"Deleted URL {url_id} for project {project_id}")
+                
+                return {
+                    "success": True,
+                    "message": "URL deleted successfully"
+                }
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting URL {url_id} for project {project_id}: {str(e)}")
+            raise
+
     # we use this decorator for tools to openai agent sdk
     @function_tool
     async def _scrape_url(url: str) -> str:

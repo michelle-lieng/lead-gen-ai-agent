@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Response
 
 from ...services.leads_serp_service import leads_serp_service
 
-from ...models.schemas import QueryListRequest, QueryGenerationRequest
+from ...models.schemas import QueryListRequest, QueryGenerationRequest, UrlCreate, UrlUpdate
 
 router = APIRouter()
 
@@ -49,6 +49,69 @@ async def generate_urls(project_id: int, request: QueryListRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving queries: {str(e)}")
+
+@router.get("/projects/{project_id}/urls")
+async def get_urls(project_id: int):
+    """
+    Get all production URLs for a project.
+    """
+    try:
+        urls = leads_serp_service.get_urls(project_id)
+        return urls
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching URLs: {str(e)}")
+
+@router.post("/projects/{project_id}/urls/create")
+async def create_url(project_id: int, url_data: UrlCreate):
+    """
+    Create a single production URL manually.
+    """
+    try:
+        result = leads_serp_service.create_url(
+            project_id=project_id,
+            link=url_data.link,
+            title=url_data.title,
+            snippet=url_data.snippet
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating URL: {str(e)}")
+
+@router.put("/projects/{project_id}/urls/{url_id}")
+async def update_url(project_id: int, url_id: int, update: UrlUpdate):
+    """
+    Update a production URL (title, snippet or link).
+    """
+    try:
+        result = leads_serp_service.update_url(
+            project_id=project_id,
+            url_id=url_id,
+            title=update.title,
+            snippet=update.snippet,
+            link=update.link
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating URL: {str(e)}")
+
+@router.delete("/projects/{project_id}/urls/{url_id}")
+async def delete_url(project_id: int, url_id: int):
+    """
+    Delete a production URL.
+    """
+    try:
+        result = leads_serp_service.delete_url(project_id=project_id, url_id=url_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting URL: {str(e)}")
 
 @router.post("/projects/{project_id}/leads")
 async def generate_leads(project_id: int):

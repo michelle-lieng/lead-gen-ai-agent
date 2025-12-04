@@ -95,3 +95,32 @@ class TestUrlUpdate(BaseModel):
                 raise ValueError('Link cannot be empty or whitespace only. Omit the field if you do not want to update it.')
             return v.strip()
         return None
+
+class UrlCreate(BaseModel):
+    """Schema for creating a new production URL"""
+    link: str
+    title: Optional[str] = None
+    snippet: Optional[str] = None
+    query: Optional[str] = None  # Optional, will default to "Manual Entry" if not provided
+    
+    @field_validator('link')
+    @classmethod
+    def validate_link(cls, v: str) -> str:
+        """Ensure link is not empty or just whitespace"""
+        return validate_not_empty_string(v)
+
+class UrlUpdate(BaseModel):
+    """Schema for updating a production URL"""
+    title: Optional[str] = None
+    snippet: Optional[str] = None
+    link: Optional[str] = None
+    
+    @field_validator('link')
+    @classmethod
+    def validate_link_if_provided(cls, v: Optional[str]) -> Optional[str]:
+        """If link is provided, ensure it's not empty or just whitespace"""
+        if v is not None:
+            if not v or not v.strip():
+                raise ValueError('Link cannot be empty or whitespace only. Omit the field if you do not want to update it.')
+            return v.strip()
+        return None

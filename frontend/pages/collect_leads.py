@@ -3,7 +3,7 @@ Lead collection page
 """
 import streamlit as st
 import pandas as pd
-from api_client import update_project, generate_queries, generate_urls, generate_leads, fetch_latest_run_zip, get_project, upload_dataset
+from api_client import update_project, generate_queries, generate_urls, get_urls, create_url, update_url, delete_url, generate_leads, fetch_latest_run_zip, get_project, upload_dataset
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -49,6 +49,10 @@ def init_collect_leads_session_state():
         st.session_state.query_counter = 0
     if 'num_queries' not in st.session_state:
         st.session_state.num_queries = 3
+    if 'urls_table_just_saved' not in st.session_state:
+        st.session_state.urls_table_just_saved = False
+    if 'urls_table_save_message' not in st.session_state:
+        st.session_state.urls_table_save_message = None
 
 # =============================================================================
 # MAIN PAGE - WEB SEARCH TAB
@@ -174,81 +178,262 @@ def show_web_search_tab(project):
                 st.session_state.generated_queries.pop(query_id, None)
             st.rerun()
 
-    # Step 2: Start search (always visible)
+    # Step 2: Generate URLs (always visible)
     st.markdown("---")
-    st.markdown("## Step 2: Start the search")
-    
-    # Test Prompts button at the top
-    if st.button("🧪 Test Extraction Prompts", help="Test your lead features prompts before running the full extraction"):
-        st.session_state.current_page = "test_prompts"
-        st.rerun()
+    st.markdown("## Step 2: Generate URLs")
     
     # Get current project values for lead features (use latest from session state)
     current_project = st.session_state.selected_project
-    
-    # Lead features input boxes (read-only - edit in test prompts page)
-    st.info("💡 To edit lead features, use the 'Test Extraction Prompts' button above or go to the Test Prompts page.")
-    
-    # Check if queries exist and lead features are set
+
+    # Check if queries exist
     has_queries = bool(st.session_state.generated_queries)
     
     if not has_queries:
-        st.info("ℹ️ Add at least one search query in Step 1 before you can start the web search.")
-        st.button("🔍 Start Web Search", disabled=True)
+        st.info("ℹ️ Add at least one search query in Step 1 before you can generate URLs.")
+        st.button("🔍 Generate URLs", disabled=True)
     else:
-        if st.button("🔍 Start Web Search"):
-            # Save lead features if they have changed
-            
-            with st.spinner("🔍 Starting web search..."):
+        if st.button("🔍 Generate URLs"):
+            with st.spinner("🔍 Generating URLs from queries..."):
                 # Convert dict to list for API call
                 queries_list = list(st.session_state.generated_queries.values())
-                # Step 2.1: Generate URLs from queries
-                st.info(f"📊 Generating URLs from {len(queries_list)} queries...")
                 urls_result = generate_urls(project['id'], queries_list)
                 
                 if urls_result.get('success'):
                     urls_info = urls_result.get('urls_result', {})
                     st.success(f"✅ Generated {urls_info.get('urls_added', 0)} URLs from {urls_info.get('queries_processed', 0)} search queries")
-                    
-                    # Step 2.2: Extract leads from URLs
-                    st.info("🤖 Extracting leads from URLs (this may take several minutes)...")
-                    leads_result = generate_leads(project['id'])
-                    
-                    if leads_result.get('success'):
-                        st.success("✅ Leads extracted successfully!")
-                        
-                        # Refresh project data to get updated stats
-                        st.session_state.selected_project = get_project(project['id'])
-
-                        st.markdown("**📊 Search Results (This Run):**")
-
-                        # Show stats from this run only (5-column dashboard)
-                        col1, col2, col3, col4, col5 = st.columns(5)
-                        with col1:
-                            st.metric("Queries Processed", urls_info.get('queries_processed', 0))
-                        with col2:
-                            st.metric("Leads Processed", leads_result.get('new_leads_extracted', 0))
-                        with col3:
-                            st.metric("URLs Processed", leads_result.get('urls_processed', 0))
-                        with col4:
-                            st.metric("URLs Skipped", leads_result.get('urls_skipped', 0))
-                        with col5:
-                            st.metric("URLs Failed", leads_result.get('urls_failed', 0))
-                        
-                        st.info("📝 For detailed statistics, check the backend logs.")
-                        # Automatically fetch ZIP file after successful extraction
-                        with st.spinner("📥 Preparing download..."):
-                            _fetch_and_store_zip_data(project['id'])
-                        
-                        # Clear queries after successful completion so they don't persist on page reset
-                        if 'generated_queries' in st.session_state:
-                            st.session_state.generated_queries = {}
-                        if 'query_counter' in st.session_state:
-                            st.session_state.query_counter = 0
-                    else:
-                        st.error(f"❌ Failed to generate leads")
+                    st.rerun()
                 else:
                     st.error(f"❌ Failed to generate URLs")
+    
+    # Fetch and display URLs from backend
+    try:
+        urls = get_urls(project['id'])
+    except Exception as e:
+        st.error(f"❌ Error fetching URLs: {str(e)}")
+        urls = []
+    
+    # Display URLs table if they exist
+    if urls:
+        st.markdown("**Your generated URLs (you can add, edit and delete URLs below):**")
+        
+        # Create DataFrame from URLs
+        df = pd.DataFrame([
+            {
+                'ID': url['id'],
+                'URL': url['link'],
+                'Query': url.get('query', ''),
+                'Title': url.get('title', ''),
+                'Snippet': url.get('snippet', ''),
+                'Status': url.get('status', 'unprocessed')
+            }
+            for url in urls
+        ])
+        
+        # Store original for comparison
+        original_df = df.copy()
+        
+        # Use a key that changes after save to reset the widget state
+        editor_key = f"urls_editor_{st.session_state.urls_table_just_saved}"
+        
+        # Display editable table
+        edited_df = st.data_editor(
+            df,
+            use_container_width=True,
+            num_rows="dynamic",
+            key=editor_key,
+            column_config={
+                "ID": None,
+                "Query": st.column_config.TextColumn("Query"),
+                "URL": st.column_config.TextColumn("URL", width="medium"),
+                "Title": st.column_config.TextColumn("Title", width="medium"),
+                "Snippet": st.column_config.TextColumn("Snippet", width="large"),
+                "Status": None
+            },
+            disabled=["Query", "Status", "ID"],  # These are read only!
+        )
+        
+        # Check for changes first - create lookup dict for O(1) access
+        # CRITICAL FIX: Convert all IDs to Python ints to avoid numpy int64 vs Python int mismatch
+        # original_df['ID'].values contains numpy int64, but edited_ids contains Python int
+        # Set operations fail when types don't match: {36 (numpy int64)} - {36 (Python int)} = {36} ❌
+        original_ids = {int(id_val) for id_val in original_df['ID'].values if pd.notna(id_val)}
+        original_dict = {int(row['ID']): row for _, row in original_df.iterrows()}
+        edited_ids = set()
+        new_rows = []
+        edited_rows = []
+        
+        # Process all rows in edited_df to detect changes
+        if len(edited_df) > 0:
+            for idx, row in edited_df.iterrows():
+                # Check if ID is NaN or missing (new row)
+                if pd.isna(row['ID']) or row['ID'] == '':
+                    # New row - validate URL is provided (required)
+                    if pd.notna(row['URL']) and str(row['URL']).strip():
+                        new_rows.append({
+                            'link': str(row['URL']).strip(),
+                            'title': str(row['Title']).strip() if pd.notna(row['Title']) else '',
+                            'snippet': str(row['Snippet']).strip() if pd.notna(row['Snippet']) else ''
+                        })
+                else:
+                    # Existing row - track ID and check for changes
+                    # Convert to Python int (handles both int and float from Streamlit)
+                    url_id = int(float(row['ID']))  # int(float()) handles 36, 36.0, numpy types
+                    edited_ids.add(url_id)
+                    
+                    if url_id in original_dict:
+                        original_row = original_dict[url_id]
+                        updates = {}
+                        
+                        # Normalize values for comparison (handle NaN, None, whitespace, data types)
+                        def normalize_for_compare(val):
+                            if pd.isna(val) or val is None:
+                                return ''
+                            return str(val).strip()
+                        
+                        # Only add to updates if values actually differ after normalization
+                        edited_url = normalize_for_compare(row['URL'])
+                        original_url = normalize_for_compare(original_row['URL'])
+                        if edited_url != original_url:
+                            if not edited_url:  # URL cannot be empty
+                                st.error(f"❌ URL cannot be empty for row with ID {url_id}")
+                            else:
+                                updates['link'] = edited_url
+                        
+                        edited_title = normalize_for_compare(row['Title'])
+                        original_title = normalize_for_compare(original_row['Title'])
+                        if edited_title != original_title:
+                            updates['title'] = edited_title
+                        
+                        edited_snippet = normalize_for_compare(row['Snippet'])
+                        original_snippet = normalize_for_compare(original_row['Snippet'])
+                        if edited_snippet != original_snippet:
+                            updates['snippet'] = edited_snippet
+                        
+                        if updates:
+                            edited_rows.append((url_id, updates))
+        
+        # Find deleted rows (in original but not in edited)
+        deleted_ids = original_ids - edited_ids
+        
+        # Only show save button if there are changes
+        has_changes = len(new_rows) > 0 or len(edited_rows) > 0 or len(deleted_ids) > 0
+        
+        # Clear save message if new changes are detected
+        if has_changes and st.session_state.urls_table_save_message:
+            st.session_state.urls_table_save_message = None
+        
+        # Display save message below the table if it exists (from previous save)
+        if st.session_state.urls_table_save_message:
+            st.success(st.session_state.urls_table_save_message)
+        
+        if has_changes:
+            if st.button("💾 Save Table"):
+                # Process all changes
+                changes_made = False
+                errors = []
+                
+                # Create new rows
+                for new_row in new_rows:
+                    try:
+                        result = create_url(
+                            project['id'],
+                            link=new_row['link'],
+                            title=new_row['title'] if new_row['title'] else None,
+                            snippet=new_row['snippet'] if new_row['snippet'] else None
+                        )
+                        if result and result.get('success'):
+                            changes_made = True
+                    except Exception as e:
+                        errors.append(f"Error creating URL {new_row['link']}: {str(e)}")
+                
+                # Update existing rows
+                for url_id, updates in edited_rows:
+                    try:
+                        result = update_url(project['id'], url_id, **updates)
+                        if result and result.get('success'):
+                            changes_made = True
+                    except Exception as e:
+                        errors.append(f"Error updating URL {url_id}: {str(e)}")
+                
+                # Delete removed rows
+                for url_id in deleted_ids:
+                    try:
+                        # Ensure url_id is a Python int
+                        url_id_int = int(url_id)
+                        result = delete_url(project['id'], url_id_int)
+                        if result and result.get('success'):
+                            changes_made = True
+                    except Exception as e:
+                        errors.append(f"Error deleting URL {url_id} (project {project['id']}): {str(e)}")
+                
+                # Show results
+                if errors:
+                    for error in errors:
+                        st.error(f"❌ {error}")
+                
+                if changes_made:
+                    summary = []
+                    if new_rows:
+                        summary.append(f"Created {len(new_rows)} URL(s)")
+                    if edited_rows:
+                        summary.append(f"Updated {len(edited_rows)} URL(s)")
+                    if deleted_ids:
+                        summary.append(f"Deleted {len(deleted_ids)} URL(s)")
+                    # Store message in session state so it persists across rerun
+                    st.session_state.urls_table_save_message = f"✅ Saved! {' | '.join(summary)}"
+                    # Toggle the flag to change the data_editor key, forcing a reset
+                    st.session_state.urls_table_just_saved = not st.session_state.urls_table_just_saved
+                    st.rerun()
+    elif has_queries:
+        st.info("ℹ️ No URLs generated yet. Click 'Generate URLs' above to create URLs from your queries.")
+    
+    # Step 3: Extract Leads (only show if URLs exist)
+    st.markdown("---")
+    st.markdown("## Step 3: Extract Leads")
+    
+    if not urls:
+        st.info("ℹ️ Generate URLs in Step 2 before you can extract leads.")
+        st.button("🤖 Extract Leads", disabled=True)
+    else:
+        if st.button("🤖 Extract Leads"):
+            with st.spinner("🤖 Extracting leads from URLs (this may take several minutes)..."):
+                leads_result = generate_leads(project['id'])
+                
+                if leads_result.get('success'):
+                    st.success("✅ Leads extracted successfully!")
+                    
+                    # Refresh project data to get updated stats
+                    st.session_state.selected_project = get_project(project['id'])
+
+                    st.markdown("**📊 Extraction Results:**")
+
+                    # Show stats from this run only (5-column dashboard)
+                    col1, col2, col3, col4, col5 = st.columns(5)
+                    with col1:
+                        st.metric("Leads Processed", leads_result.get('new_leads_extracted', 0))
+                    with col2:
+                        st.metric("URLs Processed", leads_result.get('urls_processed', 0))
+                    with col3:
+                        st.metric("URLs Skipped", leads_result.get('urls_skipped', 0))
+                    with col4:
+                        st.metric("URLs Failed", leads_result.get('urls_failed', 0))
+                    with col5:
+                        st.metric("Total URLs", len(urls))
+                    
+                    st.info("📝 For detailed statistics, check the backend logs.")
+                    # Automatically fetch ZIP file after successful extraction
+                    with st.spinner("📥 Preparing download..."):
+                        _fetch_and_store_zip_data(project['id'])
+                    
+                    # Clear queries after successful completion so they don't persist on page reset
+                    if 'generated_queries' in st.session_state:
+                        st.session_state.generated_queries = {}
+                    if 'query_counter' in st.session_state:
+                        st.session_state.query_counter = 0
+                    
+                    st.rerun()
+                else:
+                    st.error(f"❌ Failed to extract leads")
     
     # Always show download section at the bottom of Web Search tab
     st.markdown("---")
@@ -288,6 +473,14 @@ def show_web_search_tab(project):
             st.info("📥 Click 'Load Downloads' above to prepare the download file.")
     else:
         st.info("ℹ️ No data available yet. Run a web search to generate downloadable CSV files.")
+
+    # Test Prompts button at the top
+    if st.button("🧪 Test Extraction Prompts", help="Test your lead features prompts before running the full extraction"):
+        st.session_state.current_page = "test_prompts"
+        st.rerun()
+        
+    # Lead features input boxes (read-only - edit in test prompts page)
+    st.info("💡 To edit lead features, use the 'Test Extraction Prompts' button above or go to the Test Prompts page.")
 
 def show_upload_dataset_tab(project):
     """Upload dataset tab content"""
