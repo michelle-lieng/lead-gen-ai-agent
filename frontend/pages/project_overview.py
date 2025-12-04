@@ -20,7 +20,7 @@ def show_project_overview():
         st.error("No project selected")
         return
     
-    st.markdown(f"# 📋 {project['project_name']}")
+    st.markdown(f"# 📋 Project Overview - {project['project_name']}")
     st.markdown("---")
     
     # Project stats
