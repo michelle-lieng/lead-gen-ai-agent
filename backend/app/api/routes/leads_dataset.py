@@ -40,12 +40,12 @@ async def upload_dataset(
             raise HTTPException(status_code=400, detail="CSV file is empty")
         
         # Parse JSON-encoded enrichment_column_list string into list 
-        enrichment_column_list = []
-        if enrichment_column_list:
+        enrichment_column_list_parsed = []
+        if enrichment_column_list and enrichment_column_list.strip():
             try:
-                enrichment_column_list = json.loads(enrichment_column_list)
-                if not isinstance(enrichment_column_list, list):
-                    raise ValueError(f"enrichment_column_list must be a JSON array, got: {type(enrichment_column_list).__name__}")
+                enrichment_column_list_parsed = json.loads(enrichment_column_list)
+                if not isinstance(enrichment_column_list_parsed, list):
+                    raise ValueError(f"enrichment_column_list must be a JSON array, got: {type(enrichment_column_list_parsed).__name__}")
             except json.JSONDecodeError as e:
                 raise HTTPException(
                     status_code=400, 
@@ -57,7 +57,7 @@ async def upload_dataset(
             project_id=project_id,
             dataset_name=dataset_name,
             lead_column=lead_column,
-            enrichment_column_list=enrichment_column_list,
+            enrichment_column_list=enrichment_column_list_parsed,
             enrichment_column_exists=enrichment_column_exists,
             csv_content=csv_content
         )
