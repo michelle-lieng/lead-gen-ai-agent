@@ -33,15 +33,30 @@ def show_review_leads():
             # Convert to DataFrame for display
             df = pd.DataFrame(leads_data)
             
+            # Get enrichment columns (used in multiple metrics)
+            enrichment_cols = [c for c in columns if c not in ['id', 'project_id', 'lead', 'serp_count']]
+            
             # Display stats
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("Total Leads", count)
             with col2:
-                serp_count = df['serp_count'].sum() if 'serp_count' in df.columns else 0
-                st.metric("Total SERP Count", int(serp_count) if pd.notna(serp_count) else 0)
+                if 'serp_count' in df.columns:
+                    # Count unique leads that have serp_count > 0 (leads from SERP)
+                    unique_serp_leads = len(df[df['serp_count'].notna() & (df['serp_count'] > 0)])
+                else:
+                    unique_serp_leads = 0
+                st.metric("Total Unique SERP Leads", unique_serp_leads)
             with col3:
-                enrichment_cols = [c for c in columns if c not in ['id', 'project_id', 'lead', 'serp_count']]
+                # Count unique leads that have serp_count = 0 or null (leads from datasets)
+                if 'serp_count' in df.columns:
+                    # Leads from datasets have serp_count = 0 or null
+                    unique_dataset_leads = len(df[(df['serp_count'].isna()) | (df['serp_count'] == 0)])
+                else:
+                    # If no serp_count column exists, all leads are from datasets
+                    unique_dataset_leads = count
+                st.metric("Total Unique Dataset Leads", unique_dataset_leads)
+            with col4:
                 st.metric("Enrichment Columns", len(enrichment_cols))
             
             st.markdown("---")
