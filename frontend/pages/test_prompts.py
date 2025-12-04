@@ -247,9 +247,9 @@ def show_test_prompts():
     st.markdown("## Step 2: Edit Lead Extraction Prompts")
     st.markdown("Configure the criteria for what makes a good lead. These features will be used in the extraction prompt.")
     
-    # Get current values
-    current_lead_features_we_want = project.get('lead_features_we_want', '')
-    current_lead_features_to_avoid = project.get('lead_features_to_avoid', '')
+    # Get current values - ensure they're always strings, never None
+    current_lead_features_we_want = str(project.get('lead_features_we_want', '') or '')
+    current_lead_features_to_avoid = str(project.get('lead_features_to_avoid', '') or '')
     
     col1, col2 = st.columns(2)
     with col1:
@@ -272,29 +272,31 @@ def show_test_prompts():
         )
     
     # Save button
-    col1, col2, col3 = st.columns([1, 1, 2])
-    with col1:
-        if st.button("💾 Save Prompts"):
-            features_changed = (
-                lead_features_we_want.strip() != current_lead_features_we_want or
-                lead_features_to_avoid.strip() != current_lead_features_to_avoid
-            )
-            
-            if features_changed:
-                with st.spinner("💾 Saving lead features..."):
-                    result = update_project(
-                        project['id'],
-                        lead_features_we_want=lead_features_we_want.strip() if lead_features_we_want.strip() else None,
-                        lead_features_to_avoid=lead_features_to_avoid.strip() if lead_features_to_avoid.strip() else None
-                    )
-                    if result:
-                        st.session_state.selected_project = result
-                        st.success("✅ Lead features saved successfully!")
-                        st.rerun()
-                    else:
-                        st.error("❌ Failed to save lead features")
-            else:
-                st.info("ℹ️ No changes to save")
+    if st.button("💾 Save Prompts"):
+        # Handle None values from st.text_area - convert to empty string before stripping
+        new_lead_features_we_want = str(lead_features_we_want or '').strip()
+        new_lead_features_to_avoid = str(lead_features_to_avoid or '').strip()
+        
+        features_changed = (
+            new_lead_features_we_want != current_lead_features_we_want or
+            new_lead_features_to_avoid != current_lead_features_to_avoid
+        )
+        
+        if features_changed:
+            with st.spinner("💾 Saving lead features..."):
+                result = update_project(
+                    project['id'],
+                    lead_features_we_want=new_lead_features_we_want,
+                    lead_features_to_avoid=new_lead_features_to_avoid
+                )
+                if result:
+                    st.session_state.selected_project = result
+                    st.success("✅ Lead features saved successfully!")
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to save lead features")
+        else:
+            st.info("ℹ️ No changes to save")
     
     st.markdown("---")
     

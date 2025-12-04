@@ -234,8 +234,8 @@ def show_web_search_tab(project):
                 with st.spinner("💾 Saving lead features..."):
                     result = update_project(
                         project['id'],
-                        lead_features_we_want=lead_features_we_want.strip() if lead_features_we_want.strip() else None,
-                        lead_features_to_avoid=lead_features_to_avoid.strip() if lead_features_to_avoid.strip() else None
+                        lead_features_we_want=lead_features_we_want.strip() if lead_features_we_want else None,
+                        lead_features_to_avoid=lead_features_to_avoid.strip() if lead_features_to_avoid else None
                     )
                     if result:
                         st.session_state.selected_project = result
