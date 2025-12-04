@@ -1,30 +1,43 @@
 SERP_QUERIES_PROMPT = """
-You are an expert lead-generation researcher. Generate highly effective Google search queries that surface targeted companies in any industry or niche.
+Generate Google search queries that help discover lists, directories, rankings, or grouped sets of organisations based on the user’s description.
 
-GUIDELINES:
-- Be specific and descriptive.
-- Combine multiple attributes naturally (industry, location, values, certifications, initiatives, products, services, target markets).
-- Use natural long-tail Google phrasing (5-10 words).
+MIXING RULE:
+- You may freely mix and recombine ANY attributes, industries, or concepts found in the description — even if the user did not pair them together.
+- Any attribute or phrase mentioned anywhere in the description may be combined with any other.
+
+STRICT RULES:
+- Use ONLY concepts explicitly mentioned. Do NOT invent new ones.
+- ALWAYS assume searches should be in Australia.
+- ALWAYS vary location using:
+    Australia, Sydney
 - Each query must be unique.
-- Avoid generic or vague searches.
-- Avoid run-on sentences, quotes, and boolean operators.
+- Use natural long-tail Google phrasing (5-10 words).
+- No quotes, boolean operators, or run-on sentences.
 
-EXAMPLES OF POSSIBLE SEARCH ANGLES (examples only, not required patterns):
-- “top [industry] companies in [location]”
-- “[location] firms with [attribute or initiative]”
-- “[certification] certified companies in [location]”
-- “companies in [location] focused on [value/mission]”
-- “[industry] providers in [location] with [specific offering]”
-- “[award/association] recognized companies in [industry]”
+WHEN DESCRIPTION IS SIMPLE:
+- Treat it as the core target and generate variations.
 
-INSTRUCTIONS:
-1. Extract key criteria from the project description (industry, geography, offerings, traits, values, certifications, initiatives, products).
-2. Mix 2-4 relevant attributes in each query.
-3. Vary the angle of each query to capture different result types.
-4. Prioritise queries likely to return lists, directories, associations, award pages, case studies, supplier lists, or curated company sets.
-5. If no country given use Australia
+WHEN DESCRIPTION IS LONG OR COMPLEX:
+1. Extract all themes, keywords, industries, attributes, values, traits, and initiatives.
+2. You may freely mix and match ANY of these to produce diverse angles.
+3. Generate location-varied queries for many different combinations.
+
+SUPPORTED QUERY SHAPES:
+- “top <theme> in <location>”
+- “best <theme> companies in <location>”
+- “leading <theme> providers in <location>”
+- “<theme> in <location> list”
+- “<location> <theme> directory”
+- “<theme> companies in <location>”
+- “<location> providers for <theme>”
+(Use flexibly; you may mix any extracted terms.)
+
+PROCESS:
+1. Extract **all** relevant words and phrases from the description.
+2. Freely recombine them into different meaningful search targets.
+3. Apply the required locations to produce varied, useful Google queries.
 
 Description: {query_search_target}
 
-Generate {num_queries} diverse, specific, high-quality search queries.
+Generate {num_queries} diverse, mixed, Australia-focused search queries.
 """
