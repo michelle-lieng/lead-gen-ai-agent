@@ -488,26 +488,26 @@ Scraped Content:
     
     async def extract_and_add_leads_to_table(self, project_id: int) -> dict:
         """
-        Process unprocessed and failed URLs from serp_urls table:
-        1. Get all URLs with status="unprocessed" or "failed" for the project (failed URLs can be retried)
+        Process unprocessed URLs from serp_urls table:
+        1. Get all URLs with status="unprocessed" for the project
         2. Extract leads using _lead_extractor
         3. Update website_scraped column with scraped content
         4. Update status based on results:
            - "processed" if leads found
            - "skip" if no leads found (empty list)
-           - "failed" if extraction or saving failed (will be retried on next run)
+           - "failed" if extraction or saving failed
         5. Save extracted leads to serp_leads table
         """
         try:
             with db_service.get_session() as session:
-                # Step 1: Get all unprocessed and failed URLs for this project (failed can be retried)
+                # Step 1: Get all unprocessed URLs for this project (only unprocessed, not failed)
                 unprocessed_urls = session.query(SerpUrl).filter(
                     SerpUrl.project_id == project_id,
-                    SerpUrl.status.in_(["unprocessed", "failed"])
+                    SerpUrl.status == "unprocessed"
                 ).all()
                 
                 if not unprocessed_urls:
-                    logger.info(f"No unprocessed or failed URLs found for project {project_id}")
+                    logger.info(f"No unprocessed URLs found for project {project_id}")
                     return {
                         "success": True,
                         "urls_processed": 0,
@@ -515,10 +515,10 @@ Scraped Content:
                         "urls_failed": 0,
                         "total_urls_attempted": 0,
                         "new_leads_extracted": 0,
-                        "message": "No unprocessed or failed URLs found to extract leads from"
+                        "message": "No unprocessed URLs found to extract leads from"
                     }
                 
-                logger.info(f"Processing {len(unprocessed_urls)} URLs (unprocessed and failed) for project {project_id}")
+                logger.info(f"Processing {len(unprocessed_urls)} unprocessed URLs for project {project_id}")
                 
                 processed_count = 0
                 skipped_count = 0
