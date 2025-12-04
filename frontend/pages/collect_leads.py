@@ -53,6 +53,8 @@ def init_collect_leads_session_state():
         st.session_state.urls_table_just_saved = False
     if 'urls_table_save_message' not in st.session_state:
         st.session_state.urls_table_save_message = None
+    if 'query_message' not in st.session_state:
+        st.session_state.query_message = None
     if 'extraction_results' not in st.session_state:
         st.session_state.extraction_results = []  # Store results from extraction run
 
@@ -125,17 +127,41 @@ def show_web_search_tab(project):
                 
                 # Generate queries
                 with st.spinner(f"🤖 AI is generating {st.session_state.num_queries} targeted search queries..."):
+                    # Clear previous message when generating new queries
+                    st.session_state.query_message = None
+                    
                     generated_queries = generate_queries(project['id'], num_queries=st.session_state.num_queries)
                     if generated_queries:
-                        # Assign unique IDs to all new AI queries
+                        # Get existing queries (case-insensitive comparison)
+                        existing_queries = {q.lower().strip() for q in st.session_state.generated_queries.values()}
+                        
+                        # Assign unique IDs to all new AI queries, skipping duplicates
+                        added_count = 0
+                        skipped_queries = []
                         for query in generated_queries:
-                            query_id = f"q{st.session_state.query_counter}"
-                            st.session_state.query_counter += 1
-                            st.session_state.generated_queries[query_id] = query
-                        st.success(f"✅ Generated {len(generated_queries)} search queries!")
+                            normalized_query = query.lower().strip()
+                            if normalized_query not in existing_queries:
+                                query_id = f"q{st.session_state.query_counter}"
+                                st.session_state.query_counter += 1
+                                st.session_state.generated_queries[query_id] = query
+                                existing_queries.add(normalized_query)  # Add to set to prevent duplicates in same batch
+                                added_count += 1
+                            else:
+                                skipped_queries.append(query)
+                        
+                        # Store message in session state so it persists after rerun
+                        if added_count > 0:
+                            if skipped_queries:
+                                skipped_list = ', '.join([f'"{q}"' for q in skipped_queries])
+                                st.session_state.query_message = f"⚠️ Added {added_count} new queries. Skipped {len(skipped_queries)} duplicate(s): {skipped_list}"
+                            else:
+                                st.session_state.query_message = f"✅ Generated {added_count} search queries!"
+                        else:
+                            st.session_state.query_message = f"⚠️ All {len(generated_queries)} generated queries are already present in the list."
                         st.rerun()
                     else:
-                        st.error("❌ Failed to generate queries. Please try again.")
+                        st.session_state.query_message = "❌ Failed to generate queries. Please try again."
+                        st.rerun()
 
     st.markdown("**Or add your own search queries:**")
     # Use a form to handle input clearing properly
@@ -143,13 +169,28 @@ def show_web_search_tab(project):
         new_query = st.text_input("Add custom query", placeholder="Enter your own search query...", key="new_query_input")
         submitted = st.form_submit_button("➕ Add Query")
         if submitted and new_query and new_query.strip():
-            # Clear extraction results when adding a new query
-            st.session_state.extraction_results = []
+            # Check if query already exists (case-insensitive)
+            existing_queries = {q.lower().strip() for q in st.session_state.generated_queries.values()}
+            normalized_new_query = new_query.strip().lower()
             
-            query_id = f"q{st.session_state.query_counter}"
-            st.session_state.query_counter += 1
-            st.session_state.generated_queries[query_id] = new_query.strip()
-            st.rerun()
+            if normalized_new_query in existing_queries:
+                # Store message in session state so it persists after rerun
+                st.session_state.query_message = f'⚠️ The query "{new_query.strip()}" is already present in the list.'
+                st.rerun()
+            else:
+                # Clear extraction results when adding a new query
+                st.session_state.extraction_results = []
+                # Store success message
+                st.session_state.query_message = f'✅ Added query "{new_query.strip()}" to the list.'
+                
+                query_id = f"q{st.session_state.query_counter}"
+                st.session_state.query_counter += 1
+                st.session_state.generated_queries[query_id] = new_query.strip()
+                st.rerun()
+
+    # Display query messages if they exist (persists after rerun)
+    if st.session_state.query_message:
+        st.info(st.session_state.query_message)
 
     # Display and edit queries (always show if queries exist)
     if st.session_state.generated_queries:
@@ -184,6 +225,8 @@ def show_web_search_tab(project):
         if queries_to_delete:
             for query_id in queries_to_delete:
                 st.session_state.generated_queries.pop(query_id, None)
+            # Clear message when queries are deleted
+            st.session_state.query_message = None
             st.rerun()
 
     # Step 2: Generate URLs (always visible)
@@ -415,6 +458,7 @@ def show_web_search_tab(project):
             st.session_state.extraction_results = []
             st.session_state.generated_queries = {}
             st.session_state.query_counter = 0
+            st.session_state.query_message = None
             
             with st.spinner("🤖 Extracting leads from URLs (this may take several minutes)..."):
                 leads_result = generate_leads(project['id'])
