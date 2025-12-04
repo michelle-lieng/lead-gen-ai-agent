@@ -175,9 +175,6 @@ class LeadsDatasetService:
                 # Commit all changes
                 session.commit()
                 
-                # Update project dataset count
-                project_service.update_project_counts_from_db(project_id)
-                
                 logger.info(
                     f"✅ Dataset '{dataset_name}' uploaded: "
                     f"{rows_processed} rows processed"
@@ -195,6 +192,9 @@ class LeadsDatasetService:
                 except Exception as merge_error:
                     # Log merge error but don't fail the upload
                     logger.warning(f"⚠️ Dataset leads merge failed (upload still succeeded): {str(merge_error)}")
+                
+                # Update project counts (including leads_collected from merged_results) after merge
+                project_service.update_project_counts_from_db(project_id)
                 
                 # Build success message with merge stats
                 success_message = f"Dataset '{dataset_name}' uploaded successfully"

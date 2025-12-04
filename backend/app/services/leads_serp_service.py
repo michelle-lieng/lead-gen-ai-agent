@@ -666,6 +666,9 @@ Scraped Content:
                     try:
                         merge_result = merged_results_service.merge_serp_leads(project_id)
                         logger.info(f"✅ SERP leads merged: {merge_result.get('message', '')}")
+                        
+                        # Update project counts (including leads_collected from merged_results) after merge
+                        project_service.update_project_counts_from_db(project_id)
                     except Exception as merge_error:
                         # Log merge error but don't fail the whole extraction
                         logger.warning(f"⚠️ SERP leads merge failed (extraction still succeeded): {str(merge_error)}")
