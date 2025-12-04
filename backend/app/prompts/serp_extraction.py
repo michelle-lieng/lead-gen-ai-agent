@@ -1,11 +1,5 @@
 SERP_EXTRACTION_PROMPT = """
-    You are an AI assistant helping identify companies that match the criteria below:
-
-    LEAD_FEATURES_WE_WANT:
-    {lead_features_we_want}
-
-    LEAD_FEATURES_TO_AVOID:
-    {lead_features_to_avoid}
+    You are an AI assistant helping extract company names from webpages references in the search results.
 
     YOUR TASK
     Given a Google search result (query, title, snippet):

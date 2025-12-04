@@ -15,8 +15,6 @@ class ProjectCreate(BaseModel):
     project_name: str
     description: Optional[str] = None
     query_search_target: Optional[str] = None
-    lead_features_we_want: Optional[str] = None
-    lead_features_to_avoid: Optional[str] = None
     
     @field_validator('project_name')
     @classmethod
@@ -29,8 +27,6 @@ class ProjectUpdate(BaseModel):
     project_name: Optional[str] = None
     description: Optional[str] = None
     query_search_target: Optional[str] = None
-    lead_features_we_want: Optional[str] = None
-    lead_features_to_avoid: Optional[str] = None
     leads_collected: Optional[int] = None
     datasets_added: Optional[int] = None
     urls_processed: Optional[int] = None
@@ -49,8 +45,6 @@ class ProjectResponse(BaseModel):
     project_name: str
     description: Optional[str] = None
     query_search_target: Optional[str] = None
-    lead_features_we_want: Optional[str] = None
-    lead_features_to_avoid: Optional[str] = None
     date_added: str
     last_updated: str
     leads_collected: int

@@ -16,8 +16,6 @@ class Project(Base):
     project_name = Column(String(255), nullable=False, unique=True)  # Added unique constraint
     description = Column(Text, nullable=True) # Used for notes
     query_search_target = Column(Text, nullable=True) # Used to generate query prompts
-    lead_features_we_want = Column(Text, nullable=True)  # Used to generating SERP prompts 
-    lead_features_to_avoid = Column(Text, nullable=True) # Used to generating SERP prompts 
     date_added = Column(DateTime, default=datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     leads_collected = Column(Integer, default=0)

@@ -247,57 +247,6 @@ def show_test_prompts():
     st.markdown("## Step 2: Edit Lead Extraction Prompts")
     st.markdown("Configure the criteria for what makes a good lead. These features will be used in the extraction prompt.")
     
-    # Get current values - ensure they're always strings, never None
-    current_lead_features_we_want = str(project.get('lead_features_we_want', '') or '')
-    current_lead_features_to_avoid = str(project.get('lead_features_to_avoid', '') or '')
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        lead_features_we_want = st.text_area(
-            "Lead Features We Want",
-            value=current_lead_features_we_want,
-            placeholder="e.g., Companies focused on sustainability, B2B SaaS companies, etc.",
-            height=120,
-            help="Describe the features or characteristics you want in your leads",
-            key="test_lead_features_we_want"
-        )
-    with col2:
-        lead_features_to_avoid = st.text_area(
-            "Lead Features to Avoid",
-            value=current_lead_features_to_avoid,
-            placeholder="e.g., Polluters, greenwashing lists, fossil fuel companies, etc.",
-            height=120,
-            help="Describe the features or characteristics you want to avoid in your leads",
-            key="test_lead_features_to_avoid"
-        )
-    
-    # Save button
-    if st.button("💾 Save Prompts"):
-        # Handle None values from st.text_area - convert to empty string before stripping
-        new_lead_features_we_want = str(lead_features_we_want or '').strip()
-        new_lead_features_to_avoid = str(lead_features_to_avoid or '').strip()
-        
-        features_changed = (
-            new_lead_features_we_want != current_lead_features_we_want or
-            new_lead_features_to_avoid != current_lead_features_to_avoid
-        )
-        
-        if features_changed:
-            with st.spinner("💾 Saving lead features..."):
-                result = update_project(
-                    project['id'],
-                    lead_features_we_want=new_lead_features_we_want,
-                    lead_features_to_avoid=new_lead_features_to_avoid
-                )
-                if result:
-                    st.session_state.selected_project = result
-                    st.success("✅ Lead features saved successfully!")
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to save lead features")
-        else:
-            st.info("ℹ️ No changes to save")
-    
     st.markdown("---")
     
     # Section 3: Run Lead Extraction

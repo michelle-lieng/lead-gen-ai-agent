@@ -185,63 +185,19 @@ def show_web_search_tab(project):
     
     # Get current project values for lead features (use latest from session state)
     current_project = st.session_state.selected_project
-    current_lead_features_we_want = current_project.get('lead_features_we_want', '') or ''
-    current_lead_features_to_avoid = current_project.get('lead_features_to_avoid', '') or ''
     
     # Lead features input boxes (read-only - edit in test prompts page)
     st.info("💡 To edit lead features, use the 'Test Extraction Prompts' button above or go to the Test Prompts page.")
-    col1, col2 = st.columns(2)
-    with col1:
-        lead_features_we_want = st.text_area(
-            "Lead Features We Want",
-            value=current_lead_features_we_want,
-            placeholder="e.g., Companies focused on sustainability, B2B SaaS companies, etc.",
-            height=100,
-            help="Describe the features or characteristics you want in your leads (edit in Test Prompts page)",
-            key="lead_features_we_want_input",
-            disabled=True
-        )
-    with col2:
-        lead_features_to_avoid = st.text_area(
-            "Lead Features to Avoid",
-            value=current_lead_features_to_avoid,
-            placeholder="e.g., Companies that sell to consumers, companies in specific industries, etc.",
-            height=100,
-            help="Describe the features or characteristics you want to avoid in your leads (edit in Test Prompts page)",
-            key="lead_features_to_avoid_input",
-            disabled=True
-        )
     
     # Check if queries exist and lead features are set
     has_queries = bool(st.session_state.generated_queries)
-    has_lead_features = bool(lead_features_we_want.strip())
     
     if not has_queries:
         st.info("ℹ️ Add at least one search query in Step 1 before you can start the web search.")
         st.button("🔍 Start Web Search", disabled=True)
-    elif not has_lead_features:
-        st.warning("⚠️ Please configure lead features before starting the web search. Use the 'Test Extraction Prompts' button above to set them.")
-        st.button("🔍 Start Web Search", disabled=True)
     else:
         if st.button("🔍 Start Web Search"):
             # Save lead features if they have changed
-            features_changed = (
-                lead_features_we_want.strip() != current_lead_features_we_want or
-                lead_features_to_avoid.strip() != current_lead_features_to_avoid
-            )
-            
-            if features_changed:
-                with st.spinner("💾 Saving lead features..."):
-                    result = update_project(
-                        project['id'],
-                        lead_features_we_want=lead_features_we_want.strip() if lead_features_we_want else None,
-                        lead_features_to_avoid=lead_features_to_avoid.strip() if lead_features_to_avoid else None
-                    )
-                    if result:
-                        st.session_state.selected_project = result
-                    else:
-                        st.error("❌ Failed to save lead features")
-                        st.stop()
             
             with st.spinner("🔍 Starting web search..."):
                 # Convert dict to list for API call

@@ -58,9 +58,9 @@ def get_projects():
     response = _request("GET", "/api/projects/")
     return response.json() if response else []
 
-def create_project(project_name: str, description: Optional[str]=None, query_search_target: Optional[str]=None, lead_features_we_want: Optional[str] = None, lead_features_to_avoid: Optional[str] = None):
+def create_project(project_name: str, description: Optional[str]=None, query_search_target: Optional[str]=None):
     """Create a new project via API"""
-    response = _request("POST", "/api/projects/", json_data={"project_name": project_name, "description": description, "query_search_target": query_search_target, "lead_features_we_want": lead_features_we_want, "lead_features_to_avoid": lead_features_to_avoid})
+    response = _request("POST", "/api/projects/", json_data={"project_name": project_name, "description": description, "query_search_target": query_search_target})
     return response.json() if response else None
 
 def update_project(project_id: int, **kwargs):
