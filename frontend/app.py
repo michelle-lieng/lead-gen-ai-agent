@@ -2,11 +2,11 @@
 Main Streamlit application entry point
 """
 import streamlit as st
-from pages.dashboard import show_dashboard
-from pages.project_overview import show_project_overview
-from pages.collect_leads import show_collect_leads
-from pages.review_leads import show_review_leads
-from pages.test_prompts import show_test_prompts
+from streamlit_pages.dashboard import show_dashboard
+from streamlit_pages.project_overview import show_project_overview
+from streamlit_pages.collect_leads import show_collect_leads
+from streamlit_pages.review_leads import show_review_leads
+from streamlit_pages.test_prompts import show_test_prompts
 
 def init_session_state():
     """Initialize global session state variables"""
