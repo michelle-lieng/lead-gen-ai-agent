@@ -184,6 +184,7 @@ class LeadsDatasetService:
                 )
                 
                 # Merge dataset leads into merged_results table
+                merge_result = None
                 try:
                     merge_result = merged_results_service.merge_dataset_leads(
                         project_id=project_id,
@@ -195,9 +196,17 @@ class LeadsDatasetService:
                     # Log merge error but don't fail the upload
                     logger.warning(f"⚠️ Dataset leads merge failed (upload still succeeded): {str(merge_error)}")
                 
+                # Build success message with merge stats
+                success_message = f"Dataset '{dataset_name}' uploaded successfully"
+                if merge_result:
+                    # Include merge stats in the message
+                    merge_message = merge_result.get('message', '')
+                    if merge_message:
+                        success_message += f". {merge_message}"
+                
                 return {
                     "success": True,
-                    "message": f"Dataset '{dataset_name}' uploaded successfully",
+                    "message": success_message,
                     "rows_processed": rows_processed,
                     "project_dataset_id": project_dataset.id
                 }
