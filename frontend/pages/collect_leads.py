@@ -621,13 +621,13 @@ def show_web_search_tab(project):
     else:
         st.info("ℹ️ No data available yet. Run a web search to generate downloadable CSV files.")
 
-    # Test Prompts button at the top
-    if st.button("🧪 Test Extraction Prompts", help="Test your lead features prompts before running the full extraction"):
-        st.session_state.current_page = "test_prompts"
-        st.rerun()
+    # # Test Prompts button at the top
+    # if st.button("🧪 Test Extraction Prompts", help="Test your lead features prompts before running the full extraction"):
+    #     st.session_state.current_page = "test_prompts"
+    #     st.rerun()
         
-    # Lead features input boxes (read-only - edit in test prompts page)
-    st.info("💡 To edit lead features, use the 'Test Extraction Prompts' button above or go to the Test Prompts page.")
+    # # Lead features input boxes (read-only - edit in test prompts page)
+    # st.info("💡 To edit lead features, use the 'Test Extraction Prompts' button above or go to the Test Prompts page.")
 
 def show_upload_dataset_tab(project):
     """Upload dataset tab content"""
