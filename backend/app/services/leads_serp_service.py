@@ -5,6 +5,7 @@ Lead generation from search using AI-powered query generation
 import os
 import logging
 import asyncio
+import traceback
 from openai import OpenAI
 import csv
 from io import StringIO, BytesIO
@@ -146,7 +147,7 @@ class LeadsSerpService:
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
 
-    def _generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> dict:
+    async def _generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> dict:
         """
         1. first generate the urls using jina_serp_scraper
         2. then save urls to serp_urls table
@@ -156,24 +157,53 @@ class LeadsSerpService:
         """
         try:
             with db_service.get_session() as session:
+                async def process_query(query):
+                    try:
+                        serp_object = await jina_serp_scraper(query)  # Now async!
+                        query_urls = []
+                        for serp_result in serp_object:
+                            link = serp_result.get('url')
+                            if link:
+                                query_urls.append({
+                                    'project_id': project_id,
+                                    'query': query,
+                                    'title': serp_result.get('title'),
+                                    'link': link,
+                                    'snippet': serp_result.get('description')
+                                })
+                        return query_urls
+                    except Exception as e:
+                        logger.error(f"❌ Error processing query '{query}': {str(e)}")
+                        return []
+                
+                # Process all queries in parallel using asyncio
+                tasks = [process_query(query) for query in queries]
+                results = await asyncio.gather(*tasks)
                 # STEP 1: Collect all generated urls first using jina_serp_scraper
                 all_urls = []
                 seen_links = set()  # Track unique links to avoid duplicates
-                for query in queries:
-                    # extract the urls using Serpapi
-                    serp_object = jina_serp_scraper(query)
-                    for serp_result in serp_object:
-                        link = serp_result.get('url')
-                        # Only add if we haven't seen this link before in this batch
-                        if link and link not in seen_links:
+
+                for query_urls in results:
+                    for url_data in query_urls:
+                        link = url_data['link']
+                        if link not in seen_links:
                             seen_links.add(link)
-                            all_urls.append({
-                                'project_id': project_id,
-                                'query': query,
-                                'title': serp_result.get('title'),
-                                'link': link,
-                                'snippet': serp_result.get('description')
-                            })
+                            all_urls.append(url_data)
+                # for query in queries:
+                #     # extract the urls using Serpapi
+                #     serp_object = jina_serp_scraper(query)
+                #     for serp_result in serp_object:
+                #         link = serp_result.get('url')
+                #         # Only add if we haven't seen this link before in this batch
+                #         if link and link not in seen_links:
+                #             seen_links.add(link)
+                #             all_urls.append({
+                #                 'project_id': project_id,
+                #                 'query': query,
+                #                 'title': serp_result.get('title'),
+                #                 'link': link,
+                #                 'snippet': serp_result.get('description')
+                #             })
 
                 # Step 2: Batch upsert using SQLAlchemy core
                 statement = insert(SerpUrl).values(all_urls)
@@ -202,7 +232,7 @@ class LeadsSerpService:
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
 
-    def save_queries_and_generate_urls(self, project_id: int, queries: list[str]) -> dict:
+    async def save_queries_and_generate_urls(self, project_id: int, queries: list[str]) -> dict:
         """
         Orchestrates saving queries and generating URLs in one operation.
         This is the main business workflow that should be used by API routes.
@@ -225,7 +255,7 @@ class LeadsSerpService:
         queries_saved = self._add_queries_to_table(project_id, queries)
         
         # Step 2: Generate URLs from queries and save to database
-        urls_result = self._generate_and_add_urls_to_table(project_id, queries)
+        urls_result = await self._generate_and_add_urls_to_table(project_id, queries)
         
         # Combine results into unified response
         return {
@@ -455,7 +485,7 @@ class LeadsSerpService:
         """
         # Always scrape the URL first
         logger.info(f"Scraping URL: {url}")
-        scraped_content = jina_url_scraper(url)
+        scraped_content = await jina_url_scraper(url)
         
         # Create agent without tools (no tool calls needed)
         agent = Agent(
@@ -489,7 +519,7 @@ Scraped Content:
         """
         Process unprocessed URLs from serp_urls table:
         1. Get all URLs with status="unprocessed" for the project
-        2. Extract leads using _lead_extractor
+        2. Extract leads using _lead_extractor (in parallel)
         3. Update website_scraped column with scraped content
         4. Update status based on results:
            - "processed" if leads found
@@ -520,132 +550,195 @@ Scraped Content:
                 
                 logger.info(f"Processing {len(unprocessed_urls)} unprocessed URLs for project {project_id}")
                 
+                # Step 1.5: Extract data from ORM objects into plain dicts (detach before async)
+                url_data_list = []
+                for url_record in unprocessed_urls:
+                    url_data_list.append({
+                        'id': url_record.id,
+                        'link': url_record.link,
+                        'query': url_record.query,
+                        'title': url_record.title,
+                        'snippet': url_record.snippet
+                    })
+                
+                # Step 2: Process URLs in parallel using asyncio
+                semaphore = asyncio.Semaphore(8)  # Limit to 10 concurrent extractions
+                
+                async def process_url(url_data):
+                    """Process a single URL and return result (using plain dict, not ORM object)"""
+                    async with semaphore:
+                        try:
+                            logger.info(f"Processing URL: {url_data['link']}")
+                            
+                            # Extract leads using the _lead_extractor method
+                            leads = []
+                            scraped_content = None
+                            try:
+                                leads, scraped_content = await self._lead_extractor(
+                                    query=url_data['query'],
+                                    title=url_data['title'],
+                                    snippet=url_data['snippet'],
+                                    url=url_data['link']
+                                )
+                            except Exception as extract_error:
+                                # Extraction failed - log but continue processing
+                                error_traceback = traceback.format_exc()
+                                logger.error(f"❌ Extraction error for {url_data['link']}: {str(extract_error)}\n{error_traceback}")
+                                return {
+                                    'url_id': url_data['id'],
+                                    'url': url_data['link'],
+                                    'title': url_data['title'],
+                                    'query': url_data['query'],
+                                    'snippet': url_data['snippet'],
+                                    'leads': [],
+                                    'scraped_content': None,
+                                    'status': 'failed',
+                                    'error': str(extract_error)
+                                }
+                            
+                            # Clean up leads - handle AI returning ['[]'] or similar
+                            if leads and isinstance(leads, list):
+                                # Remove any strings that look like empty lists or invalid entries
+                                cleaned_leads = []
+                                for lead in leads:
+                                    if isinstance(lead, str):
+                                        # Remove quotes and brackets, check if it's meaningful
+                                        clean_lead = lead.strip().strip('[]').strip("'").strip('"')
+                                        if clean_lead and clean_lead not in ['', '[]', 'None', 'null']:
+                                            cleaned_leads.append(clean_lead)
+                                    elif lead and str(lead).strip():
+                                        cleaned_leads.append(str(lead).strip())
+                                
+                                leads = cleaned_leads
+                                logger.info(f"Cleaned leads: {leads}")
+                            
+                            # Determine status based on results
+                            if leads and isinstance(leads, list) and len(leads) > 0:
+                                status = "processed"
+                            else:
+                                status = "skip"
+                                logger.info(f"⏭️ No leads found in {url_data['link']} - marked as skip")
+                            
+                            return {
+                                'url_id': url_data['id'],
+                                'url': url_data['link'],
+                                'title': url_data['title'],
+                                'query': url_data['query'],
+                                'snippet': url_data['snippet'],
+                                'leads': leads if leads else [],
+                                'scraped_content': scraped_content,
+                                'status': status,
+                                'error': None
+                            }
+                            
+                        except Exception as e:
+                            # Unexpected error - log and return failed status
+                            error_traceback = traceback.format_exc()
+                            logger.error(f"❌ Unexpected error processing {url_data['link']}: {str(e)}\n{error_traceback}")
+                            return {
+                                'url_id': url_data['id'],
+                                'url': url_data['link'],
+                                'title': url_data['title'],
+                                'query': url_data['query'],
+                                'snippet': url_data['snippet'],
+                                'leads': [],
+                                'scraped_content': None,
+                                'status': 'failed',
+                                'error': str(e)
+                            }
+                
+                # Process all URLs concurrently
+                tasks = [process_url(url_data) for url_data in url_data_list]
+                results = await asyncio.gather(*tasks)
+                
+                # Step 3: Process results and update database (query fresh ORM objects by ID)
                 processed_count = 0
                 skipped_count = 0
                 failed_count = 0
                 new_leads_count = 0
                 all_extracted_leads = []  # Collect all results to return in response
                 
-                # Step 2: Process each URL
-                for url_record in unprocessed_urls:
-                    try:
-                        logger.info(f"Processing URL: {url_record.link}")
-                        
-                        # Extract leads using the _lead_extractor method
-                        leads = []
-                        scraped_content = None
-                        try:
-                            leads, scraped_content = await self._lead_extractor(
-                                query=url_record.query,
-                                title=url_record.title,
-                                snippet=url_record.snippet,
-                                url=url_record.link
-                            )
-                        except Exception as extract_error:
-                            # Extraction failed - log but continue processing
-                            logger.error(f"❌ Extraction error for {url_record.link}: {str(extract_error)}")
-                            url_record.status = "failed"
-                            url_record.website_scraped = None
-                            failed_count += 1
-                            
-                            # Add failed URL to results
-                            all_extracted_leads.append({
-                                "url": url_record.link,
-                                "title": url_record.title,
-                                "query": url_record.query,
-                                "snippet": url_record.snippet,
-                                "status": "failed",
-                                "website_scraped": None,
-                                "leads": []
-                            })
-                            continue  # Skip to next URL
-                        
-                        # Clean up leads - handle AI returning ['[]'] or similar
-                        if leads and isinstance(leads, list):
-                            # Remove any strings that look like empty lists or invalid entries
-                            cleaned_leads = []
-                            for lead in leads:
-                                if isinstance(lead, str):
-                                    # Remove quotes and brackets, check if it's meaningful
-                                    clean_lead = lead.strip().strip('[]').strip("'").strip('"')
-                                    if clean_lead and clean_lead not in ['', '[]', 'None', 'null']:
-                                        cleaned_leads.append(clean_lead)
-                                elif lead and str(lead).strip():
-                                    cleaned_leads.append(str(lead).strip())
-                            
-                            leads = cleaned_leads
-                            logger.info(f"Cleaned leads: {leads}")
-                        
-                        # Step 3: Update the URL record
-                        url_record.website_scraped = scraped_content
-                        
-                        # Step 4: Determine status based on results
-                        if leads and isinstance(leads, list) and len(leads) > 0:
-                            # Leads found - mark as processed
-                            url_record.status = "processed"
-                            processed_count += 1
-                            
-                            # Step 5: Save leads to serp_leads table (normalized)
-                            try:
-                                for lead in leads:
-                                    # Normalize lead name before saving (lowercase, trim whitespace)
-                                    normalized_lead = normalize_lead_name(lead)
-                                    
-                                    # Skip empty leads after normalization
-                                    if not normalized_lead:
-                                        continue
-                                    
-                                    lead_record = SerpLead(
-                                        project_id=project_id,
-                                        serp_url_id=url_record.id,
-                                        lead=normalized_lead  # Store normalized version
-                                    )
-                                    session.add(lead_record)
-                                    new_leads_count += 1
-                                
-                                logger.info(f"✅ Extracted {len(leads)} leads from {url_record.link}")
-                            except Exception as save_error:
-                                # Failed to save leads - log but continue
-                                logger.error(f"❌ Failed to save leads for {url_record.link}: {str(save_error)}")
-                                url_record.status = "failed"
-                                failed_count += 1
-                                continue
-                            
-                        else:
-                            # No leads found - mark as skip
-                            url_record.status = "skip"
-                            skipped_count += 1
-                            logger.info(f"⏭️ No leads found in {url_record.link} - marked as skip")
-                        
-                        # Store ALL results (processed, skipped) with status and scraped content
-                        all_extracted_leads.append({
-                            "url": url_record.link,
-                            "title": url_record.title,
-                            "query": url_record.query,
-                            "snippet": url_record.snippet,
-                            "status": url_record.status,
-                            "website_scraped": url_record.website_scraped,
-                            "leads": leads if leads else []
-                        })
-                            
-                    except Exception as e:
-                        # Unexpected error - mark as failed and continue processing
-                        logger.error(f"❌ Unexpected error processing {url_record.link}: {str(e)}")
-                        url_record.status = "failed"
-                        url_record.website_scraped = None
+                for result in results:
+                    url_id = result['url_id']
+                    leads = result['leads']
+                    scraped_content = result['scraped_content']
+                    status = result['status']
+                    
+                    # Query fresh ORM object by ID (not using detached object)
+                    url_record = session.query(SerpUrl).filter(SerpUrl.id == url_id).first()
+                    if not url_record:
+                        logger.error(f"❌ URL record {url_id} not found in database")
                         failed_count += 1
-                        
-                        # Add failed URL to results
+                        continue
+                    
+                    # Update the URL record
+                    url_record.website_scraped = scraped_content
+                    url_record.status = status
+                    
+                    if status == "failed":
+                        failed_count += 1
                         all_extracted_leads.append({
-                            "url": url_record.link,
-                            "title": url_record.title,
-                            "query": url_record.query,
-                            "snippet": url_record.snippet,
+                            "url": result['url'],
+                            "title": result['title'],
+                            "query": result['query'],
+                            "snippet": result['snippet'],
                             "status": "failed",
                             "website_scraped": None,
                             "leads": []
                         })
-                        # Continue to next URL - don't let one failure stop the whole process
+                        continue
+                    
+                    if status == "processed":
+                        processed_count += 1
+                        
+                        # Step 4: Save leads to serp_leads table (normalized)
+                        try:
+                            for lead in leads:
+                                # Normalize lead name before saving (lowercase, trim whitespace)
+                                normalized_lead = normalize_lead_name(lead)
+                                
+                                # Skip empty leads after normalization
+                                if not normalized_lead:
+                                    continue
+                                
+                                lead_record = SerpLead(
+                                    project_id=project_id,
+                                    serp_url_id=url_id,
+                                    lead=normalized_lead  # Store normalized version
+                                )
+                                session.add(lead_record)
+                                new_leads_count += 1
+                            
+                            logger.info(f"✅ Extracted {len(leads)} leads from {result['url']}")
+                        except Exception as save_error:
+                            # Failed to save leads - log but continue
+                            logger.error(f"❌ Failed to save leads for {result['url']}: {str(save_error)}")
+                            url_record.status = "failed"
+                            failed_count += 1
+                            processed_count -= 1  # Adjust count
+                            all_extracted_leads.append({
+                                "url": result['url'],
+                                "title": result['title'],
+                                "query": result['query'],
+                                "snippet": result['snippet'],
+                                "status": "failed",
+                                "website_scraped": scraped_content,
+                                "leads": []
+                            })
+                            continue
+                    else:
+                        skipped_count += 1
+                    
+                    # Store ALL results (processed, skipped) with status and scraped content
+                    all_extracted_leads.append({
+                        "url": result['url'],
+                        "title": result['title'],
+                        "query": result['query'],
+                        "snippet": result['snippet'],
+                        "status": status,
+                        "website_scraped": scraped_content,
+                        "leads": leads if leads else []
+                    })
                 
                 # Commit all changes
                 session.commit()
