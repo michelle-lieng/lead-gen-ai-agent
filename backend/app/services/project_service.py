@@ -15,9 +15,8 @@ class ProjectService:
     """Service for project-related database operations"""
 
     def create_project(self, 
-        project_name: str, 
-        description: Optional[str] = None,
-        query_search_target: Optional[str] = None) -> Project:
+        project_name: str,
+        description: Optional[str] = None) -> Project:
         """Create a new project"""
         try:
             # this line returns a SQL Alchemy Session object --> have the query(), filter(), first() methods
@@ -29,8 +28,7 @@ class ProjectService:
                 
                 project = Project(
                     project_name=project_name,
-                    description=description,
-                    query_search_target=query_search_target)
+                    description=description)
                 session.add(project)
                 session.commit() #save data to database
                 session.refresh(project) # updates python object with database values to return 
@@ -226,8 +224,7 @@ if __name__ == "__main__":
         print("\n1️⃣ Testing create_project...")
         test_project = project_service.create_project(
             project_name="Test Project",
-            description="This is a test project",
-            query_search_target="Companies with cats and dogs and from Australia")
+            description="This is a test project")
         print(f"✅ Created project: {test_project.project_name} (ID: {test_project.id})")
         
         # Test 2: Get all projects

@@ -14,8 +14,7 @@ async def create_project(project_data: ProjectCreate):
     try:
         project = project_service.create_project(
             project_name=project_data.project_name,
-            description=project_data.description,
-            query_search_target=project_data.query_search_target
+            description=project_data.description
         )
         return ProjectResponse(
             id=project.id,

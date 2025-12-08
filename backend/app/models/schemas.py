@@ -14,7 +14,6 @@ class ProjectCreate(BaseModel):
     """Schema for creating a new project"""
     project_name: str
     description: Optional[str] = None
-    query_search_target: Optional[str] = None
     
     @field_validator('project_name')
     @classmethod
