@@ -80,6 +80,12 @@ class ProjectService:
                     logger.warning(f"Project {project_id} not found")
                     return None
                 
+                # Prevent removing lead_minimum_criteria - it's required
+                if 'lead_minimum_criteria' in kwargs:
+                    new_criteria = kwargs['lead_minimum_criteria']
+                    if new_criteria is None or (isinstance(new_criteria, str) and not new_criteria.strip()):
+                        raise ValueError("lead_minimum_criteria cannot be removed or set to empty. It is required for lead extraction.")
+                
                 for key, value in kwargs.items():
                     if hasattr(project, key):
                         setattr(project, key, value)
@@ -88,6 +94,9 @@ class ProjectService:
                 session.refresh(project)
                 logger.info(f"✅ Updated project {project_id}")
                 return project
+        except ValueError:
+            # Re-raise ValueError for validation errors
+            raise
         except SQLAlchemyError as e:
             logger.error(f"❌ Error updating project {project_id}: {e}")
             raise

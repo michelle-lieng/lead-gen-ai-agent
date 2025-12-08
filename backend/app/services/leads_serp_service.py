@@ -476,7 +476,7 @@ class LeadsSerpService:
             logger.error(f"Error deleting URL {url_id} for project {project_id}: {str(e)}")
             raise
 
-    async def _lead_extractor(self, query, title, snippet, url) -> tuple[list, str | None]:
+    async def _lead_extractor(self, query, title, snippet, url, lead_minimum_criteria: str) -> tuple[list, str | None]:
         """
         Extract leads from a search result by always scraping the URL first, then passing
         the scraped content to the LLM for extraction.
@@ -484,11 +484,13 @@ class LeadsSerpService:
         # Always scrape the URL first
         logger.info(f"Scraping URL: {url}")
         scraped_content = await jina_url_scraper(url)
+        # Format prompt with criteria
+        extraction_prompt = SERP_EXTRACTION_PROMPT.format(lead_minimum_criteria=lead_minimum_criteria)
         
         # Create agent without tools (no tool calls needed)
         agent = Agent(
             name="Lead Generator",
-            instructions=SERP_EXTRACTION_PROMPT,
+            instructions=extraction_prompt,
             tools=[],  # No tools - we always scrape first
             output_type=list[str], # Specify the output type as a list of strings
         )

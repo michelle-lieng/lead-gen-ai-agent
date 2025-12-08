@@ -26,9 +26,18 @@ class ProjectUpdate(BaseModel):
     project_name: Optional[str] = None
     description: Optional[str] = None
     query_search_target: Optional[str] = None
+    lead_minimum_criteria: Optional[str] = None  # Required if provided, cannot be removed
     leads_collected: Optional[int] = None
     datasets_added: Optional[int] = None
     urls_processed: Optional[int] = None
+    
+    @field_validator('lead_minimum_criteria')
+    @classmethod
+    def validate_lead_minimum_criteria_if_provided(cls, v: Optional[str]) -> Optional[str]:
+        """If provided, ensure field is not empty or just whitespace. Cannot be set to None to remove it."""
+        if v is not None:  # Only validate if field is being updated (not None)
+            return validate_not_empty_string(v)
+        return v
     
     @field_validator('project_name')
     @classmethod
@@ -44,6 +53,7 @@ class ProjectResponse(BaseModel):
     project_name: str
     description: Optional[str] = None
     query_search_target: Optional[str] = None
+    lead_minimum_criteria: Optional[str] = None  # Required for new projects and lead extraction, but nullable in DB for backward compatibility
     date_added: str
     last_updated: str
     leads_collected: int

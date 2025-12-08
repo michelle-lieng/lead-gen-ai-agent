@@ -21,6 +21,7 @@ async def create_project(project_data: ProjectCreate):
             project_name=project.project_name,
             description=project.description,
             query_search_target=project.query_search_target,
+            lead_minimum_criteria=project.lead_minimum_criteria,
             date_added=project.date_added.isoformat(),
             last_updated=project.last_updated.isoformat(),
             leads_collected=project.leads_collected,
@@ -44,6 +45,7 @@ async def list_projects():
                 project_name=project.project_name,
                 description=project.description,
                 query_search_target=project.query_search_target,
+                lead_minimum_criteria=project.lead_minimum_criteria,
                 date_added=project.date_added.isoformat(),
                 last_updated=project.last_updated.isoformat(),
                 leads_collected=project.leads_collected,
@@ -67,6 +69,7 @@ async def get_project(project_id: int):
             project_name=project.project_name,
             description=project.description,
             query_search_target=project.query_search_target,
+            lead_minimum_criteria=project.lead_minimum_criteria,
             date_added=project.date_added.isoformat(),
             last_updated=project.last_updated.isoformat(),
             leads_collected=project.leads_collected,
@@ -88,6 +91,11 @@ async def update_project(project_id: int, project_data: ProjectUpdate):
         if not update_data:
             raise HTTPException(status_code=400, detail="No fields to update")
         
+        # Validate lead_minimum_criteria if it's being updated
+        if 'lead_minimum_criteria' in update_data:
+            if not update_data['lead_minimum_criteria'] or not update_data['lead_minimum_criteria'].strip():
+                raise HTTPException(status_code=400, detail="lead_minimum_criteria cannot be empty. It is required for lead extraction.")
+        
         project = project_service.update_project(project_id, **update_data)
         if not project:
             raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
@@ -97,6 +105,7 @@ async def update_project(project_id: int, project_data: ProjectUpdate):
             project_name=project.project_name,
             description=project.description,
             query_search_target=project.query_search_target,
+            lead_minimum_criteria=project.lead_minimum_criteria,
             date_added=project.date_added.isoformat(),
             last_updated=project.last_updated.isoformat(),
             leads_collected=project.leads_collected,

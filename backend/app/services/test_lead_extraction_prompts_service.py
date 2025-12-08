@@ -7,6 +7,7 @@ from agents import Agent, Runner, function_tool, set_default_openai_key
 from sqlalchemy.dialects.postgresql import insert
 
 from .database_service import db_service
+from .project_service import project_service
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..config import settings
 from ..prompts import SERP_EXTRACTION_PROMPT
@@ -96,14 +97,17 @@ class TestLeadExtractionPromptsService:
         logger.info(f"Scraping URL: {url}")
         return jina_url_scraper(url)
     
-    async def _test_lead_extractor(self, query, title, snippet, url) -> tuple[list, str | None]:
+    async def _test_lead_extractor(self, query, title, snippet, url, lead_minimum_criteria: str) -> tuple[list, str | None]:
         """
         Extract leads from test URLs for prompt testing/validation.
         Returns extracted leads and scraped content (if any).
         """
+        # Format prompt with criteria
+        extraction_prompt = SERP_EXTRACTION_PROMPT.format(lead_minimum_criteria=lead_minimum_criteria)
+        
         agent = Agent(
             name="Lead Generator",
-            instructions=SERP_EXTRACTION_PROMPT,
+            instructions=extraction_prompt,
             tools=[self._scrape_test_url],
             output_type=list[str], # Specify the output type as a list of strings
 
@@ -146,6 +150,13 @@ class TestLeadExtractionPromptsService:
         to help iterate on the extraction prompt.
         """
         try:
+            # Get project to retrieve lead_minimum_criteria
+            project = project_service.get_project(project_id)
+            lead_minimum_criteria = project.lead_minimum_criteria if project else None
+            
+            if not lead_minimum_criteria or not lead_minimum_criteria.strip():
+                raise ValueError(f"Project {project_id} does not have lead_minimum_criteria set. Please set it before extracting leads.")
+            
             with db_service.get_session() as session:
                 # Step 1: Reset all test URLs for this project to "unprocessed" status
                 # This allows re-running extraction on all URLs when testing prompts
@@ -191,7 +202,8 @@ class TestLeadExtractionPromptsService:
                                 query=url_record.query,
                                 title=url_record.title,
                                 snippet=url_record.snippet,
-                                url=url_record.link
+                                url=url_record.link,
+                                lead_minimum_criteria=lead_minimum_criteria
                             )
                         except Exception as extract_error:
                             # Extraction failed - log but continue processing

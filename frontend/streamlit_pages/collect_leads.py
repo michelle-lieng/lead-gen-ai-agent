@@ -61,6 +61,10 @@ def init_collect_leads_session_state():
         st.session_state.query_message = {}
     if current_project_id and current_project_id not in st.session_state.query_message:
         st.session_state.query_message[current_project_id] = None
+    if 'criteria_message' not in st.session_state:
+        st.session_state.criteria_message = {}
+    if current_project_id and current_project_id not in st.session_state.criteria_message:
+        st.session_state.criteria_message[current_project_id] = None
     if 'extraction_results' not in st.session_state:
         st.session_state.extraction_results = {}
     if current_project_id and current_project_id not in st.session_state.extraction_results:
@@ -85,6 +89,9 @@ def show_web_search_tab(project):
     
     # Get query message for current project
     project_query_message = st.session_state.query_message.get(project_id)
+    
+    # Get criteria message for current project
+    project_criteria_message = st.session_state.criteria_message.get(project_id)
     
     # Step 1: Search Queries
     st.markdown("## Step 1: Search Queries")
@@ -468,8 +475,61 @@ def show_web_search_tab(project):
     st.markdown("---")
     st.markdown("## Step 3: Extract Leads")
     
-    if not urls:
+    # Bare minimum lead criteria editor (in Step 3)
+    current_project = st.session_state.selected_project
+    current_criteria = current_project.get('lead_minimum_criteria', '')
+    
+    st.markdown("**Bare Minimum Lead Criteria**")
+    with st.form("lead_criteria_form"):
+        bare_minimum_criteria = st.text_input(
+            "Edit the bare minimum lead criteria",
+            value=current_criteria,
+            placeholder="e.g. Pilling company, doctors office, sustainability company...",
+            help="Required: Only extract leads that meet these criteria.",
+            key=f"bare_minimum_criteria_input_{project_id}"
+        )
+        
+        criteria_submitted = st.form_submit_button("💾 Save Criteria", use_container_width=True)
+        
+        if criteria_submitted:
+            # Clear previous message when submitting new criteria
+            if st.session_state.criteria_message.get(project_id):
+                st.session_state.criteria_message[project_id] = None
+            
+            # Validate that criteria is not empty
+            if not bare_minimum_criteria or not bare_minimum_criteria.strip():
+                st.error("❌ Bare Minimum Lead Criteria is required. Please enter criteria before saving.")
+            else:
+                # Save lead_minimum_criteria if it has changed
+                if bare_minimum_criteria.strip() != current_criteria:
+                    with st.spinner("Saving Bare Minimum Lead Criteria..."):
+                        result = update_project(project['id'], lead_minimum_criteria=bare_minimum_criteria.strip())
+                        if result:
+                            st.session_state.selected_project = result
+                            current_criteria = result.get('lead_minimum_criteria', '')
+                            # Store success message in session state
+                            st.session_state.criteria_message[project_id] = "✅ Bare Minimum Lead Criteria saved!"
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to save Bare Minimum Lead Criteria")
+    
+    # Display criteria message if it exists (persists after rerun)
+    if project_criteria_message:
+        st.success(project_criteria_message)
+    
+    # Update current_criteria after potential save
+    current_project = st.session_state.selected_project
+    current_criteria = current_project.get('lead_minimum_criteria', '')
+    
+    # Validate both criteria and URLs before allowing extraction
+    has_criteria = current_criteria and current_criteria.strip()
+    has_urls = len(urls) > 0
+    
+    if not has_urls:
         st.info("ℹ️ Generate URLs in Step 2 before you can extract leads.")
+        st.button("🤖 Extract Leads", disabled=True)
+    elif not has_criteria:
+        st.info("ℹ️ Please set Bare Minimum Lead Criteria above before extracting leads.")
         st.button("🤖 Extract Leads", disabled=True)
     else:
         # Get extraction results for current project
@@ -483,6 +543,7 @@ def show_web_search_tab(project):
             st.session_state.generated_queries[project_id] = {}
             st.session_state.query_counter = 0
             st.session_state.query_message[project_id] = None
+            st.session_state.criteria_message[project_id] = None
             
             with st.spinner("🤖 Extracting leads from URLs (this may take several minutes)..."):
                 leads_result = generate_leads(project['id'])
