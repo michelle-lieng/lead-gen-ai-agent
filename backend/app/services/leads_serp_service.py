@@ -47,10 +47,9 @@ class LeadsSerpService:
         
         # Separate semaphores for each API type since they have different rate limits
         # and are used in different workflow stages
-        self.serp_scraper_semaphore = asyncio.Semaphore(10)  # For jina_serp_scraper
-        self.url_scraper_semaphore = asyncio.Semaphore(10)    # For jina_url_scraper
-        self.llm_semaphore = asyncio.Semaphore(8)            # For Runner.run (OpenAI API)
-
+        self.serp_scraper_semaphore = asyncio.Semaphore(15)  # For jina_serp_scraper (increased from 10)
+        self.url_scraper_semaphore = asyncio.Semaphore(15)    # For jina_url_scraper (increased from 10, Jina Reader API: 200 RPM)
+        self.llm_semaphore = asyncio.Semaphore(6)             # For Runner.run (OpenAI API, reduced from 12 due to TPM limits: 30K TPM)
 
     def generate_search_queries_for_project(self, project_id: int, num_queries: int = 3) -> list[str]:
         """
