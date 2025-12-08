@@ -362,11 +362,15 @@ class MergedResultsService:
                     ORDER BY ordinal_position
                 """)
                 columns_result = session.execute(columns_query).fetchall()
-                column_names = [row[0] for row in columns_result]
+                all_column_names = [row[0] for row in columns_result]
+                
+                # Filter out id and project_id columns for export
+                excluded_columns = {'id', 'project_id'}
+                column_names = [col for col in all_column_names if col not in excluded_columns]
                 
                 # Get all merged results for this project using raw SQL to include dynamic columns
-                # Build dynamic column list for SELECT
-                columns_str = ", ".join([f'"{col}"' for col in column_names])
+                # Build dynamic column list for SELECT (include all columns for query, but filter for export)
+                columns_str = ", ".join([f'"{col}"' for col in all_column_names])
                 
                 select_query = text(f"""
                     SELECT {columns_str}
@@ -383,13 +387,17 @@ class MergedResultsService:
                 output = StringIO()
                 writer = csv.writer(output)
                 
-                # Write header row
+                # Write header row (only non-excluded columns)
                 writer.writerow(column_names)
+                
+                # Create mapping from all columns to export columns
+                column_indices = {col: idx for idx, col in enumerate(all_column_names)}
+                export_indices = [column_indices[col] for col in column_names]
                 
                 # Write data rows
                 for row_data in results:
                     row = []
-                    for idx, col_name in enumerate(column_names):
+                    for idx in export_indices:
                         value = row_data[idx]
                         
                         # Format the value

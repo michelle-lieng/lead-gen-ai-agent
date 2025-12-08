@@ -892,11 +892,9 @@ Scraped Content:
                 if queries:
                     output = StringIO()
                     writer = csv.writer(output)
-                    writer.writerow(["id", "project_id", "query", "date_added"])
+                    writer.writerow(["query", "date_added"])
                     for record in queries:
                         writer.writerow([
-                            record.id,
-                            record.project_id,
                             record.query,
                             record.date_added.isoformat()
                         ])
@@ -910,7 +908,7 @@ Scraped Content:
                 if urls:
                     output = StringIO()
                     writer = csv.writer(output)
-                    writer.writerow(["id", "project_id", "query", "title", "link", "snippet", "website_scraped", "status", "created_at"])
+                    writer.writerow(["id", "query", "title", "link", "snippet", "website_scraped", "status"])
                     for record in urls:
                         # Truncate website_scraped to 32600 characters to prevent CSV cell overflow (Excel limit is 32767)
                         website_scraped = record.website_scraped
@@ -918,14 +916,12 @@ Scraped Content:
                             website_scraped = website_scraped[:32600]
                         writer.writerow([
                             record.id,
-                            record.project_id,
                             record.query,
                             record.title,
                             record.link,
                             record.snippet,
                             website_scraped or "",
-                            record.status,
-                            record.created_at.isoformat()
+                            record.status
                         ])
                     csv_files["urls"] = output.getvalue()
                 
@@ -937,14 +933,11 @@ Scraped Content:
                 if leads:
                     output = StringIO()
                     writer = csv.writer(output)
-                    writer.writerow(["id", "project_id", "serp_url_id", "lead", "created_at"])
+                    writer.writerow(["serp_url_id", "lead"])
                     for record in leads:
                         writer.writerow([
-                            record.id,
-                            record.project_id,
                             record.serp_url_id,
-                            record.lead,
-                            record.created_at.isoformat()
+                            record.lead
                         ])
                     csv_files["leads"] = output.getvalue()
                 
@@ -958,15 +951,11 @@ Scraped Content:
                 if aggregated_leads:
                     output = StringIO()
                     writer = csv.writer(output)
-                    writer.writerow(["id", "project_id", "leads", "serp_count", "created_at", "updated_at"])
+                    writer.writerow(["leads", "serp_count"])
                     for record in aggregated_leads:
                         writer.writerow([
-                            record.id,
-                            record.project_id,
                             record.leads,
-                            record.serp_count,
-                            record.created_at.isoformat(),
-                            record.updated_at.isoformat() if record.updated_at else ""
+                            record.serp_count
                         ])
                     csv_files["leads_aggregated"] = output.getvalue()
             
