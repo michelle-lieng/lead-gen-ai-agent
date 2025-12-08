@@ -146,7 +146,7 @@ class LeadsSerpService:
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
 
-    def _generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> dict:
+    async def _generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> dict:
         """
         1. first generate the urls using jina_serp_scraper
         2. then save urls to serp_urls table
@@ -156,24 +156,53 @@ class LeadsSerpService:
         """
         try:
             with db_service.get_session() as session:
+                async def process_query(query):
+                    try:
+                        serp_object = await jina_serp_scraper(query)  # Now async!
+                        query_urls = []
+                        for serp_result in serp_object:
+                            link = serp_result.get('url')
+                            if link:
+                                query_urls.append({
+                                    'project_id': project_id,
+                                    'query': query,
+                                    'title': serp_result.get('title'),
+                                    'link': link,
+                                    'snippet': serp_result.get('description')
+                                })
+                        return query_urls
+                    except Exception as e:
+                        logger.error(f"❌ Error processing query '{query}': {str(e)}")
+                        return []
+                
+                # Process all queries in parallel using asyncio
+                tasks = [process_query(query) for query in queries]
+                results = await asyncio.gather(*tasks)
                 # STEP 1: Collect all generated urls first using jina_serp_scraper
                 all_urls = []
                 seen_links = set()  # Track unique links to avoid duplicates
-                for query in queries:
-                    # extract the urls using Serpapi
-                    serp_object = jina_serp_scraper(query)
-                    for serp_result in serp_object:
-                        link = serp_result.get('url')
-                        # Only add if we haven't seen this link before in this batch
-                        if link and link not in seen_links:
+
+                for query_urls in results:
+                    for url_data in query_urls:
+                        link = url_data['link']
+                        if link not in seen_links:
                             seen_links.add(link)
-                            all_urls.append({
-                                'project_id': project_id,
-                                'query': query,
-                                'title': serp_result.get('title'),
-                                'link': link,
-                                'snippet': serp_result.get('description')
-                            })
+                            all_urls.append(url_data)
+                # for query in queries:
+                #     # extract the urls using Serpapi
+                #     serp_object = jina_serp_scraper(query)
+                #     for serp_result in serp_object:
+                #         link = serp_result.get('url')
+                #         # Only add if we haven't seen this link before in this batch
+                #         if link and link not in seen_links:
+                #             seen_links.add(link)
+                #             all_urls.append({
+                #                 'project_id': project_id,
+                #                 'query': query,
+                #                 'title': serp_result.get('title'),
+                #                 'link': link,
+                #                 'snippet': serp_result.get('description')
+                #             })
 
                 # Step 2: Batch upsert using SQLAlchemy core
                 statement = insert(SerpUrl).values(all_urls)

@@ -10,6 +10,7 @@ import json
 import ast
 import re
 import unicodedata
+import httpx
 
 from ..config import settings
 
@@ -67,7 +68,7 @@ def jina_url_scraper(url: str) -> str:
     
     return cleaned_content
 
-def jina_serp_scraper(search_phrase:str) -> list[dict]:
+async def jina_serp_scraper(search_phrase:str) -> list[dict]:
     url = 'https://s.jina.ai/'
     params = {'q': f'{search_phrase}', 'gl': 'AU', 'location': 'Sydney', 'hl': 'en'}
     headers = {
@@ -75,8 +76,9 @@ def jina_serp_scraper(search_phrase:str) -> list[dict]:
         'Authorization': f'Bearer jina_{settings.jina_api_key}',
         'X-Respond-With': 'no-content'
     }
-    response = requests.get(url, params=params, headers=headers)
-    return ast.literal_eval(response.text)['data'] # convert to dict then extract data 
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, params=params, headers=headers)
+        return ast.literal_eval(response.text)['data'] # convert to dict then extract data 
 
 if __name__ == "__main__":
     from pprint import pprint
