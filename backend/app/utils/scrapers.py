@@ -57,7 +57,7 @@ async def jina_url_scraper(url: str) -> str:
     """
     url = f"https://r.jina.ai/{url}"
     headers = {
-        #"Authorization": f"Bearer jina_{settings.jina_api_key}",
+        "Authorization": f"Bearer jina_{settings.jina_api_key}",
         "X-Md-Link-Style": "discarded",
         "X-Remove-Selector": "header, footer, nav, aside, .subscribe, .paywall, .related, .comments, .share, .advertisement",
         "X-Retain-Images": "none"
