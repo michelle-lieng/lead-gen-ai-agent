@@ -18,7 +18,7 @@ def show_review_leads():
     with col1:
         st.markdown("### 📊 Merged Leads Table")
     with col2:
-        if st.button("🔄 Refresh", use_container_width=True):
+        if st.button("🔄 Refresh", width='stretch'):
             st.rerun()
     
     # Fetch merged results
@@ -69,7 +69,7 @@ def show_review_leads():
             
             st.dataframe(
                 display_df,
-                use_container_width=True,
+                width='stretch',
                 hide_index=True,
                 height=400
             )
@@ -83,7 +83,7 @@ def show_review_leads():
             if download_key not in st.session_state:
                 st.session_state[download_key] = None
             
-            if st.button("📥 Download Merged Results as CSV", use_container_width=True, type="primary"):
+            if st.button("📥 Download Merged Results as CSV", width='stretch', type="primary"):
                 try:
                     with st.spinner("Preparing download..."):
                         zip_content, filename = fetch_merged_results_zip(project_id)
@@ -104,7 +104,7 @@ def show_review_leads():
                     data=zip_content,
                     file_name=filename,
                     mime="application/zip",
-                    use_container_width=True,
+                    width='stretch',
                     key=f"download_btn_{project_id}"
                 )
                 st.success(f"✅ Download ready: {filename}")

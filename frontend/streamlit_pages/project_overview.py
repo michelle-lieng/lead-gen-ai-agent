@@ -47,17 +47,17 @@ def show_project_overview():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("🎯 Start Lead Collection", use_container_width=True):
+        if st.button("🎯 Start Lead Collection", width='stretch'):
             st.session_state.current_page = "collect_leads"
             st.rerun()
     
     with col2:
-        if st.button("📋 Review All Leads", use_container_width=True):
+        if st.button("📋 Review All Leads", width='stretch'):
             st.session_state.current_page = "review_leads"
             st.rerun()
     
     with col3:
-        if st.button("🗑️ Delete Project", use_container_width=True, type="secondary"):
+        if st.button("🗑️ Delete Project", width='stretch', type="secondary"):
             delete_key = f"show_delete_confirm_{project['id']}"
             st.session_state[delete_key] = True
             st.rerun()
@@ -70,7 +70,7 @@ def show_project_overview():
         st.warning("⚠️ Are you sure you want to delete this project? This action cannot be undone.")
         confirm_col1, confirm_col2 = st.columns(2)
         with confirm_col1:
-            if st.button("✅ Yes, Delete", key="confirm_delete", use_container_width=True, type="primary"):
+            if st.button("✅ Yes, Delete", key="confirm_delete", width='stretch', type="primary"):
                 with st.spinner("Deleting project..."):
                     success = delete_project(project['id'])
                     if success:
@@ -82,7 +82,7 @@ def show_project_overview():
                         st.session_state.current_page = "dashboard"
                         st.rerun()
         with confirm_col2:
-            if st.button("❌ Cancel", key="cancel_delete", use_container_width=True):
+            if st.button("❌ Cancel", key="cancel_delete", width='stretch'):
                 # Reset confirmation state
                 if delete_key in st.session_state:
                     del st.session_state[delete_key]

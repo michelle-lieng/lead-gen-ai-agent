@@ -100,7 +100,7 @@ def show_test_prompts():
         # Display editable table
         edited_df = st.data_editor(
             df,
-            use_container_width=True,
+            width='stretch',
             num_rows="dynamic",
             key=editor_key,
             column_config={
@@ -302,7 +302,7 @@ def show_test_prompts():
             })
         
         df = pd.DataFrame(results_data)
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width='stretch', hide_index=True)
         
         # Show detailed results in expandable sections
         st.markdown("### 📋 Detailed Results")

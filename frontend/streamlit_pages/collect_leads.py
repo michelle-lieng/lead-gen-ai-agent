@@ -314,7 +314,7 @@ def show_web_search_tab(project):
         # Display editable table
         edited_df = st.data_editor(
             df,
-            use_container_width=True,
+            width='stretch',
             num_rows="dynamic",
             key=editor_key,
             column_config={
@@ -552,7 +552,7 @@ def show_web_search_tab(project):
             })
         
         df = pd.DataFrame(results_data)
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width='stretch', hide_index=True)
         
         # Show detailed results in expandable sections
         st.markdown("### 📋 Detailed Results")
@@ -638,7 +638,7 @@ def show_web_search_tab(project):
                 file_name=st.session_state.get("csv_filename_all", "serp_results.zip"),
                 mime="application/zip",
                 key=download_key,
-                use_container_width=True
+                width='stretch'
             )
             # Note: st.download_button does NOT cause a rerun - it just triggers the download
         elif not has_csv_data:
@@ -678,7 +678,7 @@ def show_upload_dataset_tab(project):
             uploaded_file.seek(0)
             
             st.markdown("#### 📊 Data Preview")
-            st.dataframe(df.head(10), use_container_width=True)
+            st.dataframe(df.head(10), width='stretch')
             
             # Upload form
             st.markdown("#### ⚙️ Dataset Configuration")
@@ -774,7 +774,7 @@ def show_upload_dataset_tab(project):
             
             # Upload button (outside form)
             upload_button_key = f"upload_btn_{project['id']}_{uploaded_file.name}"
-            if st.button("📤 Upload Dataset", type="primary", use_container_width=True, key=upload_button_key):
+            if st.button("📤 Upload Dataset", type="primary", width='stretch', key=upload_button_key):
                 # Clear previous success message when starting a new upload
                 if upload_success_key in st.session_state:
                     del st.session_state[upload_success_key]
