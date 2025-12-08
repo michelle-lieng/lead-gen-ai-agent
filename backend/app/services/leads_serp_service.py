@@ -51,51 +51,6 @@ class LeadsSerpService:
         self.url_scraper_semaphore = asyncio.Semaphore(10)    # For jina_url_scraper
         self.llm_semaphore = asyncio.Semaphore(8)            # For Runner.run (OpenAI API)
 
-    def _generate_search_queries(self, query_search_target: str, num_queries: int = 3) -> list[str]:
-        """
-        Generate AI-powered search queries based on project query_search_target using ChatGPT
-        
-        Args:
-            query_search_target (str): Project query_search_target to base queries on
-            num_queries (int): Number of queries to generate (default: 3)
-        
-        Returns:
-            list[str]: List of generated search queries
-        """
-        try:
-            
-            # Create the prompt for ChatGPT
-            prompt = SERP_QUERIES_PROMPT.format(
-                query_search_target=query_search_target, 
-                num_queries=num_queries
-            )
-            
-            # Call OpenAI API
-            response = self.openai_client.responses.parse(
-                model="gpt-4o-2024-08-06",
-                input=[
-                    {"role": "system", "content": "You are an expert at generating effective Google search queries for lead generation. You create specific, descriptive queries that combine multiple terms, locations, and company characteristics to find the best potential leads. Your queries are natural, varied, creative, and optimized to discover company directories, lists, case studies, and business profiles."},
-                    {"role": "user", "content": prompt}
-                ],
-                text_format=QueryListRequest,
-                temperature=0.7  # Higher temperature for more creative and varied queries
-            )
-            
-            # Parse the response
-            queries_object = response.output_parsed
-            
-            # Clean up any quotes or formatting issues
-            cleaned_queries = []
-            for query in queries_object.queries:
-                # Remove quotes and extra whitespace
-                cleaned_query = query.strip().strip('"').strip("'")
-                cleaned_queries.append(cleaned_query)
-            
-            return cleaned_queries
-            
-        except Exception as e:
-            logger.error(f"Error generating search queries: {str(e)}")
-            raise
 
     def generate_search_queries_for_project(self, project_id: int, num_queries: int = 3) -> list[str]:
         """
@@ -113,7 +68,35 @@ class LeadsSerpService:
             ValueError: If project with project_id does not exist
         """
         project = project_service.get_project(project_id)
-        return self._generate_search_queries(project.query_search_target, num_queries)
+
+        # Create the prompt for ChatGPT
+        prompt = SERP_QUERIES_PROMPT.format(
+            query_search_target=project.query_search_target, 
+            num_queries=num_queries
+        )
+        
+        # Call OpenAI API
+        response = self.openai_client.responses.parse(
+            model="gpt-4o-2024-08-06",
+            input=[
+                {"role": "system", "content": "You are an expert at generating effective Google search queries for lead generation. You create specific, descriptive queries that combine multiple terms, locations, and company characteristics to find the best potential leads. Your queries are natural, varied, creative, and optimized to discover company directories, lists, case studies, and business profiles."},
+                {"role": "user", "content": prompt}
+            ],
+            text_format=QueryListRequest,
+            temperature=0.7  # Higher temperature for more creative and varied queries
+        )
+        
+        # Parse the response
+        queries_object = response.output_parsed
+        
+        # Clean up any quotes or formatting issues
+        cleaned_queries = []
+        for query in queries_object.queries:
+            # Remove quotes and extra whitespace
+            cleaned_query = query.strip().strip('"').strip("'")
+            cleaned_queries.append(cleaned_query)
+        
+        return cleaned_queries
 
     def _add_queries_to_table(self, project_id: int, queries: list[str]) -> bool:
         """
