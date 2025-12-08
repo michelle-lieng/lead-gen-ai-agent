@@ -83,7 +83,7 @@ def show_dashboard():
                     edit_key = f"edit_mode_{project['id']}"
                     if st.session_state.get(edit_key, False):
                         # In edit mode - show save/cancel buttons
-                        if st.button("💾 Save", key=f"save_{project['id']}", help="Save changes", use_container_width=True):
+                        if st.button("💾 Save", key=f"save_{project['id']}", help="Save changes", width='stretch'):
                             textarea_key = f"textarea_{project['id']}"
                             new_description = st.session_state.get(textarea_key, project.get('description', ''))
                             with st.spinner("Updating project..."):
@@ -96,7 +96,7 @@ def show_dashboard():
                                     if textarea_key in st.session_state:
                                         del st.session_state[textarea_key]
                                     st.rerun()
-                        if st.button("❌ Cancel", key=f"cancel_edit_{project['id']}", help="Cancel editing", use_container_width=True):
+                        if st.button("❌ Cancel", key=f"cancel_edit_{project['id']}", help="Cancel editing", width='stretch'):
                             textarea_key = f"textarea_{project['id']}"
                             if edit_key in st.session_state:
                                 del st.session_state[edit_key]
@@ -105,7 +105,7 @@ def show_dashboard():
                             st.rerun()
                     else:
                         # Initial edit button - always visible
-                        if st.button("✏️ Edit", key=f"edit_{project['id']}", help="Edit self notes", use_container_width=True):
+                        if st.button("✏️ Edit", key=f"edit_{project['id']}", help="Edit self notes", width='stretch'):
                             st.session_state[edit_key] = True
                             st.rerun()
                 
@@ -114,7 +114,7 @@ def show_dashboard():
                     # Check if we're in confirmation mode
                     if st.session_state.get(delete_key, False):
                         # Show confirm button instead
-                        if st.button("✅", key=f"confirm_delete_{project['id']}", help="Confirm deletion", use_container_width=True):
+                        if st.button("✅", key=f"confirm_delete_{project['id']}", help="Confirm deletion", width='stretch'):
                             with st.spinner("Deleting project..."):
                                 success = delete_project(project['id'])
                                 if success:
@@ -128,13 +128,13 @@ def show_dashboard():
                                         st.session_state.current_page = "dashboard"
                                     st.rerun()
                         # Cancel button
-                        if st.button("❌", key=f"cancel_delete_{project['id']}", help="Cancel deletion", use_container_width=True):
+                        if st.button("❌", key=f"cancel_delete_{project['id']}", help="Cancel deletion", width='stretch'):
                             if delete_key in st.session_state:
                                 del st.session_state[delete_key]
                             st.rerun()
                     else:
                         # Initial delete button
-                        if st.button("🗑️", key=f"delete_{project['id']}", help="Delete project", use_container_width=True):
+                        if st.button("🗑️", key=f"delete_{project['id']}", help="Delete project", width='stretch'):
                             st.session_state[delete_key] = True
                             st.rerun()
                 

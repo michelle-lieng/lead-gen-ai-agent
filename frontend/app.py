@@ -30,7 +30,7 @@ def main():
         st.markdown("## 🧭 Navigation")
         
         # Dashboard button
-        if st.button("🏠 Dashboard", use_container_width=True):
+        if st.button("🏠 Dashboard", width='stretch'):
             st.session_state.current_page = "dashboard"
             st.session_state.selected_project = None
             st.rerun()
@@ -44,7 +44,7 @@ def main():
         
         if projects:
             for project in projects:
-                if st.button(f"📋 {project['project_name']}", key=f"select_{project['id']}", use_container_width=True):
+                if st.button(f"📋 {project['project_name']}", key=f"select_{project['id']}", width='stretch'):
                     st.session_state.selected_project = project
                     st.session_state.current_page = "project_overview"
                     st.rerun()
@@ -57,15 +57,15 @@ def main():
         if st.session_state.selected_project:
             st.markdown("### 🔧 Project Tools")
             
-            if st.button("📊 Overview", key="overview", use_container_width=True):
+            if st.button("📊 Overview", key="overview", width='stretch'):
                 st.session_state.current_page = "project_overview"
                 st.rerun()
             
-            if st.button("🎯 Collect Leads", key="collect", use_container_width=True):
+            if st.button("🎯 Collect Leads", key="collect", width='stretch'):
                 st.session_state.current_page = "collect_leads"
                 st.rerun()
             
-            if st.button("📋 Review Leads", key="review", use_container_width=True):
+            if st.button("📋 Review Leads", key="review", width='stretch'):
                 st.session_state.current_page = "review_leads"
                 st.rerun()
     

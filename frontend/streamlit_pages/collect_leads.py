@@ -62,7 +62,9 @@ def init_collect_leads_session_state():
     if current_project_id and current_project_id not in st.session_state.query_message:
         st.session_state.query_message[current_project_id] = None
     if 'extraction_results' not in st.session_state:
-        st.session_state.extraction_results = []  # Store results from extraction run
+        st.session_state.extraction_results = {}
+    if current_project_id and current_project_id not in st.session_state.extraction_results:
+        st.session_state.extraction_results[current_project_id] = []  # Store results from extraction run
 
 # =============================================================================
 # MAIN PAGE - WEB SEARCH TAB
@@ -140,7 +142,7 @@ def show_web_search_tab(project):
                             st.stop()
                 
                 # Clear extraction results when generating new queries
-                st.session_state.extraction_results = []
+                st.session_state.extraction_results[project_id] = []
                 
                 # Generate queries
                 with st.spinner(f"🤖 AI is generating {st.session_state.num_queries} targeted search queries..."):
@@ -196,7 +198,7 @@ def show_web_search_tab(project):
                 st.rerun()
             else:
                 # Clear extraction results when adding a new query
-                st.session_state.extraction_results = []
+                st.session_state.extraction_results[project_id] = []
                 # Store success message
                 st.session_state.query_message[project_id] = f'✅ Added query "{new_query.strip()}" to the list.'
                 
@@ -312,7 +314,7 @@ def show_web_search_tab(project):
         # Display editable table
         edited_df = st.data_editor(
             df,
-            use_container_width=True,
+            width='stretch',
             num_rows="dynamic",
             key=editor_key,
             column_config={
@@ -470,11 +472,14 @@ def show_web_search_tab(project):
         st.info("ℹ️ Generate URLs in Step 2 before you can extract leads.")
         st.button("🤖 Extract Leads", disabled=True)
     else:
+        # Get extraction results for current project
+        project_extraction_results = st.session_state.extraction_results.get(project_id, [])
+        
         # Show button - "Re-run Extraction" if results exist, otherwise "Extract Leads"
-        button_text = "🔄 Re-run Extraction" if st.session_state.extraction_results else "🤖 Extract Leads"
+        button_text = "🔄 Re-run Extraction" if project_extraction_results else "🤖 Extract Leads"
         if st.button(button_text):
             # Clear previous results and queries when starting new extraction
-            st.session_state.extraction_results = []
+            st.session_state.extraction_results[project_id] = []
             st.session_state.generated_queries[project_id] = {}
             st.session_state.query_counter = 0
             st.session_state.query_message[project_id] = None
@@ -483,9 +488,9 @@ def show_web_search_tab(project):
                 leads_result = generate_leads(project['id'])
                 
                 if leads_result.get('success'):
-                    # Store results in session state
+                    # Store results in session state for this project
                     extracted_leads = leads_result.get('extracted_leads', [])
-                    st.session_state.extraction_results = extracted_leads
+                    st.session_state.extraction_results[project_id] = extracted_leads
                     
                     # Refresh project data to get updated stats
                     st.session_state.selected_project = get_project(project['id'])
@@ -498,18 +503,19 @@ def show_web_search_tab(project):
                 else:
                     st.error(f"❌ Failed to extract leads")
     
-    # Display extraction results if they exist
-    if st.session_state.extraction_results:
+    # Display extraction results if they exist for this project
+    project_extraction_results = st.session_state.extraction_results.get(project_id, [])
+    if project_extraction_results:
         st.markdown("---")
         st.markdown("## 📊 Extraction Results")
         
         # Show metrics dashboard
         leads_result_summary = {
-            'new_leads_extracted': sum(len(result.get('leads', [])) for result in st.session_state.extraction_results),
-            'urls_processed': len([r for r in st.session_state.extraction_results if r.get('status') == 'processed']),
-            'urls_skipped': len([r for r in st.session_state.extraction_results if r.get('status') == 'skip']),
-            'urls_failed': len([r for r in st.session_state.extraction_results if r.get('status') == 'failed']),
-            'total_urls': len(st.session_state.extraction_results)
+            'new_leads_extracted': sum(len(result.get('leads', [])) for result in project_extraction_results),
+            'urls_processed': len([r for r in project_extraction_results if r.get('status') == 'processed']),
+            'urls_skipped': len([r for r in project_extraction_results if r.get('status') == 'skip']),
+            'urls_failed': len([r for r in project_extraction_results if r.get('status') == 'failed']),
+            'total_urls': len(project_extraction_results)
         }
         
         col1, col2, col3, col4, col5 = st.columns(5)
@@ -526,7 +532,7 @@ def show_web_search_tab(project):
         
         # Prepare data for summary table
         results_data = []
-        for result in st.session_state.extraction_results:
+        for result in project_extraction_results:
             leads = result.get('leads', [])
             status = result.get('status', 'unknown')
             # Color code status
@@ -546,11 +552,11 @@ def show_web_search_tab(project):
             })
         
         df = pd.DataFrame(results_data)
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width='stretch', hide_index=True)
         
         # Show detailed results in expandable sections
         st.markdown("### 📋 Detailed Results")
-        for i, result in enumerate(st.session_state.extraction_results):
+        for i, result in enumerate(project_extraction_results):
             leads = result.get('leads', [])
             status = result.get('status', 'unknown')
             status_display = {
@@ -632,7 +638,7 @@ def show_web_search_tab(project):
                 file_name=st.session_state.get("csv_filename_all", "serp_results.zip"),
                 mime="application/zip",
                 key=download_key,
-                use_container_width=True
+                width='stretch'
             )
             # Note: st.download_button does NOT cause a rerun - it just triggers the download
         elif not has_csv_data:
@@ -672,7 +678,7 @@ def show_upload_dataset_tab(project):
             uploaded_file.seek(0)
             
             st.markdown("#### 📊 Data Preview")
-            st.dataframe(df.head(10), use_container_width=True)
+            st.dataframe(df.head(10), width='stretch')
             
             # Upload form
             st.markdown("#### ⚙️ Dataset Configuration")
@@ -768,7 +774,7 @@ def show_upload_dataset_tab(project):
             
             # Upload button (outside form)
             upload_button_key = f"upload_btn_{project['id']}_{uploaded_file.name}"
-            if st.button("📤 Upload Dataset", type="primary", use_container_width=True, key=upload_button_key):
+            if st.button("📤 Upload Dataset", type="primary", width='stretch', key=upload_button_key):
                 # Clear previous success message when starting a new upload
                 if upload_success_key in st.session_state:
                     del st.session_state[upload_success_key]

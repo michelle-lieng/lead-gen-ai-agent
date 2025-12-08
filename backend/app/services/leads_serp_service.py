@@ -159,7 +159,6 @@ class LeadsSerpService:
                 # STEP 1: Collect all generated urls first using jina_serp_scraper
                 all_urls = []
                 seen_links = set()  # Track unique links to avoid duplicates
-                
                 for query in queries:
                     # extract the urls using Serpapi
                     serp_object = jina_serp_scraper(query)
