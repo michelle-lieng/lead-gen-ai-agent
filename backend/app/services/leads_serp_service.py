@@ -562,7 +562,7 @@ Scraped Content:
                     })
                 
                 # Step 2: Process URLs in parallel using asyncio
-                semaphore = asyncio.Semaphore(5)  # Limit to 5 concurrent extractions
+                semaphore = asyncio.Semaphore(8)  # Limit to 10 concurrent extractions
                 
                 async def process_url(url_data):
                     """Process a single URL and return result (using plain dict, not ORM object)"""
