@@ -101,7 +101,7 @@ def show_web_search_tab(project):
         with col1:
             # Editable field
             updated_target = st.text_area(
-                "Edit Query Search Target",
+                "Edit query search target",
                 value=current_target,
                 placeholder="e.g., Find sustainable energy companies in California that are focused on solar and wind power...",
                 height=100,
