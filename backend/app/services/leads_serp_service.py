@@ -44,6 +44,12 @@ class LeadsSerpService:
 
         # for openai agents sdk
         set_default_openai_key(settings.openai_api_key)
+        
+        # Separate semaphores for each API type since they have different rate limits
+        # and are used in different workflow stages
+        self.serp_scraper_semaphore = asyncio.Semaphore(10)  # For jina_serp_scraper
+        self.url_scraper_semaphore = asyncio.Semaphore(10)    # For jina_url_scraper
+        self.llm_semaphore = asyncio.Semaphore(8)            # For Runner.run (OpenAI API)
 
     def _generate_search_queries(self, query_search_target: str, num_queries: int = 3) -> list[str]:
         """
@@ -145,6 +151,27 @@ class LeadsSerpService:
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
             raise
 
+    async def _process_query(self, query: str, project_id: int) -> list[dict]:
+        """Process a single query with semaphore protection for API calls"""
+        async with self.serp_scraper_semaphore:
+            try:
+                serp_object = await jina_serp_scraper(query)  # Protected by serp_scraper_semaphore
+                query_urls = []
+                for serp_result in serp_object:
+                    link = serp_result.get('url')
+                    if link:
+                        query_urls.append({
+                            'project_id': project_id,
+                            'query': query,
+                            'title': serp_result.get('title'),
+                            'link': link,
+                            'snippet': serp_result.get('description')
+                        })
+                return query_urls
+            except Exception as e:
+                logger.error(f"❌ Error processing query '{query}': {str(e)}")
+                return []
+
     async def _generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> dict:
         """
         1. first generate the urls using jina_serp_scraper
@@ -155,27 +182,8 @@ class LeadsSerpService:
         """
         try:
             with db_service.get_session() as session:
-                async def process_query(query):
-                    try:
-                        serp_object = await jina_serp_scraper(query)  # Now async!
-                        query_urls = []
-                        for serp_result in serp_object:
-                            link = serp_result.get('url')
-                            if link:
-                                query_urls.append({
-                                    'project_id': project_id,
-                                    'query': query,
-                                    'title': serp_result.get('title'),
-                                    'link': link,
-                                    'snippet': serp_result.get('description')
-                                })
-                        return query_urls
-                    except Exception as e:
-                        logger.error(f"❌ Error processing query '{query}': {str(e)}")
-                        return []
-                
                 # Process all queries in parallel using asyncio
-                tasks = [process_query(query) for query in queries]
+                tasks = [self._process_query(query, project_id) for query in queries]
                 results = await asyncio.gather(*tasks)
                 # STEP 1: Collect all generated urls first using jina_serp_scraper
                 all_urls = []
@@ -187,21 +195,6 @@ class LeadsSerpService:
                         if link not in seen_links:
                             seen_links.add(link)
                             all_urls.append(url_data)
-                # for query in queries:
-                #     # extract the urls using Serpapi
-                #     serp_object = jina_serp_scraper(query)
-                #     for serp_result in serp_object:
-                #         link = serp_result.get('url')
-                #         # Only add if we haven't seen this link before in this batch
-                #         if link and link not in seen_links:
-                #             seen_links.add(link)
-                #             all_urls.append({
-                #                 'project_id': project_id,
-                #                 'query': query,
-                #                 'title': serp_result.get('title'),
-                #                 'link': link,
-                #                 'snippet': serp_result.get('description')
-                #             })
 
                 # Step 2: Batch upsert using SQLAlchemy core
                 statement = insert(SerpUrl).values(all_urls)
@@ -480,10 +473,19 @@ class LeadsSerpService:
         """
         Extract leads from a search result by always scraping the URL first, then passing
         the scraped content to the LLM for extraction.
+        
+        Args:
+            query: Search query
+            title: Search result title
+            snippet: Search result snippet
+            url: URL to scrape
+            lead_minimum_criteria: Required criteria that leads must meet (e.g., "Pilling company")
         """
-        # Always scrape the URL first
+        # Always scrape the URL first - protected by url_scraper_semaphore
         logger.info(f"Scraping URL: {url}")
-        scraped_content = await jina_url_scraper(url)
+        async with self.url_scraper_semaphore:
+            scraped_content = await jina_url_scraper(url)
+
         # Format prompt with criteria
         extraction_prompt = SERP_EXTRACTION_PROMPT.format(lead_minimum_criteria=lead_minimum_criteria)
         
@@ -507,14 +509,99 @@ Scraped Content:
 {scraped_content if scraped_content else "No content available"}
 """
         
-        # Run the agent with scraped content already in the input
-        result = await Runner.run(agent, input=input_text)
+        # Run the agent with scraped content already in the input - protected by llm_semaphore
+        async with self.llm_semaphore:
+            result = await Runner.run(agent, input=input_text)
         
         logger.info(f"Final output (company names): {result.final_output}")
         # enforce list type for leads
         leads = result.final_output
         return leads, scraped_content
-    
+
+    async def _process_url(self, url_data: dict, lead_minimum_criteria: str) -> dict:
+        """Process a single URL and return result (using plain dict, not ORM object)"""
+        try:
+            logger.info(f"Processing URL: {url_data['link']}")
+            
+            # Extract leads using the _lead_extractor method
+            # Note: semaphore protection is inside _lead_extractor for each API call
+            leads = []
+            scraped_content = None
+            try:
+                leads, scraped_content = await self._lead_extractor(
+                    query=url_data['query'],
+                    title=url_data['title'],
+                    snippet=url_data['snippet'],
+                    url=url_data['link'],
+                    lead_minimum_criteria=lead_minimum_criteria
+                )
+            except Exception as extract_error:
+                # Extraction failed - log but continue processing
+                error_traceback = traceback.format_exc()
+                logger.error(f"❌ Extraction error for {url_data['link']}: {str(extract_error)}\n{error_traceback}")
+                return {
+                    'url_id': url_data['id'],
+                    'url': url_data['link'],
+                    'title': url_data['title'],
+                    'query': url_data['query'],
+                    'snippet': url_data['snippet'],
+                    'leads': [],
+                    'scraped_content': None,
+                    'status': 'failed',
+                    'error': str(extract_error)
+                }
+            
+            # Clean up leads - handle AI returning ['[]'] or similar
+            if leads and isinstance(leads, list):
+                # Remove any strings that look like empty lists or invalid entries
+                cleaned_leads = []
+                for lead in leads:
+                    if isinstance(lead, str):
+                        # Remove quotes and brackets, check if it's meaningful
+                        clean_lead = lead.strip().strip('[]').strip("'").strip('"')
+                        if clean_lead and clean_lead not in ['', '[]', 'None', 'null']:
+                            cleaned_leads.append(clean_lead)
+                    elif lead and str(lead).strip():
+                        cleaned_leads.append(str(lead).strip())
+                
+                leads = cleaned_leads
+                logger.info(f"Cleaned leads: {leads}")
+            
+            # Determine status based on results
+            if leads and isinstance(leads, list) and len(leads) > 0:
+                status = "processed"
+            else:
+                status = "skip"
+                logger.info(f"⏭️ No leads found in {url_data['link']} - marked as skip")
+            
+            return {
+                'url_id': url_data['id'],
+                'url': url_data['link'],
+                'title': url_data['title'],
+                'query': url_data['query'],
+                'snippet': url_data['snippet'],
+                'leads': leads if leads else [],
+                'scraped_content': scraped_content,
+                'status': status,
+                'error': None
+            }
+            
+        except Exception as e:
+            # Unexpected error - log and return failed status
+            error_traceback = traceback.format_exc()
+            logger.error(f"❌ Unexpected error processing {url_data['link']}: {str(e)}\n{error_traceback}")
+            return {
+                'url_id': url_data['id'],
+                'url': url_data['link'],
+                'title': url_data['title'],
+                'query': url_data['query'],
+                'snippet': url_data['snippet'],
+                'leads': [],
+                'scraped_content': None,
+                'status': 'failed',
+                'error': str(e)
+            }
+
     async def extract_and_add_leads_to_table(self, project_id: int) -> dict:
         """
         Process unprocessed URLs from serp_urls table:
@@ -529,6 +616,15 @@ Scraped Content:
         """
         try:
             with db_service.get_session() as session:
+                # Step 0: Get project to retrieve lead_minimum_criteria
+                project = project_service.get_project(project_id)
+                lead_minimum_criteria = project.lead_minimum_criteria if project else None
+                
+                if not lead_minimum_criteria or not lead_minimum_criteria.strip():
+                    raise ValueError(f"Project {project_id} does not have lead_minimum_criteria set. Please set it before extracting leads.")
+                
+                logger.info(f"Using lead minimum criteria for project {project_id}: {lead_minimum_criteria}")
+                
                 # Step 1: Get all unprocessed URLs for this project (only unprocessed, not failed)
                 unprocessed_urls = session.query(SerpUrl).filter(
                     SerpUrl.project_id == project_id,
@@ -562,93 +658,8 @@ Scraped Content:
                     })
                 
                 # Step 2: Process URLs in parallel using asyncio
-                semaphore = asyncio.Semaphore(8)  # Limit to 10 concurrent extractions
-                
-                async def process_url(url_data):
-                    """Process a single URL and return result (using plain dict, not ORM object)"""
-                    async with semaphore:
-                        try:
-                            logger.info(f"Processing URL: {url_data['link']}")
-                            
-                            # Extract leads using the _lead_extractor method
-                            leads = []
-                            scraped_content = None
-                            try:
-                                leads, scraped_content = await self._lead_extractor(
-                                    query=url_data['query'],
-                                    title=url_data['title'],
-                                    snippet=url_data['snippet'],
-                                    url=url_data['link']
-                                )
-                            except Exception as extract_error:
-                                # Extraction failed - log but continue processing
-                                error_traceback = traceback.format_exc()
-                                logger.error(f"❌ Extraction error for {url_data['link']}: {str(extract_error)}\n{error_traceback}")
-                                return {
-                                    'url_id': url_data['id'],
-                                    'url': url_data['link'],
-                                    'title': url_data['title'],
-                                    'query': url_data['query'],
-                                    'snippet': url_data['snippet'],
-                                    'leads': [],
-                                    'scraped_content': None,
-                                    'status': 'failed',
-                                    'error': str(extract_error)
-                                }
-                            
-                            # Clean up leads - handle AI returning ['[]'] or similar
-                            if leads and isinstance(leads, list):
-                                # Remove any strings that look like empty lists or invalid entries
-                                cleaned_leads = []
-                                for lead in leads:
-                                    if isinstance(lead, str):
-                                        # Remove quotes and brackets, check if it's meaningful
-                                        clean_lead = lead.strip().strip('[]').strip("'").strip('"')
-                                        if clean_lead and clean_lead not in ['', '[]', 'None', 'null']:
-                                            cleaned_leads.append(clean_lead)
-                                    elif lead and str(lead).strip():
-                                        cleaned_leads.append(str(lead).strip())
-                                
-                                leads = cleaned_leads
-                                logger.info(f"Cleaned leads: {leads}")
-                            
-                            # Determine status based on results
-                            if leads and isinstance(leads, list) and len(leads) > 0:
-                                status = "processed"
-                            else:
-                                status = "skip"
-                                logger.info(f"⏭️ No leads found in {url_data['link']} - marked as skip")
-                            
-                            return {
-                                'url_id': url_data['id'],
-                                'url': url_data['link'],
-                                'title': url_data['title'],
-                                'query': url_data['query'],
-                                'snippet': url_data['snippet'],
-                                'leads': leads if leads else [],
-                                'scraped_content': scraped_content,
-                                'status': status,
-                                'error': None
-                            }
-                            
-                        except Exception as e:
-                            # Unexpected error - log and return failed status
-                            error_traceback = traceback.format_exc()
-                            logger.error(f"❌ Unexpected error processing {url_data['link']}: {str(e)}\n{error_traceback}")
-                            return {
-                                'url_id': url_data['id'],
-                                'url': url_data['link'],
-                                'title': url_data['title'],
-                                'query': url_data['query'],
-                                'snippet': url_data['snippet'],
-                                'leads': [],
-                                'scraped_content': None,
-                                'status': 'failed',
-                                'error': str(e)
-                            }
-                
                 # Process all URLs concurrently
-                tasks = [process_url(url_data) for url_data in url_data_list]
+                tasks = [self._process_url(url_data, lead_minimum_criteria) for url_data in url_data_list]
                 results = await asyncio.gather(*tasks)
                 
                 # Step 3: Process results and update database (query fresh ORM objects by ID)
