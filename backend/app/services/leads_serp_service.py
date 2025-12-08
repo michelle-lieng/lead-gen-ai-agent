@@ -2,7 +2,6 @@
 """
 Lead generation from search using AI-powered query generation
 """
-import os
 import logging
 import asyncio
 import traceback
@@ -12,8 +11,7 @@ from io import StringIO, BytesIO
 from datetime import datetime
 import re
 import zipfile
-from agents import Agent, Runner, function_tool,set_default_openai_key
-from pydantic import BaseModel
+from agents import Agent, Runner, set_default_openai_key
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import func, distinct
 
@@ -120,7 +118,7 @@ class LeadsSerpService:
             queries (list[str]): List of search queries to save
         
         Returns:
-            bool: shows if successiveful or not
+            bool: shows if successful or not
         """
         try:
             total_queries = 0
@@ -226,7 +224,7 @@ class LeadsSerpService:
             }
                 
         except Exception as e:
-            logger.error(f"❌ Error saving queries to database: {str(e)}")
+            logger.error(f"❌ Error generating and saving URLs to database: {str(e)}")
             # Check if it's a foreign key violation
             if "ForeignKeyViolation" in str(e):
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
@@ -780,7 +778,7 @@ Scraped Content:
                 }
                 
         except Exception as e:
-            logger.error(f"❌ Error saving queries to database: {str(e)}")
+            logger.error(f"❌ Error extracting leads from URLs: {str(e)}")
             # Check if it's a foreign key violation
             if "ForeignKeyViolation" in str(e):
                 raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
