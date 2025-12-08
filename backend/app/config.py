@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     serp_api_key: str
     jina_api_key: str
     google_maps_api_key: str
+
+    debug: bool = Field(default=False)
     
     # App settings
     log_level: str = Field(default="INFO") # Only log level has a default
