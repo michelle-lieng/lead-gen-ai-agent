@@ -49,7 +49,7 @@ def clean_content(content: str) -> str:
             
     return content
 
-def jina_url_scraper(url: str) -> str:
+async def jina_url_scraper(url: str) -> str:
     """
     Uses jina api to scrape url and clean the content.
     """
@@ -62,7 +62,9 @@ def jina_url_scraper(url: str) -> str:
     }
     response = requests.get(url, headers=headers)
     raw_content = response.text
-    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=headers)
+        raw_content = response.text
     # Clean the scraped content
     cleaned_content = clean_content(raw_content)
     

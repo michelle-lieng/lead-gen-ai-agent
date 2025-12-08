@@ -42,7 +42,7 @@ async def generate_urls(project_id: int, request: QueryListRequest):
     2. Generate URLs from queries and save them to serp_urls table
     """
     try:
-        result = leads_serp_service.save_queries_and_generate_urls(project_id, request.queries)
+        result = await leads_serp_service.save_queries_and_generate_urls(project_id, request.queries)
         return result
     except ValueError as e:
         # Handle specific validation errors (like foreign key violations)
