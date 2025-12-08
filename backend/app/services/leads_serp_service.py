@@ -159,7 +159,6 @@ class LeadsSerpService:
                 # STEP 1: Collect all generated urls first using jina_serp_scraper
                 all_urls = []
                 seen_links = set()  # Track unique links to avoid duplicates
-                
                 for query in queries:
                     # extract the urls using Serpapi
                     serp_object = jina_serp_scraper(query)
@@ -197,6 +196,10 @@ class LeadsSerpService:
             }
                 
         except Exception as e:
+            print(f"Full error: {e}")
+            print(f"Error type: {type(e)}")
+            import traceback
+            print(traceback.format_exc())
             logger.error(f"❌ Error saving queries to database: {str(e)}")
             # Check if it's a foreign key violation
             if "ForeignKeyViolation" in str(e):
