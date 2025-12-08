@@ -196,10 +196,6 @@ class LeadsSerpService:
             }
                 
         except Exception as e:
-            print(f"Full error: {e}")
-            print(f"Error type: {type(e)}")
-            import traceback
-            print(traceback.format_exc())
             logger.error(f"❌ Error saving queries to database: {str(e)}")
             # Check if it's a foreign key violation
             if "ForeignKeyViolation" in str(e):
