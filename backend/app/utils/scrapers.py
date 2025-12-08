@@ -11,6 +11,7 @@ import ast
 import re
 import unicodedata
 import httpx
+import asyncio
 
 from ..config import settings
 
@@ -52,6 +53,7 @@ def clean_content(content: str) -> str:
 async def jina_url_scraper(url: str) -> str:
     """
     Uses jina api to scrape url and clean the content.
+    Includes retry logic for timeout errors.
     """
     url = f"https://r.jina.ai/{url}"
     headers = {
@@ -60,15 +62,29 @@ async def jina_url_scraper(url: str) -> str:
         "X-Remove-Selector": "header, footer, nav, aside, .subscribe, .paywall, .related, .comments, .share, .advertisement",
         "X-Retain-Images": "none"
     }
-    response = requests.get(url, headers=headers)
-    raw_content = response.text
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers=headers)
-        raw_content = response.text
-    # Clean the scraped content
-    cleaned_content = clean_content(raw_content)
     
-    return cleaned_content
+    # Configure timeout (30 seconds)
+    timeout = httpx.Timeout(30.0, connect=10.0)
+    
+    # Retry logic for timeout errors
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(url, headers=headers)
+                raw_content = response.text
+            # Clean the scraped content
+            cleaned_content = clean_content(raw_content)
+            return cleaned_content
+        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException) as e:
+            if attempt < max_retries - 1:
+                # Exponential backoff: wait 2^attempt seconds
+                wait_time = 2 ** attempt
+                await asyncio.sleep(wait_time)
+                continue
+            else:
+                # Last attempt failed, raise the exception
+                raise
 
 async def jina_serp_scraper(search_phrase:str) -> list[dict]:
     url = 'https://s.jina.ai/'
@@ -78,9 +94,26 @@ async def jina_serp_scraper(search_phrase:str) -> list[dict]:
         'Authorization': f'Bearer jina_{settings.jina_api_key}',
         'X-Respond-With': 'no-content'
     }
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url, params=params, headers=headers)
-        return ast.literal_eval(response.text)['data'] # convert to dict then extract data 
+    
+    # Configure timeout (30 seconds)
+    timeout = httpx.Timeout(30.0, connect=10.0)
+    
+    # Retry logic for timeout errors
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(url, params=params, headers=headers)
+                return ast.literal_eval(response.text)['data'] # convert to dict then extract data
+        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException) as e:
+            if attempt < max_retries - 1:
+                # Exponential backoff: wait 2^attempt seconds
+                wait_time = 2 ** attempt
+                await asyncio.sleep(wait_time)
+                continue
+            else:
+                # Last attempt failed, raise the exception
+                raise 
 
 if __name__ == "__main__":
     from pprint import pprint

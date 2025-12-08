@@ -5,6 +5,7 @@ Lead generation from search using AI-powered query generation
 import os
 import logging
 import asyncio
+import traceback
 from openai import OpenAI
 import csv
 from io import StringIO, BytesIO
@@ -549,30 +550,46 @@ Scraped Content:
                 
                 logger.info(f"Processing {len(unprocessed_urls)} unprocessed URLs for project {project_id}")
                 
+                # Step 1.5: Extract data from ORM objects into plain dicts (detach before async)
+                url_data_list = []
+                for url_record in unprocessed_urls:
+                    url_data_list.append({
+                        'id': url_record.id,
+                        'link': url_record.link,
+                        'query': url_record.query,
+                        'title': url_record.title,
+                        'snippet': url_record.snippet
+                    })
+                
                 # Step 2: Process URLs in parallel using asyncio
                 semaphore = asyncio.Semaphore(5)  # Limit to 5 concurrent extractions
                 
-                async def process_url(url_record):
-                    """Process a single URL and return result"""
+                async def process_url(url_data):
+                    """Process a single URL and return result (using plain dict, not ORM object)"""
                     async with semaphore:
                         try:
-                            logger.info(f"Processing URL: {url_record.link}")
+                            logger.info(f"Processing URL: {url_data['link']}")
                             
                             # Extract leads using the _lead_extractor method
                             leads = []
                             scraped_content = None
                             try:
                                 leads, scraped_content = await self._lead_extractor(
-                                    query=url_record.query,
-                                    title=url_record.title,
-                                    snippet=url_record.snippet,
-                                    url=url_record.link
+                                    query=url_data['query'],
+                                    title=url_data['title'],
+                                    snippet=url_data['snippet'],
+                                    url=url_data['link']
                                 )
                             except Exception as extract_error:
                                 # Extraction failed - log but continue processing
-                                logger.error(f"❌ Extraction error for {url_record.link}: {str(extract_error)}")
+                                error_traceback = traceback.format_exc()
+                                logger.error(f"❌ Extraction error for {url_data['link']}: {str(extract_error)}\n{error_traceback}")
                                 return {
-                                    'url_record': url_record,
+                                    'url_id': url_data['id'],
+                                    'url': url_data['link'],
+                                    'title': url_data['title'],
+                                    'query': url_data['query'],
+                                    'snippet': url_data['snippet'],
                                     'leads': [],
                                     'scraped_content': None,
                                     'status': 'failed',
@@ -600,10 +617,14 @@ Scraped Content:
                                 status = "processed"
                             else:
                                 status = "skip"
-                                logger.info(f"⏭️ No leads found in {url_record.link} - marked as skip")
+                                logger.info(f"⏭️ No leads found in {url_data['link']} - marked as skip")
                             
                             return {
-                                'url_record': url_record,
+                                'url_id': url_data['id'],
+                                'url': url_data['link'],
+                                'title': url_data['title'],
+                                'query': url_data['query'],
+                                'snippet': url_data['snippet'],
                                 'leads': leads if leads else [],
                                 'scraped_content': scraped_content,
                                 'status': status,
@@ -612,9 +633,14 @@ Scraped Content:
                             
                         except Exception as e:
                             # Unexpected error - log and return failed status
-                            logger.error(f"❌ Unexpected error processing {url_record.link}: {str(e)}")
+                            error_traceback = traceback.format_exc()
+                            logger.error(f"❌ Unexpected error processing {url_data['link']}: {str(e)}\n{error_traceback}")
                             return {
-                                'url_record': url_record,
+                                'url_id': url_data['id'],
+                                'url': url_data['link'],
+                                'title': url_data['title'],
+                                'query': url_data['query'],
+                                'snippet': url_data['snippet'],
                                 'leads': [],
                                 'scraped_content': None,
                                 'status': 'failed',
@@ -622,10 +648,10 @@ Scraped Content:
                             }
                 
                 # Process all URLs concurrently
-                tasks = [process_url(url_record) for url_record in unprocessed_urls]
+                tasks = [process_url(url_data) for url_data in url_data_list]
                 results = await asyncio.gather(*tasks)
                 
-                # Step 3: Process results and update database
+                # Step 3: Process results and update database (query fresh ORM objects by ID)
                 processed_count = 0
                 skipped_count = 0
                 failed_count = 0
@@ -633,10 +659,17 @@ Scraped Content:
                 all_extracted_leads = []  # Collect all results to return in response
                 
                 for result in results:
-                    url_record = result['url_record']
+                    url_id = result['url_id']
                     leads = result['leads']
                     scraped_content = result['scraped_content']
                     status = result['status']
+                    
+                    # Query fresh ORM object by ID (not using detached object)
+                    url_record = session.query(SerpUrl).filter(SerpUrl.id == url_id).first()
+                    if not url_record:
+                        logger.error(f"❌ URL record {url_id} not found in database")
+                        failed_count += 1
+                        continue
                     
                     # Update the URL record
                     url_record.website_scraped = scraped_content
@@ -645,10 +678,10 @@ Scraped Content:
                     if status == "failed":
                         failed_count += 1
                         all_extracted_leads.append({
-                            "url": url_record.link,
-                            "title": url_record.title,
-                            "query": url_record.query,
-                            "snippet": url_record.snippet,
+                            "url": result['url'],
+                            "title": result['title'],
+                            "query": result['query'],
+                            "snippet": result['snippet'],
                             "status": "failed",
                             "website_scraped": None,
                             "leads": []
@@ -670,24 +703,24 @@ Scraped Content:
                                 
                                 lead_record = SerpLead(
                                     project_id=project_id,
-                                    serp_url_id=url_record.id,
+                                    serp_url_id=url_id,
                                     lead=normalized_lead  # Store normalized version
                                 )
                                 session.add(lead_record)
                                 new_leads_count += 1
                             
-                            logger.info(f"✅ Extracted {len(leads)} leads from {url_record.link}")
+                            logger.info(f"✅ Extracted {len(leads)} leads from {result['url']}")
                         except Exception as save_error:
                             # Failed to save leads - log but continue
-                            logger.error(f"❌ Failed to save leads for {url_record.link}: {str(save_error)}")
+                            logger.error(f"❌ Failed to save leads for {result['url']}: {str(save_error)}")
                             url_record.status = "failed"
                             failed_count += 1
                             processed_count -= 1  # Adjust count
                             all_extracted_leads.append({
-                                "url": url_record.link,
-                                "title": url_record.title,
-                                "query": url_record.query,
-                                "snippet": url_record.snippet,
+                                "url": result['url'],
+                                "title": result['title'],
+                                "query": result['query'],
+                                "snippet": result['snippet'],
                                 "status": "failed",
                                 "website_scraped": scraped_content,
                                 "leads": []
@@ -698,12 +731,12 @@ Scraped Content:
                     
                     # Store ALL results (processed, skipped) with status and scraped content
                     all_extracted_leads.append({
-                        "url": url_record.link,
-                        "title": url_record.title,
-                        "query": url_record.query,
-                        "snippet": url_record.snippet,
-                        "status": url_record.status,
-                        "website_scraped": url_record.website_scraped,
+                        "url": result['url'],
+                        "title": result['title'],
+                        "query": result['query'],
+                        "snippet": result['snippet'],
+                        "status": status,
+                        "website_scraped": scraped_content,
                         "leads": leads if leads else []
                     })
                 
