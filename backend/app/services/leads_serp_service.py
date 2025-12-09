@@ -473,6 +473,26 @@ class LeadsSerpService:
             logger.error(f"Error deleting URL {url_id} for project {project_id}: {str(e)}")
             raise
 
+    def _truncate_by_word_count(self, text: str, max_words: int) -> str:
+        """
+        Truncate text to max_words, cutting at word boundaries.
+        
+        OpenAI TPM limit: 30,000 tokens
+        - ~1.3 tokens per word on average
+        - Need to leave room for prompt, instructions, and output
+        - Safe target: ~20,000 tokens for content = ~15,000 words
+        """
+        if not text:
+            return text
+        
+        words = text.split()
+        if len(words) <= max_words:
+            return text
+        
+        # Truncate to max_words and rejoin
+        truncated_words = words[:max_words]
+        return ' '.join(truncated_words) + "\n\n[Content truncated due to token limit]"
+
     async def _lead_extractor(self, query, title, snippet, url, lead_minimum_criteria: str) -> tuple[list, str | None]:
         """
         Extract leads from a search result by always scraping the URL first, then passing
@@ -502,23 +522,28 @@ class LeadsSerpService:
         )
         
         # Build input with scraped content included
-        input_text = f"""
-Search Result:
-Query: {query}
-Title: {title}
-Snippet: {snippet}
-URL: {url}
-
-Scraped Content:
-{scraped_content if scraped_content else "No content available"}
-"""
+        # Track original scraped content for return value
+        original_scraped_content = scraped_content
+        # Start with full content, will truncate only if error occurs
+        current_scraped_content = scraped_content if scraped_content else "No content available"
         
         # Run the agent with scraped content already in the input - protected by llm_semaphore
-        # Simple retry logic: 3 retries max, 10 second wait each
+        # Retry logic: 3 retries max, parse wait time from error message
         max_retries = 3
-        wait_time = 10.0
+        default_wait_time = 10.0  # Fallback if we can't parse the time
         
         for attempt in range(max_retries):
+            # Build input text with current (possibly truncated) scraped content
+            input_text = f"""
+                Search Result:
+                Query: {query}
+                Title: {title}
+                Snippet: {snippet}
+                URL: {url}
+
+                Scraped Content:
+                {current_scraped_content}
+                """
             try:
                 async with self.llm_semaphore:
                     result = await Runner.run(agent, input=input_text)
@@ -526,7 +551,7 @@ Scraped Content:
                 logger.info(f"Final output (company names): {result.final_output}")
                 # enforce list type for leads
                 leads = result.final_output
-                return leads, scraped_content
+                return leads, original_scraped_content  # Return original, not truncated
                 
             except Exception as e:
                 # Check if it's a rate limit error
@@ -539,10 +564,92 @@ Scraped Content:
                     "rate_limit_exceeded" in error_lower
                 )
                 
+                # Check if it's a "request too large" error (truncate and retry)
+                is_request_too_large = (
+                    "request too large" in error_lower or
+                    "tokens must be reduced" in error_lower
+                )
+                
+                # Check if it's a timeout error (from LLM, not scraper)
+                is_timeout = (
+                    "timeout" in error_lower or
+                    "readtimeout" in error_lower or
+                    isinstance(e, (TimeoutError,))
+                )
+                
+                # Handle "request too large" errors - truncate content and retry
+                if is_request_too_large and attempt < max_retries - 1:
+                    # OpenAI TPM limit: 30,000 tokens
+                    # ~1.3 tokens per word → 30,000 tokens ≈ 23,000 words
+                    # But need to leave room for prompt, instructions, and output
+                    # Safe target: 15,000 words (≈20,000 tokens) for scraped content
+                    max_words = 10000
+                    
+                    if isinstance(current_scraped_content, str):
+                        word_count = len(current_scraped_content.split())
+                        if word_count > max_words:
+                            current_scraped_content = self._truncate_by_word_count(current_scraped_content, max_words)
+                            logger.warning(
+                                f"⚠️ Request too large for {url} (attempt {attempt + 1}/{max_retries}). "
+                                f"Truncating from {word_count} words to {max_words} words and retrying..."
+                            )
+                            await asyncio.sleep(1.0)  # Brief pause before retry
+                            continue
+                        else:
+                            # Already at or below limit, can't truncate further
+                            logger.error(
+                                f"❌ Request too large for {url} even with {word_count} words. "
+                                f"Error: {error_str[:200]}"
+                            )
+                            raise ValueError(f"Request too large: input exceeds token limit even after truncation. {error_str[:200]}")
+                    else:
+                        logger.error(
+                            f"❌ Request too large for {url} - invalid content type. "
+                            f"Error: {error_str[:200]}"
+                        )
+                        raise ValueError(f"Request too large: {error_str[:200]}")
+                
+                # Handle timeout errors - retry with exponential backoff
+                if is_timeout and attempt < max_retries - 1:
+                    wait_time = min(2.0 * (2 ** attempt), 30.0)  # Exponential backoff: 2s, 4s, 8s (max 30s)
+                    logger.warning(
+                        f"⚠️ Timeout error for {url} (attempt {attempt + 1}/{max_retries}). "
+                        f"Waiting {wait_time:.1f}s before retry..."
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
+                
+                # Handle regular rate limit errors
                 if is_rate_limit and attempt < max_retries - 1:
+                    # Try to parse the retry time from the error message
+                    # Format: "Please try again in X.XXXs" or "Please try again in Xms"
+                    wait_time = default_wait_time
+                    # Try to match seconds first (e.g., "15.981s" or "15s")
+                    retry_time_match = re.search(r'Please try again in ([\d.]+)s', error_str, re.IGNORECASE)
+                    if retry_time_match:
+                        try:
+                            parsed_time = float(retry_time_match.group(1))
+                            # Add a small buffer (1 second) to be safe
+                            wait_time = max(parsed_time + 1.0, 2.0)  # Minimum 2 seconds
+                        except (ValueError, AttributeError):
+                            # If parsing fails, use default
+                            pass
+                    else:
+                        # Try to match milliseconds (e.g., "446ms")
+                        retry_time_match = re.search(r'Please try again in ([\d.]+)ms', error_str, re.IGNORECASE)
+                        if retry_time_match:
+                            try:
+                                parsed_time_ms = float(retry_time_match.group(1))
+                                # Convert milliseconds to seconds and add buffer
+                                parsed_time = parsed_time_ms / 1000.0
+                                wait_time = max(parsed_time + 1.0, 2.0)  # Minimum 2 seconds
+                            except (ValueError, AttributeError):
+                                # If parsing fails, use default
+                                pass
+                    
                     logger.warning(
                         f"⚠️ Rate limit error for {url} (attempt {attempt + 1}/{max_retries}). "
-                        f"Waiting {wait_time}s before retry..."
+                        f"Waiting {wait_time:.1f}s before retry..."
                     )
                     await asyncio.sleep(wait_time)
                     continue
