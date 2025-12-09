@@ -479,13 +479,14 @@ def show_web_search_tab(project):
     current_project = st.session_state.selected_project
     current_criteria = current_project.get('lead_minimum_criteria', '')
     
-    st.markdown("**Bare Minimum Lead Criteria**")
+    st.markdown("**Bare Minimum Lead Criteria**: This is the most minimal/basic characteristic that a lead must have. Enter only the core type, not the full detailed criteria. Examples: For companies with sustainability initiatives → just 'company'. For pilling companies that have done gov contracts → just 'pilling company'. For doctors offices with 2+ people → just 'doctors office'.")
+
     with st.form("lead_criteria_form"):
         bare_minimum_criteria = st.text_input(
             "Edit the bare minimum lead criteria",
             value=current_criteria,
-            placeholder="e.g. Pilling company, doctors office, sustainability company...",
-            help="Required: Only extract leads that meet these criteria.",
+            placeholder="e.g. pilling company, doctors office, company",
+            help="Enter the most basic/minimal characteristic. The AI will extract leads that meet this minimum, even if they have additional qualities.",
             key=f"bare_minimum_criteria_input_{project_id}"
         )
         
