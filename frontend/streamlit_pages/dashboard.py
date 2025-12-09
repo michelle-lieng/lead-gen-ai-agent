@@ -12,9 +12,23 @@ def show_dashboard():
     # Create new project section
     st.subheader("🚀 Create New Project")
     
+    # Initialize form fields in session state if not present
+    if "project_name_form_input" not in st.session_state:
+        st.session_state.project_name_form_input = ""
+    if "project_description_form_input" not in st.session_state:
+        st.session_state.project_description_form_input = ""
+    
     with st.form("create_project_form"):
-        project_name = st.text_input("Project Name*", placeholder="e.g. Seabin Leads")
-        description = st.text_area("Self Notes [Optional]", placeholder="Enter your self notes here...")
+        project_name = st.text_input(
+            "Project Name*", 
+            placeholder="e.g. Seabin Leads",
+            key="project_name_form_input"
+        )
+        description = st.text_area(
+            "Self Notes [Optional]", 
+            placeholder="Enter your self notes here...",
+            key="project_description_form_input"
+        )
         
         submitted = st.form_submit_button("Create Project", type="primary")
         
@@ -26,7 +40,13 @@ def show_dashboard():
                     try:
                         result = create_project(project_name, description)
                         if result:
-                            st.success(f"✅ Project '{project_name}' created successfully!")
+                            # Store success message in session state before clearing form and rerunning
+                            st.session_state.project_create_success = f"✅ Project '{project_name}' created successfully!"
+                            # Clear form fields after successful creation by deleting the session state keys
+                            if "project_name_form_input" in st.session_state:
+                                del st.session_state.project_name_form_input
+                            if "project_description_form_input" in st.session_state:
+                                del st.session_state.project_description_form_input
                             st.rerun()
                     except Exception as e:
                         error_message = str(e)
@@ -35,6 +55,12 @@ def show_dashboard():
                         else:
                             st.error(f"❌ Failed to create project: {error_message}")
     
+    # Display success message if it exists in session state
+    if "project_create_success" in st.session_state:
+        st.success(st.session_state.project_create_success)
+        # Clear the success message after displaying it
+        del st.session_state.project_create_success
+
     st.markdown("---")
     
     # Projects overview
