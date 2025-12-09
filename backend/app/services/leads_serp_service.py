@@ -49,7 +49,7 @@ class LeadsSerpService:
         # and are used in different workflow stages
         self.serp_scraper_semaphore = asyncio.Semaphore(15)  # For jina_serp_scraper (increased from 10)
         self.url_scraper_semaphore = asyncio.Semaphore(15)    # For jina_url_scraper (increased from 10, Jina Reader API: 200 RPM)
-        self.llm_semaphore = asyncio.Semaphore(6)             # For Runner.run (OpenAI API, reduced from 12 due to TPM limits: 30K TPM)
+        self.llm_semaphore = asyncio.Semaphore(3)             # For Runner.run (OpenAI API, reduced from 12 due to TPM limits: 30K TPM)
 
     def generate_search_queries_for_project(self, project_id: int, num_queries: int = 3) -> list[str]:
         """
@@ -492,13 +492,41 @@ Scraped Content:
 """
         
         # Run the agent with scraped content already in the input - protected by llm_semaphore
-        async with self.llm_semaphore:
-            result = await Runner.run(agent, input=input_text)
+        # Simple retry logic: 3 retries max, 10 second wait each
+        max_retries = 3
+        wait_time = 10.0
         
-        logger.info(f"Final output (company names): {result.final_output}")
-        # enforce list type for leads
-        leads = result.final_output
-        return leads, scraped_content
+        for attempt in range(max_retries):
+            try:
+                async with self.llm_semaphore:
+                    result = await Runner.run(agent, input=input_text)
+                
+                logger.info(f"Final output (company names): {result.final_output}")
+                # enforce list type for leads
+                leads = result.final_output
+                return leads, scraped_content
+                
+            except Exception as e:
+                # Check if it's a rate limit error
+                error_str = str(e)
+                error_lower = error_str.lower()
+                is_rate_limit = (
+                    "429" in error_str or
+                    "rate limit" in error_lower or
+                    "rate_limit" in error_lower or
+                    "rate_limit_exceeded" in error_lower
+                )
+                
+                if is_rate_limit and attempt < max_retries - 1:
+                    logger.warning(
+                        f"⚠️ Rate limit error for {url} (attempt {attempt + 1}/{max_retries}). "
+                        f"Waiting {wait_time}s before retry..."
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
+                else:
+                    # Not a rate limit error, or max retries reached
+                    raise
 
     async def _process_url(self, url_data: dict, lead_minimum_criteria: str) -> dict:
         """Process a single URL and return result (using plain dict, not ORM object)"""
