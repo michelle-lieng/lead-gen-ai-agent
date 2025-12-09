@@ -167,29 +167,40 @@ class LeadsSerpService:
                 # Process all queries in parallel using asyncio
                 tasks = [self._process_query(query, project_id) for query in queries]
                 results = await asyncio.gather(*tasks)
-                # STEP 1: Collect all generated urls first using jina_serp_scraper
+                
+                # STEP 1: Get existing URLs for this project to avoid duplicates
+                existing_urls = session.query(SerpUrl.link).filter(
+                    SerpUrl.project_id == project_id
+                ).all()
+                existing_links = {url.link for url in existing_urls}
+                
+                # STEP 2: Collect all generated urls first using jina_serp_scraper
                 all_urls = []
-                seen_links = set()  # Track unique links to avoid duplicates
+                seen_links = set()  # Track unique links to avoid duplicates within this batch
 
                 for query_urls in results:
                     for url_data in query_urls:
                         link = url_data['link']
-                        if link not in seen_links:
+                        # Only add if not already in project and not duplicate in this batch
+                        if link not in seen_links and link not in existing_links:
                             seen_links.add(link)
                             all_urls.append(url_data)
 
-                # Step 2: Batch upsert using SQLAlchemy core
-                statement = insert(SerpUrl).values(all_urls)
-                statement = statement.on_conflict_do_update(
-                    index_elements=['link'],
-                    set_=dict(
-                        title=statement.excluded.title,
-                        snippet=statement.excluded.snippet
+                # Step 3: Batch upsert using SQLAlchemy core with composite unique constraint
+                if all_urls:
+                    statement = insert(SerpUrl).values(all_urls)
+                    statement = statement.on_conflict_do_update(
+                        index_elements=['project_id', 'link'],
+                        set_=dict(
+                            title=statement.excluded.title,
+                            snippet=statement.excluded.snippet
+                        )
                     )
-                )
-                session.execute(statement)
-                session.commit()
-                logger.info(f"✅ Processed {len(all_urls)} URLs for {len(queries)} queries")
+                    session.execute(statement)
+                    session.commit()
+                    logger.info(f"✅ Processed {len(all_urls)} URLs for {len(queries)} queries")
+                else:
+                    logger.info(f"ℹ️ No new URLs to add (all were duplicates for project {project_id})")
             
             return {
                 "success": True,
@@ -291,17 +302,18 @@ class LeadsSerpService:
             dict: Contains success status, message, and created URL data
             
         Raises:
-            ValueError: If URL already exists or project does not exist
+            ValueError: If URL already exists in this project or project does not exist
         """
         try:
             with db_service.get_session() as session:
-                # Check if URL already exists (link is unique)
+                # Check if URL already exists in this project (unique per project)
                 existing = session.query(SerpUrl).filter(
+                    SerpUrl.project_id == project_id,
                     SerpUrl.link == link
                 ).first()
                 
                 if existing:
-                    raise ValueError(f"URL already exists: {link}")
+                    raise ValueError(f"URL already exists in this project: {link}")
                 
                 # Create new URL
                 # Query is automatically set to "Manual Entry" for manually created URLs
@@ -372,6 +384,16 @@ class LeadsSerpService:
                 if snippet is not None:
                     url.snippet = snippet
                 if link is not None:
+                    # Check if the new link already exists in this project (excluding current URL)
+                    existing = session.query(SerpUrl).filter(
+                        SerpUrl.project_id == project_id,
+                        SerpUrl.link == link,
+                        SerpUrl.id != url_id
+                    ).first()
+                    
+                    if existing:
+                        raise ValueError(f"URL already exists in this project: {link}")
+                    
                     url.link = link
                 
                 session.commit()

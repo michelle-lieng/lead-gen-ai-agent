@@ -1,7 +1,7 @@
 """
 PostgreSQL table models for the AI Lead Generator
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
 
@@ -47,12 +47,15 @@ class SerpQuery(Base):
 class SerpUrl(Base):
     """PostgreSQL table: serp_urls - for storing search result SERP URLs"""
     __tablename__ = "serp_urls"
+    __table_args__ = (
+        UniqueConstraint('project_id', 'link', name='uq_serp_urls_project_link'),  # Unique URL per project
+    )
     
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete='CASCADE'), nullable=False)  # Foreign key to Project.id
     query = Column(Text, nullable=False)  # original search query
     title = Column(Text)  # title of the result
-    link = Column(Text, unique=True)  # final URL (unique constraint)
+    link = Column(Text)  # final URL (unique per project via composite constraint)
     snippet = Column(Text)  # snippet/description from search
     website_scraped = Column(Text)  # website scraped status
     status = Column(String(50), default="unprocessed")  # processing status
