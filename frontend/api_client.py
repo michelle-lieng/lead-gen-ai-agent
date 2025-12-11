@@ -248,6 +248,14 @@ def extract_test_leads(project_id: int):
     return response.json() if response else None
 
 # Mock enrichment storage (in-memory, will reset on server restart)
+def _ensure_enrichment_defaults(enrichment: dict) -> dict:
+    """Ensure optional result fields exist."""
+    enrichment.setdefault("result_true_if", "")
+    enrichment.setdefault("result_false_if", "")
+    enrichment.setdefault("result_number_value", "")
+    enrichment.setdefault("result_text_value", "")
+    return enrichment
+
 _mock_enrichments = [
     {
         "id": 1,
@@ -305,7 +313,7 @@ def create_enrichment(enrichment_name: str, enrichment_description: Optional[str
     from datetime import datetime
     now = datetime.now().isoformat()
     
-    new_enrichment = {
+    new_enrichment = _ensure_enrichment_defaults({
         "id": _mock_enrichment_counter,
         "enrichment_name": enrichment_name,
         "enrichment_description": enrichment_description or "",
@@ -318,7 +326,7 @@ def create_enrichment(enrichment_name: str, enrichment_description: Optional[str
         "result_text_value": "",
         "date_added": now,
         "last_updated": now
-    }
+    })
     
     _mock_enrichments.append(new_enrichment)
     _mock_enrichment_counter += 1
@@ -327,13 +335,13 @@ def create_enrichment(enrichment_name: str, enrichment_description: Optional[str
 
 def get_enrichments():
     """Get all enrichments from the API (MOCK - returns in-memory data)"""
-    return _mock_enrichments.copy()
+    return [_ensure_enrichment_defaults(e.copy()) for e in _mock_enrichments]
 
 def get_enrichment(enrichment_id: int):
     """Get a specific enrichment by ID from the API (MOCK - returns in-memory data)"""
     for enrichment in _mock_enrichments:
         if enrichment['id'] == enrichment_id:
-            return enrichment.copy()
+            return _ensure_enrichment_defaults(enrichment.copy())
     return None
 
 def update_enrichment(enrichment_id: int, enrichment_description: Optional[str]=None):
@@ -368,6 +376,7 @@ def update_enrichment_fields(
     
     for enrichment in _mock_enrichments:
         if enrichment['id'] == enrichment_id:
+            enrichment = _ensure_enrichment_defaults(enrichment)
             if goal is not None:
                 enrichment['goal'] = goal
             if acceptable_evidence is not None:

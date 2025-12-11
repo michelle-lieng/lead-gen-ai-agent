@@ -2,7 +2,7 @@
 Test enrichment page - edit enrichment configuration
 """
 import streamlit as st
-from api_client import get_enrichment, update_enrichment_fields
+from api_client import get_enrichment, update_enrichment_fields, get_merged_results
 
 def show_test_enrichment():
     """Test enrichment page - edit enrichment configuration"""
@@ -23,9 +23,14 @@ def show_test_enrichment():
         st.error("No enrichment selected")
         return
 
+    init_test_enrichment_session_state()
+
     st.title(f"🧪 Test Enrichment - {enrichment['enrichment_name']}")
     st.info("Edit the enrichment configuration below. Saved changes will be reflected in the Review Enrichment page.")
     show_review_enrichment_page()
+    st.divider()
+
+    show_leads()
     st.divider()
     
     st.subheader("🧪 Edit Enrichment Configuration")
@@ -33,12 +38,104 @@ def show_test_enrichment():
     show_acceptable_evidence_editor(enrichment)
     show_result_format_editor(enrichment)
     st.divider()
+    show_run_enrichment()
 
 def show_review_enrichment_page():
     """Button to navigate back to the review enrichment page"""
     if st.button("📋 Back to Review Enrichment", width='stretch'):
         st.session_state.current_page = "review_enrichment"
         st.rerun()
+
+def init_test_enrichment_session_state():
+    """Initialize session state for test enrichment page."""
+    current_project_id = st.session_state.selected_project.get("id") if st.session_state.selected_project else None
+    if "test_enrichment_leads" not in st.session_state:
+        st.session_state.test_enrichment_leads = {}
+    if current_project_id and current_project_id not in st.session_state.test_enrichment_leads:
+        st.session_state.test_enrichment_leads[current_project_id] = {"data": None, "columns": None, "count": 0}
+
+
+def show_leads():
+    """Show first 10 leads for the current project (cached in session state)."""
+    project = st.session_state.selected_project
+    if not project:
+        return
+    project_id = project["id"]
+
+    init_test_enrichment_session_state()
+
+    st.subheader("📋 Sample Leads (first 10)")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.caption("Temporary test leads (session-only). Add or delete without touching the database.")
+    with col2:
+        if st.button("🔄 Refresh Leads", key=f"refresh_leads_{project_id}", use_container_width=True):
+            st.session_state.test_enrichment_leads[project_id] = {"data": None, "columns": None, "count": 0}
+            st.rerun()
+
+    leads_cache = st.session_state.test_enrichment_leads.get(project_id, {"data": None, "columns": None, "count": 0})
+
+    if leads_cache["data"] is None:
+        try:
+            result = get_merged_results(project_id)
+            if result and result.get("data"):
+                leads_data = result["data"][:10]  # first 10 rows
+                columns = result.get("columns", list(leads_data[0].keys()) if leads_data else [])
+                st.session_state.test_enrichment_leads[project_id] = {
+                    "data": leads_data,
+                    "columns": columns,
+                    "count": result.get("count", len(leads_data)),
+                }
+                leads_cache = st.session_state.test_enrichment_leads[project_id]
+            else:
+                st.info("ℹ️ No leads available yet for this project.")
+                return
+        except Exception as e:
+            st.error(f"❌ Error loading leads: {str(e)}")
+            return
+
+    import pandas as pd
+
+    df = pd.DataFrame(leads_cache["data"])
+    display_columns = [c for c in leads_cache["columns"] if c not in ["id", "project_id"]] if leads_cache["columns"] else df.columns
+    display_df = df[display_columns] if all(c in df.columns for c in display_columns) else df
+
+    editor_key = f"test_enrichment_leads_editor_{project_id}"
+    edited_df = st.data_editor(
+        display_df,
+        width="stretch",
+        hide_index=True,
+        num_rows="dynamic",
+        key=editor_key,
+    )
+
+    if st.button("💾 Save Test Leads (session only)", key=f"save_test_leads_{project_id}", use_container_width=True):
+        st.session_state.test_enrichment_leads[project_id] = {
+            "data": edited_df.to_dict(orient="records"),
+            "columns": list(edited_df.columns),
+            "count": len(edited_df),
+        }
+        st.success("✅ Test leads saved in session (not persisted to the database).")
+        st.rerun()
+
+    st.caption(f"Showing first 10 of {leads_cache.get('count', len(display_df))} leads. Edits are session-only.")
+
+
+def show_run_enrichment():
+    """Temporary stub to run enrichment on test leads (session only)."""
+    project = st.session_state.selected_project
+    if not project:
+        return
+    project_id = project["id"]
+    leads_cache = st.session_state.test_enrichment_leads.get(project_id, {"data": []})
+
+    st.subheader("🚀 Run Enrichment on Test Leads")
+    if st.button("Run Enrichment (stub)", key=f"run_enrichment_stub_{project_id}", use_container_width=True):
+        if not leads_cache.get("data"):
+            st.warning("⚠️ No test leads available. Add or load leads above before running.")
+        else:
+            with st.spinner("Simulating enrichment on test leads..."):
+                st.success(f"✅ Simulated enrichment on {len(leads_cache['data'])} test lead(s). (Backend not implemented)")
 
 def show_goal_editor(enrichment):
     """Editable goal field"""
@@ -52,7 +149,7 @@ def show_goal_editor(enrichment):
         st.session_state[goal_baseline_key] = st.session_state[goal_key]
     if goal_dirty_key not in st.session_state:
         st.session_state[goal_dirty_key] = False
-    
+
     st.text_area(
         "Goal",
         value=st.session_state[goal_key],
@@ -62,7 +159,7 @@ def show_goal_editor(enrichment):
         label_visibility="collapsed",
         help="Describe what this enrichment is trying to achieve",
         on_change=mark_dirty,
-        args=(goal_dirty_key,)
+        args=(goal_dirty_key,),
     )
     show_save_if_dirty(
         enrichment,
@@ -85,7 +182,7 @@ def show_acceptable_evidence_editor(enrichment):
         st.session_state[evidence_baseline_key] = st.session_state[evidence_key]
     if evidence_dirty_key not in st.session_state:
         st.session_state[evidence_dirty_key] = False
-    
+
     st.text_area(
         "Acceptable Evidence",
         value=st.session_state[evidence_key],
@@ -95,7 +192,7 @@ def show_acceptable_evidence_editor(enrichment):
         label_visibility="collapsed",
         help="Describe what types of evidence are acceptable for this enrichment",
         on_change=mark_dirty,
-        args=(evidence_dirty_key,)
+        args=(evidence_dirty_key,),
     )
     show_save_if_dirty(
         enrichment,
@@ -155,12 +252,12 @@ def show_result_format_editor(enrichment):
         st.session_state[text_def_baseline_key] = st.session_state[text_def_key]
     if text_def_dirty_key not in st.session_state:
         st.session_state[text_def_dirty_key] = False
-    
+
     options = ["", "True/False", "Text", "Number"]
     current_index = 0
     if st.session_state[format_key] in options:
         current_index = options.index(st.session_state[format_key])
-    
+
     st.selectbox(
         "Result Format",
         options=options,
@@ -169,7 +266,7 @@ def show_result_format_editor(enrichment):
         label_visibility="collapsed",
         help="Select the expected format for the enrichment result",
         on_change=mark_dirty,
-        args=(format_dirty_key,)
+        args=(format_dirty_key,),
     )
     selected_format = st.session_state.get(format_key, "")
 
@@ -196,6 +293,8 @@ def show_result_format_editor(enrichment):
         )
         payload["result_true_if"] = st.session_state.get(true_if_key, "")
         payload["result_false_if"] = st.session_state.get(false_if_key, "")
+        payload["result_number_value"] = ""
+        payload["result_text_value"] = ""
         dirty_keys.extend([true_if_dirty_key, false_if_dirty_key])
         baselines.extend([
             (true_if_baseline_key, true_if_key),
@@ -211,6 +310,9 @@ def show_result_format_editor(enrichment):
             args=(number_def_dirty_key,),
         )
         payload["result_number_value"] = st.session_state.get(number_def_key, "")
+        payload["result_true_if"] = ""
+        payload["result_false_if"] = ""
+        payload["result_text_value"] = ""
         dirty_keys.append(number_def_dirty_key)
         baselines.append((number_def_baseline_key, number_def_key))
     elif selected_format == "Text":
@@ -223,6 +325,9 @@ def show_result_format_editor(enrichment):
             args=(text_def_dirty_key,),
         )
         payload["result_text_value"] = st.session_state.get(text_def_key, "")
+        payload["result_true_if"] = ""
+        payload["result_false_if"] = ""
+        payload["result_number_value"] = ""
         dirty_keys.append(text_def_dirty_key)
         baselines.append((text_def_baseline_key, text_def_key))
 
@@ -231,7 +336,15 @@ def show_result_format_editor(enrichment):
         dirty_keys=dirty_keys,
         baselines=baselines,
         payload=payload,
-        success_message="Result format saved"
+        success_message="Result format saved",
+        widget_keys=[format_key, true_if_key, false_if_key, number_def_key, text_def_key],
+        baseline_keys=[
+            format_baseline_key,
+            true_if_baseline_key,
+            false_if_baseline_key,
+            number_def_baseline_key,
+            text_def_baseline_key,
+        ],
     )
 
 def mark_dirty(dirty_key: str):
@@ -254,7 +367,7 @@ def show_save_if_dirty(enrichment, field_key, baseline_key, dirty_key, payload_k
                 current_value
             )
 
-def show_save_if_dirty_group(enrichment, dirty_keys, baselines, payload, success_message):
+def show_save_if_dirty_group(enrichment, dirty_keys, baselines, payload, success_message, widget_keys, baseline_keys):
     """Show save button when any field in the group is dirty"""
     is_dirty = False
     for dirty_key, (baseline_key, value_key) in zip(
@@ -273,7 +386,9 @@ def show_save_if_dirty_group(enrichment, dirty_keys, baselines, payload, success
                 payload=payload,
                 success_message=success_message,
                 baselines=baselines,
-                dirty_keys=dirty_keys
+                dirty_keys=dirty_keys,
+                widget_keys=widget_keys,
+                baseline_keys=baseline_keys,
             )
 
 def save_field(enrichment, payload, success_message, baseline_key, dirty_key, new_baseline_value):
@@ -294,23 +409,30 @@ def save_field(enrichment, payload, success_message, baseline_key, dirty_key, ne
         except Exception as e:
             st.error(f"❌ Error saving changes: {str(e)}")
 
-def save_field_group(enrichment, payload, success_message, baselines, dirty_keys):
+def save_field_group(enrichment, payload, success_message, baselines, dirty_keys, widget_keys, baseline_keys):
     """Persist multiple related fields and refresh session state"""
     with st.spinner("💾 Saving..."):
         try:
             result = update_enrichment_fields(enrichment["id"], **payload)
             if result and result.get("success"):
                 st.success(f"✅ {success_message}")
+                # refresh baselines only (avoid touching widget keys after render)
                 for baseline_key, value_key in baselines:
-                    st.session_state[baseline_key] = st.session_state.get(value_key, "")
+                    st.session_state[baseline_key] = payload.get(value_key, st.session_state.get(value_key, ""))
                 for dirty_key in dirty_keys:
                     st.session_state[dirty_key] = False
                 updated = get_enrichment(enrichment["id"])
                 if updated:
                     st.session_state.selected_enrichment = updated
+                # clear widget keys so next rerun reinitializes from backend data
+                for key in widget_keys:
+                    st.session_state.pop(key, None)
+                for key in baseline_keys:
+                    st.session_state.pop(key, None)
+                for key in dirty_keys:
+                    st.session_state.pop(key, None)
                 st.rerun()
             else:
                 st.error(f"❌ Failed to save: {result.get('message', 'Unknown error') if result else 'No response from server'}")
         except Exception as e:
             st.error(f"❌ Error saving changes: {str(e)}")
-
