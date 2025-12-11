@@ -81,11 +81,15 @@ def show_leads():
             result = get_merged_results(project_id)
             if result and result.get("data"):
                 leads_data = result["data"][:10]  # first 10 rows
-                columns = result.get("columns", list(leads_data[0].keys()) if leads_data else [])
+                # Filter to only include lead column
+                filtered_data = []
+                for row in leads_data:
+                    filtered_row = {"lead": row.get("lead", "")}
+                    filtered_data.append(filtered_row)
                 st.session_state.test_enrichment_leads[project_id] = {
-                    "data": leads_data,
-                    "columns": columns,
-                    "count": result.get("count", len(leads_data)),
+                    "data": filtered_data,
+                    "columns": ["lead"],
+                    "count": result.get("count", len(filtered_data)),
                 }
                 leads_cache = st.session_state.test_enrichment_leads[project_id]
             else:
@@ -98,8 +102,9 @@ def show_leads():
     import pandas as pd
 
     df = pd.DataFrame(leads_cache["data"])
-    display_columns = [c for c in leads_cache["columns"] if c not in ["id", "project_id"]] if leads_cache["columns"] else df.columns
-    display_df = df[display_columns] if all(c in df.columns for c in display_columns) else df
+    # Only show the "lead" column, exclude id, project_id, and serp_count
+    display_columns = ["lead"] if "lead" in df.columns else []
+    display_df = df[display_columns] if display_columns else df
 
     editor_key = f"test_enrichment_leads_editor_{project_id}"
     edited_df = st.data_editor(
