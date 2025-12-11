@@ -25,6 +25,11 @@ def show_test_enrichment():
 
     init_test_enrichment_session_state()
 
+    # Display success message if present
+    if st.session_state.test_enrichment_success_message:
+        st.success(st.session_state.test_enrichment_success_message)
+        st.session_state.test_enrichment_success_message = None
+
     st.title(f"🧪 Test Enrichment - {enrichment['enrichment_name']}")
     st.info("Edit the enrichment configuration below. Saved changes will be reflected in the Review Enrichment page.")
     show_review_enrichment_page()
@@ -53,6 +58,8 @@ def init_test_enrichment_session_state():
         st.session_state.test_enrichment_leads = {}
     if current_project_id and current_project_id not in st.session_state.test_enrichment_leads:
         st.session_state.test_enrichment_leads[current_project_id] = {"data": None, "columns": None, "count": 0}
+    if "test_enrichment_success_message" not in st.session_state:
+        st.session_state.test_enrichment_success_message = None
 
 
 def show_leads():
@@ -264,30 +271,45 @@ def show_result_format_editor(enrichment):
 
 def show_save_button(enrichment, field_key, payload_key, success_message):
     """Show save button for a single field"""
+    # Display success message if present for this field
+    success_key = f"{field_key}_success"
+    if st.session_state.get(success_key):
+        st.success(st.session_state[success_key])
+        st.session_state[success_key] = None
+    
     if st.button("💾 Save", key=f"{field_key}_save", use_container_width=True):
         current_value = st.session_state.get(field_key, "")
         save_field(
             enrichment,
             {payload_key: current_value},
-            success_message
+            success_message,
+            success_key
         )
 
 def show_save_button_group(enrichment, payload, success_message):
     """Show save button for a group of fields"""
+    # Display success message if present for this group
+    success_key = f"{list(payload.keys())[0]}_group_success"
+    if st.session_state.get(success_key):
+        st.success(st.session_state[success_key])
+        st.session_state[success_key] = None
+    
     if st.button("💾 Save", key=f"{list(payload.keys())[0]}_group_save", use_container_width=True):
         save_field_group(
             enrichment=enrichment,
             payload=payload,
             success_message=success_message,
+            success_key=success_key
         )
 
-def save_field(enrichment, payload, success_message):
+def save_field(enrichment, payload, success_message, success_key):
     """Persist a single field and refresh session state"""
     with st.spinner("💾 Saving..."):
         try:
             result = update_enrichment_fields(enrichment["id"], **payload)
             if result and result.get("success"):
-                st.success(f"✅ {success_message}")
+                st.session_state[success_key] = f"✅ {success_message}"
+                st.session_state.test_enrichment_success_message = f"✅ {success_message}"
                 updated = get_enrichment(enrichment["id"])
                 if updated:
                     st.session_state.selected_enrichment = updated
@@ -297,13 +319,14 @@ def save_field(enrichment, payload, success_message):
         except Exception as e:
             st.error(f"❌ Error saving changes: {str(e)}")
 
-def save_field_group(enrichment, payload, success_message):
+def save_field_group(enrichment, payload, success_message, success_key):
     """Persist multiple related fields and refresh session state"""
     with st.spinner("💾 Saving..."):
         try:
             result = update_enrichment_fields(enrichment["id"], **payload)
             if result and result.get("success"):
-                st.success(f"✅ {success_message}")
+                st.session_state[success_key] = f"✅ {success_message}"
+                st.session_state.test_enrichment_success_message = f"✅ {success_message}"
                 updated = get_enrichment(enrichment["id"])
                 if updated:
                     st.session_state.selected_enrichment = updated
