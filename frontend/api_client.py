@@ -246,3 +246,19 @@ def extract_test_leads(project_id: int):
     """Extract leads from test URLs and return them (without saving to database)"""
     response = _request("POST", f"/api/projects/{project_id}/test/leads")
     return response.json() if response else None
+
+def create_enrichment(enrichment_name: str, enrichment_description: Optional[str]=None):
+    """Create a new enrichment via API"""
+    return [].json();
+
+def get_enrichments():
+    """Get all enrichments from the API"""
+    return [].json();
+
+def update_enrichment(enrichment_id: int, enrichment_description: Optional[str]=None):
+    """Update an enrichment via API"""
+    return [].json();
+
+def delete_enrichment(enrichment_id: int):
+    """Delete an enrichment via API"""
+    return [].json();
