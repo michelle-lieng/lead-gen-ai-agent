@@ -71,16 +71,14 @@ def show_result_format(enrichment):
     """Display result format (read-only)"""
     st.write("**📝 Result Format:**")
     result_format = enrichment.get('result_format', 'Not set')
-    # Use selectbox for consistency with editable version, but disabled
     options = ["", "True/False", "Text", "Number"]
     current_index = 0
     if result_format in options:
         current_index = options.index(result_format)
     elif result_format != 'Not set':
-        # If value doesn't match options, add it to options
         options = [result_format] + options
         current_index = 0
-    
+
     st.selectbox(
         "Result Format",
         options=options,
@@ -88,6 +86,35 @@ def show_result_format(enrichment):
         disabled=True,
         label_visibility="collapsed"
     )
+
+    # Display conditional fields
+    if result_format == "True/False":
+        st.text_input(
+            "True if",
+            value=enrichment.get("result_true_if", "Not set"),
+            disabled=True,
+            placeholder="Not set"
+        )
+        st.text_input(
+            "False if",
+            value=enrichment.get("result_false_if", "Not set"),
+            disabled=True,
+            placeholder="Not set"
+        )
+    elif result_format == "Number":
+        st.text_input(
+            "Define the Value",
+            value=enrichment.get("result_number_value", "Not set"),
+            disabled=True,
+            placeholder="Not set"
+        )
+    elif result_format == "Text":
+        st.text_input(
+            "What do you want returned",
+            value=enrichment.get("result_text_value", "Not set"),
+            disabled=True,
+            placeholder="Not set"
+        )
 
 def show_run_on_all_leads():
     """Button to run enrichment on all leads"""

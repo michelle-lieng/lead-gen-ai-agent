@@ -256,6 +256,10 @@ _mock_enrichments = [
         "goal": "Extract the number of employees or company size information from lead data",
         "acceptable_evidence": "Company website, LinkedIn profile, job postings, news articles mentioning employee count",
         "result_format": "Number",
+        "result_true_if": "",
+        "result_false_if": "",
+        "result_number_value": "Number of employees (approximate)",
+        "result_text_value": "",
         "date_added": "2025-01-15T10:30:00",
         "last_updated": "2025-01-15T10:30:00"
     },
@@ -266,6 +270,10 @@ _mock_enrichments = [
         "goal": "Identify the primary industry or business sector that the company operates in",
         "acceptable_evidence": "Company website, About page, product descriptions, industry classifications",
         "result_format": "Text",
+        "result_true_if": "",
+        "result_false_if": "",
+        "result_number_value": "",
+        "result_text_value": "Industry sector name",
         "date_added": "2025-01-15T11:00:00",
         "last_updated": "2025-01-15T11:00:00"
     },
@@ -276,6 +284,10 @@ _mock_enrichments = [
         "goal": "Determine the annual revenue range or bracket for the company",
         "acceptable_evidence": "Financial reports, company filings, news articles, industry databases",
         "result_format": "Text",
+        "result_true_if": "",
+        "result_false_if": "",
+        "result_number_value": "",
+        "result_text_value": "Revenue range (e.g., $10M-$50M)",
         "date_added": "2025-01-15T11:15:00",
         "last_updated": "2025-01-15T11:15:00"
     }
@@ -300,6 +312,10 @@ def create_enrichment(enrichment_name: str, enrichment_description: Optional[str
         "goal": "",
         "acceptable_evidence": "",
         "result_format": "",
+        "result_true_if": "",
+        "result_false_if": "",
+        "result_number_value": "",
+        "result_text_value": "",
         "date_added": now,
         "last_updated": now
     }
@@ -335,8 +351,17 @@ def update_enrichment(enrichment_id: int, enrichment_description: Optional[str]=
     
     return None
 
-def update_enrichment_fields(enrichment_id: int, goal: Optional[str]=None, acceptable_evidence: Optional[str]=None, result_format: Optional[str]=None):
-    """Update enrichment configuration fields (goal, acceptable_evidence, result_format) (MOCK - in-memory storage)"""
+def update_enrichment_fields(
+    enrichment_id: int,
+    goal: Optional[str]=None,
+    acceptable_evidence: Optional[str]=None,
+    result_format: Optional[str]=None,
+    result_true_if: Optional[str]=None,
+    result_false_if: Optional[str]=None,
+    result_number_value: Optional[str]=None,
+    result_text_value: Optional[str]=None
+):
+    """Update enrichment configuration fields (MOCK - in-memory storage)"""
     global _mock_enrichments
     
     from datetime import datetime
@@ -349,6 +374,14 @@ def update_enrichment_fields(enrichment_id: int, goal: Optional[str]=None, accep
                 enrichment['acceptable_evidence'] = acceptable_evidence
             if result_format is not None:
                 enrichment['result_format'] = result_format
+            if result_true_if is not None:
+                enrichment['result_true_if'] = result_true_if
+            if result_false_if is not None:
+                enrichment['result_false_if'] = result_false_if
+            if result_number_value is not None:
+                enrichment['result_number_value'] = result_number_value
+            if result_text_value is not None:
+                enrichment['result_text_value'] = result_text_value
             enrichment['last_updated'] = datetime.now().isoformat()
             return {"success": True, "enrichment": enrichment}
     
