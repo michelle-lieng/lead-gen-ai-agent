@@ -246,3 +246,177 @@ def extract_test_leads(project_id: int):
     """Extract leads from test URLs and return them (without saving to database)"""
     response = _request("POST", f"/api/projects/{project_id}/test/leads")
     return response.json() if response else None
+
+# Mock enrichment storage (in-memory, will reset on server restart)
+def _ensure_enrichment_defaults(enrichment: dict) -> dict:
+    """Ensure optional result fields exist."""
+    enrichment.setdefault("result_true_if", "")
+    enrichment.setdefault("result_false_if", "")
+    enrichment.setdefault("result_number_value", "")
+    enrichment.setdefault("result_text_value", "")
+    return enrichment
+
+_mock_enrichments = [
+    {
+        "id": 1,
+        "enrichment_name": "company_size",
+        "enrichment_description": "Number of employees in the company",
+        "goal": "Extract the number of employees or company size information from lead data",
+        "acceptable_evidence": "Company website, LinkedIn profile, job postings, news articles mentioning employee count",
+        "result_format": "Number",
+        "result_true_if": "",
+        "result_false_if": "",
+        "result_number_value": "Number of employees (approximate)",
+        "result_text_value": "",
+        "date_added": "2025-01-15T10:30:00",
+        "last_updated": "2025-01-15T10:30:00"
+    },
+    {
+        "id": 2,
+        "enrichment_name": "industry_sector",
+        "enrichment_description": "Primary industry or business sector",
+        "goal": "Identify the primary industry or business sector that the company operates in",
+        "acceptable_evidence": "Company website, About page, product descriptions, industry classifications",
+        "result_format": "Text",
+        "result_true_if": "",
+        "result_false_if": "",
+        "result_number_value": "",
+        "result_text_value": "Industry sector name",
+        "date_added": "2025-01-15T11:00:00",
+        "last_updated": "2025-01-15T11:00:00"
+    },
+    {
+        "id": 3,
+        "enrichment_name": "revenue_range",
+        "enrichment_description": "Annual revenue bracket",
+        "goal": "Determine the annual revenue range or bracket for the company",
+        "acceptable_evidence": "Financial reports, company filings, news articles, industry databases",
+        "result_format": "Text",
+        "result_true_if": "",
+        "result_false_if": "",
+        "result_number_value": "",
+        "result_text_value": "Revenue range (e.g., $10M-$50M)",
+        "date_added": "2025-01-15T11:15:00",
+        "last_updated": "2025-01-15T11:15:00"
+    }
+]
+_mock_enrichment_counter = 4  # Next ID to use
+
+def create_enrichment(enrichment_name: str, enrichment_description: Optional[str]=None):
+    """Create a new enrichment via API (MOCK - in-memory storage)"""
+    global _mock_enrichments, _mock_enrichment_counter
+    
+    # Check if name already exists
+    if any(e['enrichment_name'] == enrichment_name for e in _mock_enrichments):
+        raise Exception(f"Enrichment name '{enrichment_name}' already exists")
+    
+    from datetime import datetime
+    now = datetime.now().isoformat()
+    
+    new_enrichment = _ensure_enrichment_defaults({
+        "id": _mock_enrichment_counter,
+        "enrichment_name": enrichment_name,
+        "enrichment_description": enrichment_description or "",
+        "goal": "",
+        "acceptable_evidence": "",
+        "result_format": "",
+        "result_true_if": "",
+        "result_false_if": "",
+        "result_number_value": "",
+        "result_text_value": "",
+        "date_added": now,
+        "last_updated": now
+    })
+    
+    _mock_enrichments.append(new_enrichment)
+    _mock_enrichment_counter += 1
+    
+    return {"success": True, "enrichment": new_enrichment}
+
+def get_enrichments():
+    """Get all enrichments from the API (MOCK - returns in-memory data)"""
+    return [_ensure_enrichment_defaults(e.copy()) for e in _mock_enrichments]
+
+def get_enrichment(enrichment_id: int):
+    """Get a specific enrichment by ID from the API (MOCK - returns in-memory data)"""
+    for enrichment in _mock_enrichments:
+        if enrichment['id'] == enrichment_id:
+            return _ensure_enrichment_defaults(enrichment.copy())
+    return None
+
+def update_enrichment(enrichment_id: int, enrichment_description: Optional[str]=None):
+    """Update an enrichment via API (MOCK - in-memory storage)"""
+    global _mock_enrichments
+    
+    from datetime import datetime
+    
+    for enrichment in _mock_enrichments:
+        if enrichment['id'] == enrichment_id:
+            if enrichment_description is not None:
+                enrichment['enrichment_description'] = enrichment_description
+            enrichment['last_updated'] = datetime.now().isoformat()
+            return {"success": True, "enrichment": enrichment}
+    
+    return None
+
+def update_enrichment_fields(
+    enrichment_id: int,
+    goal: Optional[str]=None,
+    acceptable_evidence: Optional[str]=None,
+    result_format: Optional[str]=None,
+    result_true_if: Optional[str]=None,
+    result_false_if: Optional[str]=None,
+    result_number_value: Optional[str]=None,
+    result_text_value: Optional[str]=None
+):
+    """Update enrichment configuration fields (MOCK - in-memory storage)"""
+    global _mock_enrichments
+    
+    from datetime import datetime
+    
+    for enrichment in _mock_enrichments:
+        if enrichment['id'] == enrichment_id:
+            enrichment = _ensure_enrichment_defaults(enrichment)
+            if goal is not None:
+                enrichment['goal'] = goal
+            if acceptable_evidence is not None:
+                enrichment['acceptable_evidence'] = acceptable_evidence
+            if result_format is not None:
+                enrichment['result_format'] = result_format
+            if result_true_if is not None:
+                enrichment['result_true_if'] = result_true_if
+            if result_false_if is not None:
+                enrichment['result_false_if'] = result_false_if
+            if result_number_value is not None:
+                enrichment['result_number_value'] = result_number_value
+            if result_text_value is not None:
+                enrichment['result_text_value'] = result_text_value
+            enrichment['last_updated'] = datetime.now().isoformat()
+            return {"success": True, "enrichment": enrichment}
+    
+    return None
+
+def delete_enrichment(enrichment_id: int):
+    """Delete an enrichment via API (MOCK - in-memory storage)"""
+    global _mock_enrichments
+    
+    for i, enrichment in enumerate(_mock_enrichments):
+        if enrichment['id'] == enrichment_id:
+            _mock_enrichments.pop(i)
+            return True
+    
+    return False
+
+def enrich_leads(project_id: int, enrichment_id: int):
+    """Run enrichment on all leads for a project (MOCK - simulates API call)"""
+    import time
+    # Simulate processing time
+    time.sleep(1)
+    
+    return {
+        "success": True,
+        "message": f"Enrichment '{enrichment_id}' processed successfully on all leads for project {project_id}",
+        "leads_processed": 0,  # Mock value
+        "enrichment_id": enrichment_id,
+        "project_id": project_id
+    }
