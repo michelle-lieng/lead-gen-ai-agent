@@ -64,7 +64,7 @@ def show_leads():
 
     init_test_enrichment_session_state()
 
-    st.subheader("📋 Sample Leads (first 10)")
+    st.subheader("📋 Test Leads")
     col1, col2 = st.columns([3, 1])
     with col1:
         st.caption("Temporary test leads (session-only). Add or delete without touching the database.")
