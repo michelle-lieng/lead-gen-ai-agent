@@ -65,13 +65,7 @@ def show_leads():
     init_test_enrichment_session_state()
 
     st.subheader("📋 Test Leads")
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.caption("Temporary test leads (session-only). Add or delete without touching the database.")
-    with col2:
-        if st.button("🔄 Reset Leads", key=f"refresh_leads_{project_id}", use_container_width=True):
-            st.session_state.test_enrichment_leads[project_id] = {"data": None, "columns": None, "count": 0}
-            st.rerun()
+    st.caption("Temporary test leads (session-only). Add or delete without touching the database.")
 
     leads_cache = st.session_state.test_enrichment_leads.get(project_id, {"data": None, "columns": None, "count": 0})
 
