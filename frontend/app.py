@@ -7,7 +7,9 @@ from streamlit_pages.project_overview import show_project_overview
 from streamlit_pages.collect_leads import show_collect_leads
 from streamlit_pages.review_leads import show_review_leads
 from streamlit_pages.test_prompts import show_test_prompts
-from streamlit_pages.enrichment import show_enrichment
+from streamlit_pages.enrichments import show_enrichments
+from streamlit_pages.review_enrichment import show_review_enrichment
+from streamlit_pages.test_enrichment import show_test_enrichment
 
 def init_session_state():
     """Initialize global session state variables"""
@@ -80,7 +82,11 @@ def main():
     elif st.session_state.current_page == "project_overview":
         show_project_overview()
     elif st.session_state.current_page == "enrichments":
-        show_enrichment()
+        show_enrichments()
+    elif st.session_state.current_page == "review_enrichment":
+        show_review_enrichment()
+    elif st.session_state.current_page == "test_enrichment":
+        show_test_enrichment()
     elif st.session_state.current_page == "collect_leads":
         show_collect_leads()
     elif st.session_state.current_page == "review_leads":

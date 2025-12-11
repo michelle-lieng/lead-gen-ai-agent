@@ -4,7 +4,7 @@ Project overview page
 import streamlit as st
 from api_client import get_project, update_project, create_enrichment, get_enrichments, update_enrichment, delete_enrichment
 
-def show_enrichment():
+def show_enrichments():
     """Enrichment page"""
     st.markdown("# 📋 Enrichment")
     st.markdown("---")
@@ -88,7 +88,7 @@ def show_enrichment():
                 with col2:
                     if st.button("🔍  Open", key=f"open_{enrichment['id']}"):
                         st.session_state.selected_enrichment = enrichment
-                        st.session_state.current_page = "enrichment_overview"
+                        st.session_state.current_page = "review_enrichment"
                         st.rerun()
                 
                 with col3: 

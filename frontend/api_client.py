@@ -253,6 +253,9 @@ _mock_enrichments = [
         "id": 1,
         "enrichment_name": "company_size",
         "enrichment_description": "Number of employees in the company",
+        "goal": "Extract the number of employees or company size information from lead data",
+        "acceptable_evidence": "Company website, LinkedIn profile, job postings, news articles mentioning employee count",
+        "result_format": "Number",
         "date_added": "2025-01-15T10:30:00",
         "last_updated": "2025-01-15T10:30:00"
     },
@@ -260,6 +263,9 @@ _mock_enrichments = [
         "id": 2,
         "enrichment_name": "industry_sector",
         "enrichment_description": "Primary industry or business sector",
+        "goal": "Identify the primary industry or business sector that the company operates in",
+        "acceptable_evidence": "Company website, About page, product descriptions, industry classifications",
+        "result_format": "Text",
         "date_added": "2025-01-15T11:00:00",
         "last_updated": "2025-01-15T11:00:00"
     },
@@ -267,6 +273,9 @@ _mock_enrichments = [
         "id": 3,
         "enrichment_name": "revenue_range",
         "enrichment_description": "Annual revenue bracket",
+        "goal": "Determine the annual revenue range or bracket for the company",
+        "acceptable_evidence": "Financial reports, company filings, news articles, industry databases",
+        "result_format": "Text",
         "date_added": "2025-01-15T11:15:00",
         "last_updated": "2025-01-15T11:15:00"
     }
@@ -288,6 +297,9 @@ def create_enrichment(enrichment_name: str, enrichment_description: Optional[str
         "id": _mock_enrichment_counter,
         "enrichment_name": enrichment_name,
         "enrichment_description": enrichment_description or "",
+        "goal": "",
+        "acceptable_evidence": "",
+        "result_format": "",
         "date_added": now,
         "last_updated": now
     }
@@ -300,6 +312,13 @@ def create_enrichment(enrichment_name: str, enrichment_description: Optional[str
 def get_enrichments():
     """Get all enrichments from the API (MOCK - returns in-memory data)"""
     return _mock_enrichments.copy()
+
+def get_enrichment(enrichment_id: int):
+    """Get a specific enrichment by ID from the API (MOCK - returns in-memory data)"""
+    for enrichment in _mock_enrichments:
+        if enrichment['id'] == enrichment_id:
+            return enrichment.copy()
+    return None
 
 def update_enrichment(enrichment_id: int, enrichment_description: Optional[str]=None):
     """Update an enrichment via API (MOCK - in-memory storage)"""
@@ -316,6 +335,25 @@ def update_enrichment(enrichment_id: int, enrichment_description: Optional[str]=
     
     return None
 
+def update_enrichment_fields(enrichment_id: int, goal: Optional[str]=None, acceptable_evidence: Optional[str]=None, result_format: Optional[str]=None):
+    """Update enrichment configuration fields (goal, acceptable_evidence, result_format) (MOCK - in-memory storage)"""
+    global _mock_enrichments
+    
+    from datetime import datetime
+    
+    for enrichment in _mock_enrichments:
+        if enrichment['id'] == enrichment_id:
+            if goal is not None:
+                enrichment['goal'] = goal
+            if acceptable_evidence is not None:
+                enrichment['acceptable_evidence'] = acceptable_evidence
+            if result_format is not None:
+                enrichment['result_format'] = result_format
+            enrichment['last_updated'] = datetime.now().isoformat()
+            return {"success": True, "enrichment": enrichment}
+    
+    return None
+
 def delete_enrichment(enrichment_id: int):
     """Delete an enrichment via API (MOCK - in-memory storage)"""
     global _mock_enrichments
@@ -326,3 +364,17 @@ def delete_enrichment(enrichment_id: int):
             return True
     
     return False
+
+def enrich_leads(project_id: int, enrichment_id: int):
+    """Run enrichment on all leads for a project (MOCK - simulates API call)"""
+    import time
+    # Simulate processing time
+    time.sleep(1)
+    
+    return {
+        "success": True,
+        "message": f"Enrichment '{enrichment_id}' processed successfully on all leads for project {project_id}",
+        "leads_processed": 0,  # Mock value
+        "enrichment_id": enrichment_id,
+        "project_id": project_id
+    }
