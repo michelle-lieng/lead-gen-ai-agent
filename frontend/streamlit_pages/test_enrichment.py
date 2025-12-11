@@ -69,7 +69,7 @@ def show_leads():
     with col1:
         st.caption("Temporary test leads (session-only). Add or delete without touching the database.")
     with col2:
-        if st.button("🔄 Refresh Leads", key=f"refresh_leads_{project_id}", use_container_width=True):
+        if st.button("🔄 Reset Leads", key=f"refresh_leads_{project_id}", use_container_width=True):
             st.session_state.test_enrichment_leads[project_id] = {"data": None, "columns": None, "count": 0}
             st.rerun()
 
@@ -118,7 +118,8 @@ def show_leads():
         st.success("✅ Test leads saved in session (not persisted to the database).")
         st.rerun()
 
-    st.caption(f"Showing first 10 of {leads_cache.get('count', len(display_df))} leads. Edits are session-only.")
+    total_session_leads = len(display_df)
+    st.caption(f"Showing {total_session_leads} test lead(s) from session (not counting database).")
 
 
 def show_run_enrichment():
