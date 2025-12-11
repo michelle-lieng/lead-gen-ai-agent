@@ -247,18 +247,82 @@ def extract_test_leads(project_id: int):
     response = _request("POST", f"/api/projects/{project_id}/test/leads")
     return response.json() if response else None
 
+# Mock enrichment storage (in-memory, will reset on server restart)
+_mock_enrichments = [
+    {
+        "id": 1,
+        "enrichment_name": "company_size",
+        "enrichment_description": "Number of employees in the company",
+        "date_added": "2025-01-15T10:30:00",
+        "last_updated": "2025-01-15T10:30:00"
+    },
+    {
+        "id": 2,
+        "enrichment_name": "industry_sector",
+        "enrichment_description": "Primary industry or business sector",
+        "date_added": "2025-01-15T11:00:00",
+        "last_updated": "2025-01-15T11:00:00"
+    },
+    {
+        "id": 3,
+        "enrichment_name": "revenue_range",
+        "enrichment_description": "Annual revenue bracket",
+        "date_added": "2025-01-15T11:15:00",
+        "last_updated": "2025-01-15T11:15:00"
+    }
+]
+_mock_enrichment_counter = 4  # Next ID to use
+
 def create_enrichment(enrichment_name: str, enrichment_description: Optional[str]=None):
-    """Create a new enrichment via API"""
-    return [].json();
+    """Create a new enrichment via API (MOCK - in-memory storage)"""
+    global _mock_enrichments, _mock_enrichment_counter
+    
+    # Check if name already exists
+    if any(e['enrichment_name'] == enrichment_name for e in _mock_enrichments):
+        raise Exception(f"Enrichment name '{enrichment_name}' already exists")
+    
+    from datetime import datetime
+    now = datetime.now().isoformat()
+    
+    new_enrichment = {
+        "id": _mock_enrichment_counter,
+        "enrichment_name": enrichment_name,
+        "enrichment_description": enrichment_description or "",
+        "date_added": now,
+        "last_updated": now
+    }
+    
+    _mock_enrichments.append(new_enrichment)
+    _mock_enrichment_counter += 1
+    
+    return {"success": True, "enrichment": new_enrichment}
 
 def get_enrichments():
-    """Get all enrichments from the API"""
-    return [].json();
+    """Get all enrichments from the API (MOCK - returns in-memory data)"""
+    return _mock_enrichments.copy()
 
 def update_enrichment(enrichment_id: int, enrichment_description: Optional[str]=None):
-    """Update an enrichment via API"""
-    return [].json();
+    """Update an enrichment via API (MOCK - in-memory storage)"""
+    global _mock_enrichments
+    
+    from datetime import datetime
+    
+    for enrichment in _mock_enrichments:
+        if enrichment['id'] == enrichment_id:
+            if enrichment_description is not None:
+                enrichment['enrichment_description'] = enrichment_description
+            enrichment['last_updated'] = datetime.now().isoformat()
+            return {"success": True, "enrichment": enrichment}
+    
+    return None
 
 def delete_enrichment(enrichment_id: int):
-    """Delete an enrichment via API"""
-    return [].json();
+    """Delete an enrichment via API (MOCK - in-memory storage)"""
+    global _mock_enrichments
+    
+    for i, enrichment in enumerate(_mock_enrichments):
+        if enrichment['id'] == enrichment_id:
+            _mock_enrichments.pop(i)
+            return True
+    
+    return False

@@ -137,32 +137,30 @@ def show_enrichment():
                                         st.session_state.selected_enrichment = None
                                         st.session_state.current_page = "enrichment"
                                     st.rerun()
-                                else:
-                                    st.error(f"❌ Failed to delete enrichment: {e}")
                         if st.button("❌", key=f"cancel_delete_{enrichment['id']}", help="Cancel deletion", width='stretch'):
                             if delete_key in st.session_state:
                                 del st.session_state[delete_key]
                             st.rerun()
-                        else:
-                            if st.button("🗑️", key=f"delete_{enrichment['id']}", help="Delete enrichment", width='stretch'):
-                                st.session_state[delete_key] = True
-                                st.rerun()
+                    else:
+                        if st.button("🗑️", key=f"delete_{enrichment['id']}", help="Delete enrichment", width='stretch'):
+                            st.session_state[delete_key] = True
+                            st.rerun()
                     
-                    if st.session_state.get(f"edit_mode_{enrichment['id']}", False):
-                        textarea_key = f"textarea_{enrichment['id']}"
+                if st.session_state.get(f"edit_mode_{enrichment['id']}", False):
+                    textarea_key = f"textarea_{enrichment['id']}"
 
-                        if textarea_key not in st.session_state:
-                            st.session_state[textarea_key] = enrichment.get('enrichment_description', '')
+                    if textarea_key not in st.session_state:
+                        st.session_state[textarea_key] = enrichment.get('enrichment_description', '')
 
-                        st.text_area(
-                            "Edit Self Notes:",
-                            value=st.session_state[textarea_key],
-                            key=textarea_key,
-                            placeholder="Enter your self notes here...",
-                            height=100
-                        )
+                    st.text_area(
+                        "Edit Self Notes:",
+                        value=st.session_state[textarea_key],
+                        key=textarea_key,
+                        placeholder="Enter your self notes here...",
+                        height=100
+                    )
 
-                    if st.session_state.get(f"delete_confirm_{enrichment['id']}", False):
-                        st.warning(f"⚠️ Are you sure you want to delete '{enrichment['enrichment_name']}'? Click ✅ to confirm or ❌ to cancel.")
-                    
-                    st.markdown("---")
+                if st.session_state.get(f"delete_confirm_{enrichment['id']}", False):
+                    st.warning(f"⚠️ Are you sure you want to delete '{enrichment['enrichment_name']}'? Click ✅ to confirm or ❌ to cancel.")
+                
+                st.markdown("---")
