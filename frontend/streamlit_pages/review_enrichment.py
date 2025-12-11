@@ -21,22 +21,21 @@ def show_review_enrichment():
         st.error("No enrichment selected")
         return
 
-    st.markdown(f"# 📋 Review Enrichment - {enrichment['enrichment_name']}")
-    st.markdown("---")
+    st.title(f"📋 Run Enrichment - {enrichment['enrichment_name']}")
     
-    # Navigation button
+    # Navigation note + button
+    st.info("This page is read-only. To change these fields, go to the Enrichment Test page.")
     show_test_enrichment_page()
-    st.markdown("---")
+    st.divider()
     
     # Display enrichment configuration (read-only)
+    st.subheader("📋 Review Enrichment Configuration")
     show_goal(enrichment)
     show_acceptable_evidence(enrichment)
     show_result_format(enrichment)
-    st.markdown("---")
     
     # Action button
     show_run_on_all_leads()
-    st.markdown("---")
 
 def show_test_enrichment_page():
     """Button to navigate to test enrichment page"""
@@ -46,40 +45,49 @@ def show_test_enrichment_page():
 
 def show_goal(enrichment):
     """Display enrichment goal (read-only)"""
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        st.markdown("### 🎯 Goal:")
-    with col2:
-        goal_text = enrichment.get('goal', 'Not set')
-        if goal_text:
-            st.info(goal_text)
-        else:
-            st.info("No goal specified")
+    st.write("**🎯 Goal:**")
+    goal_text = enrichment.get('goal', 'Not set')
+    st.text_area(
+        "Goal",
+        value=goal_text,
+        height=100,
+        disabled=True,
+        label_visibility="collapsed"
+    )
 
 def show_acceptable_evidence(enrichment):
     """Display acceptable evidence (read-only)"""
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        st.markdown("### 📝 Acceptable Evidence:")
-    with col2:
-        evidence_text = enrichment.get('acceptable_evidence', 'Not set')
-        if evidence_text:
-            st.info(evidence_text)
-        else:
-            st.info("No acceptable evidence specified")
+    st.write("**📝 Acceptable Evidence:**")
+    evidence_text = enrichment.get('acceptable_evidence', 'Not set')
+    st.text_area(
+        "Acceptable Evidence",
+        value=evidence_text,
+        height=100,
+        disabled=True,
+        label_visibility="collapsed"
+    )
 
 def show_result_format(enrichment):
     """Display result format (read-only)"""
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        st.markdown("### 📝 Result Format:")
-    with col2:
-        result_format = enrichment.get('result_format', 'Not set')
-        if result_format:
-            # Display as a badge-like info box
-            st.info(f"**{result_format}**")
-        else:
-            st.info("No result format specified")
+    st.write("**📝 Result Format:**")
+    result_format = enrichment.get('result_format', 'Not set')
+    # Use selectbox for consistency with editable version, but disabled
+    options = ["", "True/False", "Text", "Number"]
+    current_index = 0
+    if result_format in options:
+        current_index = options.index(result_format)
+    elif result_format != 'Not set':
+        # If value doesn't match options, add it to options
+        options = [result_format] + options
+        current_index = 0
+    
+    st.selectbox(
+        "Result Format",
+        options=options,
+        index=current_index,
+        disabled=True,
+        label_visibility="collapsed"
+    )
 
 def show_run_on_all_leads():
     """Button to run enrichment on all leads"""
