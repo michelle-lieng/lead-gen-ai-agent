@@ -3,7 +3,7 @@ Review enrichment page
 """
 import streamlit as st
 import pandas as pd
-from api_client import get_enrichment, enrich_leads
+from api_client import get_enrichment, enrich_leads, get_merged_results
 
 def show_review_enrichment():
     """Review enrichment page"""
@@ -118,26 +118,78 @@ def show_result_format(enrichment):
 
 def show_run_on_all_leads():
     """Button to run enrichment on all leads"""
+    # Initialize review enriched results session state (separate from test enriched results)
+    if "review_enriched_results" not in st.session_state:
+        st.session_state.review_enriched_results = {}
+    
+    selected_project = st.session_state.selected_project
+    selected_enrichment = st.session_state.selected_enrichment
+    
+    if not selected_project or not selected_enrichment:
+        return
+    
+    project_id = selected_project['id']
+    enrichment_id = selected_enrichment['id']
+    enrichment_name = selected_enrichment.get("enrichment_name", "")
+    result_format = selected_enrichment.get("result_format", "")
+    
     if st.button("🚀 Run Enrichment on All Leads", width='stretch'):
-        selected_project = st.session_state.selected_project
-        selected_enrichment = st.session_state.selected_enrichment
-        
-        if not selected_project:
-            st.error("No project selected")
+        if not enrichment_name:
+            st.warning("⚠️ Enrichment name is required to run enrichment.")
             return
-        if not selected_enrichment:
-            st.error("No enrichment selected")
+        if not result_format:
+            st.warning("⚠️ Result format must be set before running enrichment.")
             return
-        
-        project_id = selected_project['id']
-        enrichment_id = selected_enrichment['id']
         
         with st.spinner("🔄 Running enrichment on all leads (this may take several minutes)..."):
             try:
-                result = enrich_leads(project_id, enrichment_id)
+                # Get all leads from merged results
+                merged_results = get_merged_results(project_id)
+                if not merged_results or not merged_results.get("data"):
+                    st.warning("⚠️ No leads available for this project.")
+                    return
+                
+                leads_data = merged_results["data"]
+                # Filter to only include lead column
+                filtered_leads = []
+                for row in leads_data:
+                    filtered_row = {"lead": row.get("lead", "")}
+                    filtered_leads.append(filtered_row)
+                
+                result = enrich_leads(project_id, enrichment_id, filtered_leads, enrichment_name, result_format)
                 if result and result.get('success'):
-                    st.success(f"✅ Enrichment completed! {result.get('message', '')}")
+                    # Store enriched results in review-specific session state, keyed by project_id and enrichment_id
+                    results_key = f"{project_id}_{enrichment_id}"
+                    st.session_state.review_enriched_results[results_key] = {
+                        "data": result.get("enriched_leads", filtered_leads),
+                        "columns": result.get("columns", ["lead"]),
+                        "count": result.get("leads_processed", len(filtered_leads)),
+                        "enrichment_name": enrichment_name,
+                        "result_format": result_format
+                    }
+                    st.success(f"✅ Enrichment '{enrichment_name}' completed successfully on {result.get('leads_processed', len(filtered_leads))} lead(s).")
+                    st.rerun()
                 else:
                     st.error(f"❌ Failed to run enrichment: {result.get('message', 'Unknown error') if result else 'No response from server'}")
             except Exception as e:
                 st.error(f"❌ Error running enrichment: {str(e)}")
+    
+    # Display enriched results if available for this specific enrichment
+    results_key = f"{project_id}_{enrichment_id}"
+    enriched_results = st.session_state.review_enriched_results.get(results_key)
+    if enriched_results and enriched_results.get("data"):
+        st.write("**📊 Enriched Results:**")
+        df = pd.DataFrame(enriched_results["data"])
+        # Exclude id, project_id, and serp_count columns
+        exclude_columns = ["id", "project_id", "serp_count"]
+        display_columns = [c for c in df.columns if c not in exclude_columns]
+        display_df = df[display_columns] if display_columns else df
+        
+        # Convert boolean values to strings for True/False format
+        enrichment_name = enriched_results.get("enrichment_name", "")
+        result_format = enriched_results.get("result_format", "")
+        if result_format == "True/False" and enrichment_name in display_df.columns:
+            display_df[enrichment_name] = display_df[enrichment_name].apply(lambda x: "True" if x is True else "False" if x is False else str(x))
+        
+        st.dataframe(display_df, width='stretch', hide_index=True)
+        st.caption(f"Showing {len(display_df)} enriched lead(s) with '{enriched_results.get('enrichment_name', '')}' column.")

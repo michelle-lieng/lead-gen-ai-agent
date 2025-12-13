@@ -92,33 +92,34 @@ def show_enrichments():
                         st.rerun()
                 
                 with col3: 
-                        edit_key = f"edit_mode_{enrichment['id']}"
-                        if st.session_state.get(edit_key, False):
-                            # In edit mode - show save/cancel buttons
-                            if st.button("💾 Save", key=f"save_{enrichment['id']}", help="Save changes", width='stretch'):
-                                textarea_key = f"textarea_{enrichment['id']}"
-                                new_description = st.session_state.get(textarea_key, enrichment.get('enrichment_description', ''))
-                                with st.spinner("Updating enrichment..."):
-                                    result = update_enrichment(enrichment['id'], enrichment_description=new_description)
-                                    if result:
-                                        st.success(f"✅ Enrichment '{enrichment['enrichment_name']}' updated successfully!")
-                                        # Reset edit mode and clean up session state
-                                        if edit_key in st.session_state:
-                                            del st.session_state[edit_key]
-                                        if textarea_key in st.session_state:
-                                            del st.session_state[textarea_key]
-                                        st.rerun()
-                            if st.button("❌ Cancel", key=f"cancel_edit_{enrichment['id']}", help="Cancel editing", width='stretch'):
-                                textarea_key = f"textarea_{enrichment['id']}"
-                                if edit_key in st.session_state:
-                                    del st.session_state[edit_key]
-                                if textarea_key in st.session_state:
-                                    del st.session_state[textarea_key]
-                                st.rerun()
-                            else:
-                                if st.button("✏️ Edit", key=f"edit_{enrichment['id']}", help="Edit enrichment", width='stretch'):
-                                    st.session_state[edit_key] = True
+                    edit_key = f"edit_mode_{enrichment['id']}"
+                    if st.session_state.get(edit_key, False):
+                        # In edit mode - show save/cancel buttons
+                        if st.button("💾 Save", key=f"save_{enrichment['id']}", help="Save changes", width='stretch'):
+                            textarea_key = f"textarea_{enrichment['id']}"
+                            new_description = st.session_state.get(textarea_key, enrichment.get('enrichment_description', ''))
+                            with st.spinner("Updating enrichment..."):
+                                result = update_enrichment(enrichment['id'], enrichment_description=new_description)
+                                if result:
+                                    st.success(f"✅ Enrichment '{enrichment['enrichment_name']}' updated successfully!")
+                                    # Reset edit mode and clean up session state
+                                    if edit_key in st.session_state:
+                                        del st.session_state[edit_key]
+                                    if textarea_key in st.session_state:
+                                        del st.session_state[textarea_key]
                                     st.rerun()
+                        if st.button("❌ Cancel", key=f"cancel_edit_{enrichment['id']}", help="Cancel editing", width='stretch'):
+                            textarea_key = f"textarea_{enrichment['id']}"
+                            if edit_key in st.session_state:
+                                del st.session_state[edit_key]
+                            if textarea_key in st.session_state:
+                                del st.session_state[textarea_key]
+                            st.rerun()
+                    else:
+                        # Not in edit mode - show edit button
+                        if st.button("✏️ Edit", key=f"edit_{enrichment['id']}", help="Edit enrichment", width='stretch'):
+                            st.session_state[edit_key] = True
+                            st.rerun()
                 
                 with col4:
                     delete_key = f"delete_confirm_{enrichment['id']}"

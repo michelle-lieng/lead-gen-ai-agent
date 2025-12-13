@@ -407,16 +407,66 @@ def delete_enrichment(enrichment_id: int):
     
     return False
 
-def enrich_leads(project_id: int, enrichment_id: int):
-    """Run enrichment on all leads for a project (MOCK - simulates API call)"""
+def enrich_leads(project_id: int, enrichment_id: int, leads_data: list, enrichment_name: str, result_format: str):
+    """Run enrichment on leads and add enrichment column (MOCK - simulates API call)"""
     import time
+    import random
+    
+    if not enrichment_name:
+        return {
+            "success": False,
+            "message": "Enrichment name is required to add enrichment column.",
+            "leads_processed": 0,
+            "enrichment_id": enrichment_id,
+            "project_id": project_id
+        }
+    
+    if not result_format:
+        return {
+            "success": False,
+            "message": "Result format must be set before running enrichment.",
+            "leads_processed": 0,
+            "enrichment_id": enrichment_id,
+            "project_id": project_id
+        }
+    
     # Simulate processing time
     time.sleep(1)
     
+    # Add enrichment column to each lead
+    updated_leads = []
+    
+    for lead_row in leads_data:
+        # Create a copy of the lead row
+        updated_lead = lead_row.copy()
+        
+        # Generate mock value based on result_format
+        if result_format == "True/False":
+            # Mock: randomly assign True/False
+            updated_lead[enrichment_name] = random.choice([True, False])
+        elif result_format == "Text":
+            # Mock: generate sample text
+            updated_lead[enrichment_name] = f"Sample text for {lead_row.get('lead', 'lead')}"
+        elif result_format == "Number":
+            # Mock: generate random number
+            updated_lead[enrichment_name] = random.randint(1, 100)
+        else:
+            # Default: empty string
+            updated_lead[enrichment_name] = ""
+        
+        updated_leads.append(updated_lead)
+    
+    # Update columns list if needed
+    columns = list(updated_leads[0].keys()) if updated_leads else []
+    if enrichment_name not in columns:
+        columns.append(enrichment_name)
+    
     return {
         "success": True,
-        "message": f"Enrichment '{enrichment_id}' processed successfully on all leads for project {project_id}",
-        "leads_processed": 0,  # Mock value
+        "message": f"Enrichment '{enrichment_name}' processed successfully on {len(updated_leads)} lead(s) for project {project_id}",
+        "leads_processed": len(updated_leads),
         "enrichment_id": enrichment_id,
-        "project_id": project_id
+        "project_id": project_id,
+        "enriched_leads": updated_leads,
+        "columns": columns
     }

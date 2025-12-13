@@ -2,7 +2,7 @@
 Test enrichment page - edit enrichment configuration
 """
 import streamlit as st
-from api_client import get_enrichment, update_enrichment_fields, get_merged_results
+from api_client import get_enrichment, update_enrichment_fields, get_merged_results, enrich_leads
 
 def show_test_enrichment():
     """Test enrichment page - edit enrichment configuration"""
@@ -43,7 +43,7 @@ def show_test_enrichment():
     show_acceptable_evidence_editor(enrichment)
     show_result_format_editor(enrichment)
     st.divider()
-    show_run_enrichment()
+    show_run_enrichment(enrichment)
 
 def show_review_enrichment_page():
     """Button to navigate back to the review enrichment page"""
@@ -54,12 +54,15 @@ def show_review_enrichment_page():
 def init_test_enrichment_session_state():
     """Initialize session state for test enrichment page."""
     current_project_id = st.session_state.selected_project.get("id") if st.session_state.selected_project else None
+    current_enrichment_id = st.session_state.selected_enrichment.get("id") if st.session_state.selected_enrichment else None
     if "test_enrichment_leads" not in st.session_state:
         st.session_state.test_enrichment_leads = {}
     if current_project_id and current_project_id not in st.session_state.test_enrichment_leads:
         st.session_state.test_enrichment_leads[current_project_id] = {"data": None, "columns": None, "count": 0}
     if "test_enrichment_success_message" not in st.session_state:
         st.session_state.test_enrichment_success_message = None
+    if "test_enriched_results" not in st.session_state:
+        st.session_state.test_enriched_results = {}
 
 
 def show_leads():
@@ -102,8 +105,9 @@ def show_leads():
     import pandas as pd
 
     df = pd.DataFrame(leads_cache["data"])
-    # Only show the "lead" column, exclude id, project_id, and serp_count
-    display_columns = ["lead"] if "lead" in df.columns else []
+    # Show lead column and any enrichment columns, exclude id, project_id, and serp_count
+    exclude_columns = ["id", "project_id", "serp_count"]
+    display_columns = [c for c in df.columns if c not in exclude_columns]
     display_df = df[display_columns] if display_columns else df
 
     editor_key = f"test_enrichment_leads_editor_{project_id}"
@@ -115,7 +119,7 @@ def show_leads():
         key=editor_key,
     )
 
-    if st.button("💾 Save Test Leads (session only)", key=f"save_test_leads_{project_id}", use_container_width=True):
+    if st.button("💾 Save Test Leads (session only)", key=f"save_test_leads_{project_id}", width='stretch'):
         st.session_state.test_enrichment_leads[project_id] = {
             "data": edited_df.to_dict(orient="records"),
             "columns": list(edited_df.columns),
@@ -128,21 +132,63 @@ def show_leads():
     st.caption(f"Showing {total_session_leads} test lead(s) from session (not counting database).")
 
 
-def show_run_enrichment():
-    """Temporary stub to run enrichment on test leads (session only)."""
+def show_run_enrichment(enrichment):
+    """Run enrichment on test leads."""
+    import pandas as pd
     project = st.session_state.selected_project
     if not project:
         return
     project_id = project["id"]
+    enrichment_id = enrichment["id"]
+    enrichment_name = enrichment.get("enrichment_name", "")
+    result_format = enrichment.get("result_format", "")
     leads_cache = st.session_state.test_enrichment_leads.get(project_id, {"data": []})
 
     st.subheader("🚀 Run Enrichment on Test Leads")
-    if st.button("Run Enrichment (stub)", key=f"run_enrichment_stub_{project_id}", use_container_width=True):
+    if st.button("Run Enrichment", key=f"run_enrichment_{project_id}", width='stretch'):
         if not leads_cache.get("data"):
             st.warning("⚠️ No test leads available. Add or load leads above before running.")
         else:
-            with st.spinner("Simulating enrichment on test leads..."):
-                st.success(f"✅ Simulated enrichment on {len(leads_cache['data'])} test lead(s). (Backend not implemented)")
+            with st.spinner("Running enrichment on test leads..."):
+                try:
+                    leads_data = leads_cache.get("data", [])
+                    result = enrich_leads(project_id, enrichment_id, leads_data, enrichment_name, result_format)
+                    if result and result.get("success"):
+                        # Store enriched results in test-specific session state, keyed by project_id and enrichment_id
+                        results_key = f"{project_id}_{enrichment_id}"
+                        st.session_state.test_enriched_results[results_key] = {
+                            "data": result.get("enriched_leads", leads_data),
+                            "columns": result.get("columns", leads_cache.get("columns", ["lead"])),
+                            "count": result.get("leads_processed", len(leads_data)),
+                            "enrichment_name": enrichment_name,
+                            "result_format": result_format
+                        }
+                        
+                        leads_processed = result.get("leads_processed", len(leads_data))
+                        st.success(f"✅ Enrichment '{enrichment_name}' completed successfully on {leads_processed} test lead(s).")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ Failed to run enrichment: {result.get('message', 'Unknown error') if result else 'No response from server'}")
+                except Exception as e:
+                    st.error(f"❌ Error running enrichment: {str(e)}")
+    
+    # Display enriched results if available for this specific enrichment
+    results_key = f"{project_id}_{enrichment_id}"
+    enriched_results = st.session_state.test_enriched_results.get(results_key)
+    if enriched_results and enriched_results.get("data"):
+        st.write("**📊 Enriched Results:**")
+        df = pd.DataFrame(enriched_results["data"])
+        # Exclude id, project_id, and serp_count columns
+        exclude_columns = ["id", "project_id", "serp_count"]
+        display_columns = [c for c in df.columns if c not in exclude_columns]
+        display_df = df[display_columns] if display_columns else df
+        
+        # Convert boolean values to strings for True/False format
+        if result_format == "True/False" and enrichment_name in display_df.columns:
+            display_df[enrichment_name] = display_df[enrichment_name].apply(lambda x: "True" if x is True else "False" if x is False else str(x))
+        
+        st.dataframe(display_df, width='stretch', hide_index=True)
+        st.caption(f"Showing {len(display_df)} enriched lead(s) with '{enriched_results.get('enrichment_name', '')}' column.")
 
 def show_goal_editor(enrichment):
     """Editable goal field"""
@@ -276,7 +322,7 @@ def show_save_button(enrichment, field_key, payload_key, success_message):
         st.success(st.session_state[success_key])
         st.session_state[success_key] = None
     
-    if st.button("💾 Save", key=f"{field_key}_save", use_container_width=True):
+    if st.button("💾 Save", key=f"{field_key}_save", width='stretch'):
         current_value = st.session_state.get(field_key, "")
         save_field(
             enrichment,
@@ -293,7 +339,7 @@ def show_save_button_group(enrichment, payload, success_message):
         st.success(st.session_state[success_key])
         st.session_state[success_key] = None
     
-    if st.button("💾 Save", key=f"{list(payload.keys())[0]}_group_save", use_container_width=True):
+    if st.button("💾 Save", key=f"{list(payload.keys())[0]}_group_save", width='stretch'):
         save_field_group(
             enrichment=enrichment,
             payload=payload,
