@@ -160,7 +160,8 @@ def show_run_enrichment(enrichment):
                             "data": result.get("enriched_leads", leads_data),
                             "columns": result.get("columns", leads_cache.get("columns", ["lead"])),
                             "count": result.get("leads_processed", len(leads_data)),
-                            "enrichment_name": enrichment_name
+                            "enrichment_name": enrichment_name,
+                            "result_format": result_format
                         }
                         
                         leads_processed = result.get("leads_processed", len(leads_data))
@@ -180,6 +181,10 @@ def show_run_enrichment(enrichment):
         exclude_columns = ["id", "project_id", "serp_count"]
         display_columns = [c for c in df.columns if c not in exclude_columns]
         display_df = df[display_columns] if display_columns else df
+        
+        # Convert boolean values to strings for True/False format
+        if result_format == "True/False" and enrichment_name in display_df.columns:
+            display_df[enrichment_name] = display_df[enrichment_name].apply(lambda x: "True" if x is True else "False" if x is False else str(x))
         
         st.dataframe(display_df, use_container_width=True, hide_index=True)
         st.caption(f"Showing {len(display_df)} enriched lead(s) with '{enriched_results.get('enrichment_name', '')}' column.")
