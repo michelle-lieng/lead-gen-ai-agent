@@ -14,30 +14,41 @@ async def upload_dataset(
     lead_column: str = Form(...),
     enrichment_column_list: str = Form(...),  # JSON-encoded list of enrichment column names
     enrichment_column_exists: bool = Form(...),
-    csv_file: UploadFile = File(...)
+    file: UploadFile = File(...)
 ):
     """
-    Upload a CSV dataset for a project.
+    Upload a CSV or Excel dataset for a project.
     
     Args:
         project_id: Project ID to link dataset to
         dataset_name: User-friendly name for the dataset
         lead_column: Name of column containing leads (company names)
         enrichment_column_list: JSON-encoded list of enrichment column names
-        enrichment_column_exists: Whether the enrichment column exists in CSV
-        csv_file: CSV file to upload
+        enrichment_column_exists: Whether the enrichment column exists in file
+        file: CSV or Excel file to upload (.csv, .xlsx, .xls)
     """
     try:
         # Validate file type
-        if not csv_file.filename or not csv_file.filename.lower().endswith('.csv'):
-            raise HTTPException(status_code=400, detail="File must be a CSV file")
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="File must have a filename")
+        
+        filename_lower = file.filename.lower()
+        is_csv = filename_lower.endswith('.csv')
+        is_excel = filename_lower.endswith(('.xlsx', '.xls'))
+        
+        if not (is_csv or is_excel):
+            raise HTTPException(
+                status_code=400, 
+                detail="File must be a CSV (.csv) or Excel (.xlsx, .xls) file"
+            )
         
         # Read file content as bytes
-        csv_content = await csv_file.read()
+        file_content = await file.read()
         
         # Validate file is not empty
-        if not csv_content:
-            raise HTTPException(status_code=400, detail="CSV file is empty")
+        if not file_content:
+            file_type = "CSV" if is_csv else "Excel"
+            raise HTTPException(status_code=400, detail=f"{file_type} file is empty")
         
         # Parse JSON-encoded enrichment_column_list string into list 
         enrichment_column_list_parsed = []
@@ -51,6 +62,7 @@ async def upload_dataset(
                     status_code=400, 
                     detail=f"Invalid JSON format for enrichment_column_list. Error: {str(e)}. Received: {repr(enrichment_column_list)}"
                 )
+        # If enrichment_column_list is empty string or '[]', enrichment_column_list_parsed will be []
         
         # Call service to process the dataset
         result = leads_dataset_service.upload_dataset(
@@ -59,7 +71,8 @@ async def upload_dataset(
             lead_column=lead_column,
             enrichment_column_list=enrichment_column_list_parsed,
             enrichment_column_exists=enrichment_column_exists,
-            csv_content=csv_content
+            file_content=file_content,
+            is_excel=is_excel
         )
         
         return result
