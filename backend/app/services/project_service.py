@@ -8,6 +8,7 @@ import logging
 
 from ..models.tables import Project, SerpUrl, SerpLead, SerpQuery, ProjectDataset, MergedResult
 from .database_service import db_service
+from ..exceptions import DuplicateProjectNameError, ProjectNotFoundError, InvalidProjectConfigurationError, DatabaseFailureError
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class ProjectService:
                 # Check if project name already exists
                 existing_project = session.query(Project).filter(Project.project_name == project_name).first()
                 if existing_project:
-                    raise ValueError(f"Project name '{project_name}' already exists")
+                    raise DuplicateProjectNameError(project_name)
                 
                 project = Project(
                     project_name=project_name,
@@ -34,12 +35,9 @@ class ProjectService:
                 session.refresh(project) # updates python object with database values to return 
                 logger.info(f"✅ Created project: {project_name}")
                 return project
-        except ValueError:
-            # Re-raise ValueError for duplicate project names
-            raise
         except SQLAlchemyError as e:
             logger.error(f"❌ Error creating project: {e}")
-            raise
+            raise DatabaseFailureError("Failed to create project") from e
     
     def get_projects(self) -> List[Project]:
         """Get all projects, refreshing counts from database before returning"""
@@ -51,7 +49,7 @@ class ProjectService:
                 return session.query(Project).order_by(Project.date_added.desc()).all()
         except SQLAlchemyError as e:
             logger.error(f"❌ Error getting projects: {e}")
-            raise
+            raise DatabaseFailureError("Failed to retrieve projects") from e
     
     def get_project(self, project_id: int) -> Optional[Project]:
         """Get specific project by ID, refreshing counts from database before returning"""
@@ -62,14 +60,11 @@ class ProjectService:
             with db_service.get_session() as session:
                 project = session.query(Project).filter(Project.id == project_id).first()
                 if not project:
-                    raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
+                    raise ProjectNotFoundError(project_id)
                 return project
-        except ValueError:
-            # Re-raise ValueError (project not found)
-            raise
         except SQLAlchemyError as e:
             logger.error(f"❌ Error getting project {project_id}: {e}")
-            raise
+            raise DatabaseFailureError(f"Failed to retrieve project {project_id}") from e
     
     def update_project(self, project_id: int, **kwargs) -> Optional[Project]:
         """Update project fields"""
@@ -77,14 +72,13 @@ class ProjectService:
             with db_service.get_session() as session:
                 project = session.query(Project).filter(Project.id == project_id).first()
                 if not project:
-                    logger.warning(f"Project {project_id} not found")
-                    return None
+                    raise ProjectNotFoundError(project_id)
                 
                 # Prevent removing lead_minimum_criteria - it's required
                 if 'lead_minimum_criteria' in kwargs:
                     new_criteria = kwargs['lead_minimum_criteria']
                     if new_criteria is None or (isinstance(new_criteria, str) and not new_criteria.strip()):
-                        raise ValueError("lead_minimum_criteria cannot be removed or set to empty. It is required for lead extraction.")
+                        raise InvalidProjectConfigurationError("lead_minimum_criteria cannot be removed or set to empty. It is required for lead extraction.")
                 
                 for key, value in kwargs.items():
                     if hasattr(project, key):
@@ -94,21 +88,17 @@ class ProjectService:
                 session.refresh(project)
                 logger.info(f"✅ Updated project {project_id}")
                 return project
-        except ValueError:
-            # Re-raise ValueError for validation errors
-            raise
         except SQLAlchemyError as e:
             logger.error(f"❌ Error updating project {project_id}: {e}")
-            raise
+            raise DatabaseFailureError(f"Failed to update project {project_id}") from e
     
-    def delete_project(self, project_id: int) -> bool:
+    def delete_project(self, project_id: int) -> None:
         """Delete project by ID, including all related records (cascade deletes automatically)"""
         try:
             with db_service.get_session() as session:
                 project = session.query(Project).filter(Project.id == project_id).first()
                 if not project:
-                    logger.warning(f"Project {project_id} not found")
-                    return False
+                    raise ProjectNotFoundError(project_id)
                 
                 # Count related records for logging (before deletion)
                 leads_count = session.query(SerpLead).filter(SerpLead.project_id == project_id).count()
@@ -122,12 +112,11 @@ class ProjectService:
                 session.commit()
                 
                 logger.info(f"✅ Deleted project {project_id} and {leads_count} leads, {urls_count} URLs, {queries_count} queries, {datasets_count} datasets (cascade delete)")
-                return True
         except SQLAlchemyError as e:
             logger.error(f"❌ Error deleting project {project_id}: {e}")
-            raise
+            raise DatabaseFailureError(f"Failed to delete project {project_id}") from e
     
-    def update_project_counts_from_db(self, project_id: Optional[int] = None) -> bool:
+    def update_project_counts_from_db(self, project_id: Optional[int] = None) -> None:
         """
         Recalculate and update project counts from database tables.
         Counts only URLs with status='processed' or 'skip' from serp_urls, total unique leads from merged_results,
@@ -136,8 +125,8 @@ class ProjectService:
         Args:
             project_id (int, optional): ID of the project to update. If None, updates all projects.
             
-        Returns:
-            bool: True if successful, False if project not found (when project_id is provided)
+        Raises:
+            ProjectNotFoundError: If project_id is provided and project is not found
         """
         try:            
             with db_service.get_session() as session:
@@ -145,8 +134,7 @@ class ProjectService:
                     # Update specific project
                     project = session.query(Project).filter(Project.id == project_id).first()
                     if not project:
-                        logger.warning(f"Project {project_id} not found for count update")
-                        return False
+                        raise ProjectNotFoundError(project_id)
                     
                     # Count only processed or skipped URLs for this project
                     urls_count = session.query(SerpUrl).filter(
@@ -171,7 +159,6 @@ class ProjectService:
                     
                     session.commit()
                     logger.info(f"✅ Updated counts for project {project_id}: {urls_count} processed URLs, {leads_count} leads, {datasets_count} datasets")
-                    return True
                 else:
                     # Update all projects
                     projects = session.query(Project).all()
@@ -202,14 +189,10 @@ class ProjectService:
                     
                     session.commit()
                     logger.info(f"✅ Updated counts for {updated_count} project(s)")
-                    return True
                 
         except SQLAlchemyError as e:
             logger.error(f"❌ Error updating project counts for {project_id if project_id else 'all projects'}: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"❌ Unexpected error updating project counts for {project_id if project_id else 'all projects'}: {e}")
-            return False
+            raise DatabaseFailureError("Failed to update project counts") from e
 
 # Global project service instance
 project_service = ProjectService()

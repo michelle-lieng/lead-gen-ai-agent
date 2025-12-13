@@ -1,10 +1,14 @@
 """
 Project management endpoints
 """
+import logging
 from fastapi import APIRouter, HTTPException
 from typing import List
 from ...services.project_service import project_service
 from ...models.schemas import ProjectCreate, ProjectUpdate, ProjectResponse
+from ...exceptions import DuplicateProjectNameError, ProjectNotFoundError, InvalidProjectConfigurationError, DatabaseFailureError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -28,11 +32,13 @@ async def create_project(project_data: ProjectCreate):
             datasets_added=project.datasets_added,
             urls_processed=project.urls_processed
         )
-    except ValueError as e:
-        # Handle duplicate project name
+    except DuplicateProjectNameError as e:
         raise HTTPException(status_code=409, detail=str(e))
+    except DatabaseFailureError as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating project: {str(e)}")
+        logger.error(f"❌ Unexpected error creating project: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/", response_model=List[ProjectResponse])
 async def list_projects():
@@ -53,17 +59,17 @@ async def list_projects():
                 urls_processed=project.urls_processed
             ) for project in projects
         ]
+    except DatabaseFailureError as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching projects: {str(e)}")
+        logger.error(f"❌ Unexpected error fetching projects: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(project_id: int):
     """Get specific project details by ID"""
     try:
         project = project_service.get_project(project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
-        
         return ProjectResponse(
             id=project.id,
             project_name=project.project_name,
@@ -76,10 +82,13 @@ async def get_project(project_id: int):
             datasets_added=project.datasets_added,
             urls_processed=project.urls_processed
         )
-    except HTTPException:
-        raise
+    except ProjectNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except DatabaseFailureError as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching project: {str(e)}")
+        logger.error(f"❌ Unexpected error fetching project {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.put("/{project_id}", response_model=ProjectResponse)
 async def update_project(project_id: int, project_data: ProjectUpdate):
@@ -87,18 +96,7 @@ async def update_project(project_id: int, project_data: ProjectUpdate):
     try:
         # Convert Pydantic model to dict, excluding None values
         update_data = {k: v for k, v in project_data.dict().items() if v is not None}
-        
-        if not update_data:
-            raise HTTPException(status_code=400, detail="No fields to update")
-        
-        # Validate lead_minimum_criteria if it's being updated
-        if 'lead_minimum_criteria' in update_data:
-            if not update_data['lead_minimum_criteria'] or not update_data['lead_minimum_criteria'].strip():
-                raise HTTPException(status_code=400, detail="lead_minimum_criteria cannot be empty. It is required for lead extraction.")
-        
         project = project_service.update_project(project_id, **update_data)
-        if not project:
-            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
         
         return ProjectResponse(
             id=project.id,
@@ -112,21 +110,28 @@ async def update_project(project_id: int, project_data: ProjectUpdate):
             datasets_added=project.datasets_added,
             urls_processed=project.urls_processed
         )
-    except HTTPException:
-        raise
+    except DuplicateProjectNameError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except ProjectNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except InvalidProjectConfigurationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except DatabaseFailureError as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating project: {str(e)}")
+        logger.error(f"❌ Unexpected error updating project {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.delete("/{project_id}")
 async def delete_project(project_id: int):
     """Delete project by ID"""
     try:
-        success = project_service.delete_project(project_id)
-        if not success:
-            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
-        
+        project_service.delete_project(project_id)
         return {"message": f"Project {project_id} deleted successfully"}
-    except HTTPException:
-        raise
+    except ProjectNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except DatabaseFailureError as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting project: {str(e)}")
+        logger.error(f"❌ Unexpected error deleting project {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
