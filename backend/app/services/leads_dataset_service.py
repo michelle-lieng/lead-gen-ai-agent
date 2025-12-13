@@ -297,9 +297,12 @@ class LeadsDatasetService:
                         ]
                         
                         # Deduplicate based on lead_column (keep first occurrence)
-                        # This removes duplicates within the concatenated data
+                        # Use case-insensitive deduplication to match the duplicate check later
                         before_dedup = len(df)
-                        df = df.drop_duplicates(subset=[lead_column], keep='first')
+                        # Create a temporary lowercase column for deduplication
+                        df['_temp_lower_lead'] = df[lead_column].astype(str).str.strip().str.lower()
+                        df = df.drop_duplicates(subset=['_temp_lower_lead'], keep='first')
+                        df = df.drop(columns=['_temp_lower_lead'])
                         after_dedup = len(df)
                         
                         logger.info(

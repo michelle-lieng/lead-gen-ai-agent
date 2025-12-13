@@ -81,7 +81,13 @@ async def upload_dataset(
         # Re-raise HTTP exceptions (validation errors)
         raise
     except ValueError as e:
-        # Validation errors (e.g., project not found, column not found)
+        # Validation errors (e.g., project not found, column not found, duplicate leads)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Validation error uploading dataset: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Unexpected error uploading dataset: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error uploading dataset: {str(e)}")

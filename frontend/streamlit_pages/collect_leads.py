@@ -1006,7 +1006,14 @@ def show_upload_dataset_tab(project):
                                 if updated_project:
                                     st.session_state.selected_project = get_project(project['id'])
                             else:
-                                st.error("❌ Failed to upload dataset. Please try again.")
+                                # Try to get error details from response
+                                error_msg = "❌ Failed to upload dataset. Please try again."
+                                if result and isinstance(result, dict):
+                                    if 'detail' in result:
+                                        error_msg = f"❌ {result['detail']}"
+                                    elif 'message' in result:
+                                        error_msg = f"❌ {result['message']}"
+                                st.error(error_msg)
                         except Exception as e:
                             st.error(f"❌ Error uploading dataset: {str(e)}")
         except Exception as e:

@@ -48,7 +48,8 @@ def _request(method: str, path: str, json_data=None, stream=False, files=None, f
         
         if response.status_code >= 200 and response.status_code < 300:
             return response
-        return None
+        # Return response even on error so we can access error details
+        return response
     except Exception:
         return None
 
@@ -183,7 +184,18 @@ def upload_dataset(project_id: int, dataset_name: str, lead_column: str, enrichm
     }
     
     response = _request("POST", f"/api/projects/{project_id}/datasets", files=files, form_data=form_data)
-    return response.json() if response else None
+    if response:
+        try:
+            result = response.json()
+            # If status code indicates error, ensure success is False
+            if response.status_code >= 400:
+                if 'success' not in result:
+                    result['success'] = False
+            return result
+        except:
+            # If response is not JSON, return error dict with status code
+            return {"success": False, "detail": f"Server error: {response.status_code} - {response.text[:200]}"}
+    return {"success": False, "detail": "No response from server"}
 
 
 # Merged results endpoints
