@@ -118,12 +118,12 @@ def show_result_format(enrichment):
 
 def show_run_on_all_leads():
     """Button to run enrichment on all leads"""
-    # Initialize enriched results session state
+    # Initialize review enriched results session state (separate from test enriched results)
     project_id = st.session_state.selected_project.get('id') if st.session_state.selected_project else None
-    if "enriched_results" not in st.session_state:
-        st.session_state.enriched_results = {}
-    if project_id and project_id not in st.session_state.enriched_results:
-        st.session_state.enriched_results[project_id] = None
+    if "review_enriched_results" not in st.session_state:
+        st.session_state.review_enriched_results = {}
+    if project_id and project_id not in st.session_state.review_enriched_results:
+        st.session_state.review_enriched_results[project_id] = None
     
     if st.button("🚀 Run Enrichment on All Leads", width='stretch'):
         selected_project = st.session_state.selected_project
@@ -165,8 +165,8 @@ def show_run_on_all_leads():
                 
                 result = enrich_leads(project_id, enrichment_id, filtered_leads, enrichment_name, result_format)
                 if result and result.get('success'):
-                    # Store enriched results in separate session state
-                    st.session_state.enriched_results[project_id] = {
+                    # Store enriched results in review-specific session state
+                    st.session_state.review_enriched_results[project_id] = {
                         "data": result.get("enriched_leads", filtered_leads),
                         "columns": result.get("columns", ["lead"]),
                         "count": result.get("leads_processed", len(filtered_leads)),
@@ -181,7 +181,7 @@ def show_run_on_all_leads():
                 st.error(f"❌ Error running enrichment: {str(e)}")
     
     # Display enriched results if available
-    enriched_results = st.session_state.enriched_results.get(project_id) if project_id else None
+    enriched_results = st.session_state.review_enriched_results.get(project_id) if project_id else None
     if enriched_results and enriched_results.get("data"):
         st.write("**📊 Enriched Results:**")
         df = pd.DataFrame(enriched_results["data"])
