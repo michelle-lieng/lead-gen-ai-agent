@@ -74,6 +74,18 @@ class ProjectService:
                 if not project:
                     raise ProjectNotFoundError(project_id)
                 
+                # Check if project name is being updated and if it already exists
+                if 'project_name' in kwargs:
+                    new_project_name = kwargs['project_name']
+                    # Only check for duplicates if the name is actually changing
+                    if new_project_name != project.project_name:
+                        existing_project = session.query(Project).filter(
+                            Project.project_name == new_project_name,
+                            Project.id != project_id
+                        ).first()
+                        if existing_project:
+                            raise DuplicateProjectNameError(new_project_name)
+                
                 # Prevent removing lead_minimum_criteria - it's required
                 if 'lead_minimum_criteria' in kwargs:
                     new_criteria = kwargs['lead_minimum_criteria']

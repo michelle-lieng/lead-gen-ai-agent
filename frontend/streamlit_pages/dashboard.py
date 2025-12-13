@@ -111,23 +111,42 @@ def show_dashboard():
                         # In edit mode - show save/cancel buttons
                         if st.button("💾 Save", key=f"save_{project['id']}", help="Save changes", width='stretch'):
                             textarea_key = f"textarea_{project['id']}"
+                            project_name_key = f"project_name_{project['id']}"
                             new_description = st.session_state.get(textarea_key, project.get('description', ''))
-                            with st.spinner("Updating project..."):
-                                result = update_project(project['id'], description=new_description)
-                                if result:
-                                    st.success(f"✅ Self notes updated successfully!")
-                                    # Reset edit mode and clean up session state
-                                    if edit_key in st.session_state:
-                                        del st.session_state[edit_key]
-                                    if textarea_key in st.session_state:
-                                        del st.session_state[textarea_key]
-                                    st.rerun()
+                            new_project_name = st.session_state.get(project_name_key, project.get('project_name', ''))
+                            
+                            # Validate project name is not empty
+                            if not new_project_name or not new_project_name.strip():
+                                st.error("❌ Project name cannot be empty")
+                            else:
+                                with st.spinner("Updating project..."):
+                                    try:
+                                        result = update_project(project['id'], project_name=new_project_name.strip(), description=new_description)
+                                        if result:
+                                            st.success(f"✅ Project updated successfully!")
+                                            # Reset edit mode and clean up session state
+                                            if edit_key in st.session_state:
+                                                del st.session_state[edit_key]
+                                            if textarea_key in st.session_state:
+                                                del st.session_state[textarea_key]
+                                            if project_name_key in st.session_state:
+                                                del st.session_state[project_name_key]
+                                            st.rerun()
+                                    except Exception as e:
+                                        error_message = str(e)
+                                        if "already exists" in error_message.lower():
+                                            st.error(f"❌ Project name '{new_project_name}' already exists. Please choose a different name.")
+                                        else:
+                                            st.error(f"❌ Failed to update project: {error_message}")
                         if st.button("❌ Cancel", key=f"cancel_edit_{project['id']}", help="Cancel editing", width='stretch'):
                             textarea_key = f"textarea_{project['id']}"
+                            project_name_key = f"project_name_{project['id']}"
                             if edit_key in st.session_state:
                                 del st.session_state[edit_key]
                             if textarea_key in st.session_state:
                                 del st.session_state[textarea_key]
+                            if project_name_key in st.session_state:
+                                del st.session_state[project_name_key]
                             st.rerun()
                     else:
                         # Not in edit mode - show edit button
@@ -164,16 +183,25 @@ def show_dashboard():
                             st.session_state[delete_key] = True
                             st.rerun()
                 
-                # Show edit text area if in edit mode
+                # Show edit fields if in edit mode
                 if st.session_state.get(f"edit_mode_{project['id']}", False):
+                    project_name_key = f"project_name_{project['id']}"
                     textarea_key = f"textarea_{project['id']}"
-                    # Initialize the textarea value if not already set
+                    
+                    # Initialize the values if not already set
+                    if project_name_key not in st.session_state:
+                        st.session_state[project_name_key] = project.get('project_name', '')
                     if textarea_key not in st.session_state:
                         st.session_state[textarea_key] = project.get('description', '')
                     
+                    st.text_input(
+                        "Project Name:",
+                        key=project_name_key,
+                        placeholder="Enter project name..."
+                    )
+                    
                     st.text_area(
-                        "Edit Self Notes:",
-                        value=st.session_state[textarea_key],
+                        "Self Notes:",
                         key=textarea_key,
                         placeholder="Enter your self notes here...",
                         height=100
