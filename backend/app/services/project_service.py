@@ -36,7 +36,7 @@ class ProjectService:
                 logger.info(f"✅ Created project: {project_name}")
                 return project
         except SQLAlchemyError as e:
-            logger.error(f"❌ Error creating project: {e}")
+            logger.exception("❌ Error creating project")
             raise DatabaseFailureError("Failed to create project") from e
     
     def get_projects(self) -> List[Project]:
@@ -48,7 +48,7 @@ class ProjectService:
             with db_service.get_session() as session:
                 return session.query(Project).order_by(Project.date_added.desc()).all()
         except SQLAlchemyError as e:
-            logger.error(f"❌ Error getting projects: {e}")
+            logger.exception("❌ Error getting projects")
             raise DatabaseFailureError("Failed to retrieve projects") from e
     
     def get_project(self, project_id: int) -> Optional[Project]:
@@ -63,7 +63,7 @@ class ProjectService:
                     raise ProjectNotFoundError(project_id)
                 return project
         except SQLAlchemyError as e:
-            logger.error(f"❌ Error getting project {project_id}: {e}")
+            logger.exception(f"❌ Error getting project {project_id}")
             raise DatabaseFailureError(f"Failed to retrieve project {project_id}") from e
     
     def update_project(self, project_id: int, **kwargs) -> Optional[Project]:
@@ -89,7 +89,7 @@ class ProjectService:
                 logger.info(f"✅ Updated project {project_id}")
                 return project
         except SQLAlchemyError as e:
-            logger.error(f"❌ Error updating project {project_id}: {e}")
+            logger.exception(f"❌ Error updating project {project_id}")
             raise DatabaseFailureError(f"Failed to update project {project_id}") from e
     
     def delete_project(self, project_id: int) -> None:
@@ -113,7 +113,7 @@ class ProjectService:
                 
                 logger.info(f"✅ Deleted project {project_id} and {leads_count} leads, {urls_count} URLs, {queries_count} queries, {datasets_count} datasets (cascade delete)")
         except SQLAlchemyError as e:
-            logger.error(f"❌ Error deleting project {project_id}: {e}")
+            logger.exception(f"❌ Error deleting project {project_id}")
             raise DatabaseFailureError(f"Failed to delete project {project_id}") from e
     
     def update_project_counts_from_db(self, project_id: Optional[int] = None) -> None:
@@ -191,7 +191,7 @@ class ProjectService:
                     logger.info(f"✅ Updated counts for {updated_count} project(s)")
                 
         except SQLAlchemyError as e:
-            logger.error(f"❌ Error updating project counts for {project_id if project_id else 'all projects'}: {e}")
+            logger.exception(f"❌ Error updating project counts for {project_id if project_id else 'all projects'}")
             raise DatabaseFailureError("Failed to update project counts") from e
 
 # Global project service instance
