@@ -153,7 +153,6 @@ def show_goal_editor(enrichment):
 
     st.text_area(
         "Goal",
-        value=st.session_state[goal_key],
         key=goal_key,
         placeholder="Enter the goal for this enrichment...",
         height=100,
@@ -176,7 +175,6 @@ def show_acceptable_evidence_editor(enrichment):
 
     st.text_area(
         "Acceptable Evidence",
-        value=st.session_state[evidence_key],
         key=evidence_key,
         placeholder="Enter acceptable evidence criteria...",
         height=100,
@@ -232,13 +230,11 @@ def show_result_format_editor(enrichment):
         st.text_input(
             "True if",
             key=true_if_key,
-            value=st.session_state[true_if_key],
             placeholder="Describe when the result should be True",
         )
         st.text_input(
             "False if",
             key=false_if_key,
-            value=st.session_state[false_if_key],
             placeholder="Describe when the result should be False",
         )
         payload["result_true_if"] = st.session_state.get(true_if_key, "")
@@ -249,7 +245,6 @@ def show_result_format_editor(enrichment):
         st.text_input(
             "Define the Value",
             key=number_def_key,
-            value=st.session_state[number_def_key],
             placeholder="Describe how the number should be calculated or formatted",
         )
         payload["result_number_value"] = st.session_state.get(number_def_key, "")
@@ -260,7 +255,6 @@ def show_result_format_editor(enrichment):
         st.text_input(
             "What do you want returned",
             key=text_def_key,
-            value=st.session_state[text_def_key],
             placeholder="Describe the text that should be returned",
         )
         payload["result_text_value"] = st.session_state.get(text_def_key, "")
