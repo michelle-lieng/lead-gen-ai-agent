@@ -724,23 +724,133 @@ def show_upload_dataset_tab(project):
     upload_success_key = f"upload_success_{project['id']}"
 
     uploaded_file = st.file_uploader(
-        "Choose a CSV file",
-        type=['csv'],
-        help="Upload a CSV file with company data",
+        "Choose a CSV or Excel file",
+        type=['csv', 'xlsx', 'xls'],
+        help="Upload a CSV or Excel file with company data. Excel files with multiple sheets will be merged automatically.",
         key=f"dataset_upload_{project['id']}"
     )
     
     if uploaded_file is not None:
         st.success(f"✅ File uploaded: {uploaded_file.name}")
         
+        # Determine file type
+        is_excel = uploaded_file.name.lower().endswith(('.xlsx', '.xls'))
+        is_csv = uploaded_file.name.lower().endswith('.csv')
+        
         # Preview data to help identify columns
         try:
             uploaded_file.seek(0)
-            df = pd.read_csv(uploaded_file)
-            uploaded_file.seek(0)
             
-            st.markdown("#### 📊 Data Preview")
-            st.dataframe(df.head(10), width='stretch')
+            # Initialize variables for column collection
+            all_columns_set = None
+            excel_file = None
+            
+            if is_excel:
+                # Read Excel file - merge all sheets first
+                excel_file = pd.ExcelFile(uploaded_file)
+                uploaded_file.seek(0)
+                
+                if len(excel_file.sheet_names) > 1:
+                    st.info(f"📊 Excel file detected with {len(excel_file.sheet_names)} sheet(s): {', '.join(excel_file.sheet_names)}")
+                    st.info("ℹ️ Merging all sheets into one preview below. You'll select the lead column next.")
+                else:
+                    st.info(f"📊 Excel file detected with 1 sheet: {excel_file.sheet_names[0]}")
+                
+                # Merge all sheets for preview (concatenate vertically, column order based on Sheet 1)
+                if len(excel_file.sheet_names) == 0:
+                    df = pd.DataFrame()
+                else:
+                    # Read Sheet 1 first - this determines column order
+                    sheet1_name = excel_file.sheet_names[0]
+                    # Read with no row limit to ensure we get all rows
+                    df_sheet1 = pd.read_excel(excel_file, sheet_name=sheet1_name, header=0, engine='openpyxl')
+                    df_sheet1.columns = df_sheet1.columns.str.strip()
+                    
+                    # Log initial row count before filtering
+                    initial_sheet1_rows = len(df_sheet1)
+                    st.info(f"📊 Sheet 1 '{sheet1_name}': Read {initial_sheet1_rows} rows from Excel file")
+                    
+                    # Only drop rows where ALL values are NaN (completely empty rows)
+                    df_sheet1 = df_sheet1.dropna(how='all')
+                    
+                    sheet1_rows_after_filter = len(df_sheet1)
+                    if initial_sheet1_rows != sheet1_rows_after_filter:
+                        st.warning(f"⚠️ Sheet 1 '{sheet1_name}': Filtered out {initial_sheet1_rows - sheet1_rows_after_filter} completely empty rows")
+                    
+                    # Sheet 1 columns determine the order (preserve order)
+                    sheet1_columns = df_sheet1.columns.tolist()
+                    all_columns_set = set(sheet1_columns)
+                    
+                    # Read all other sheets and collect any new columns
+                    other_sheets_data = []
+                    for sheet_name in excel_file.sheet_names[1:]:
+                        df_sheet = pd.read_excel(excel_file, sheet_name=sheet_name, header=0, engine='openpyxl')
+                        df_sheet.columns = df_sheet.columns.str.strip()
+                        
+                        initial_rows = len(df_sheet)
+                        st.info(f"📊 Sheet '{sheet_name}': Read {initial_rows} rows from Excel file")
+                        
+                        df_sheet = df_sheet.dropna(how='all')
+                        rows_after_filter = len(df_sheet)
+                        
+                        if initial_rows != rows_after_filter:
+                            st.info(f"   Filtered out {initial_rows - rows_after_filter} completely empty rows")
+                        
+                        all_columns_set.update(df_sheet.columns)
+                        other_sheets_data.append(df_sheet)
+                    
+                    # Determine final column order: Sheet 1 columns first, then any new columns from other sheets
+                    new_columns = sorted([col for col in all_columns_set if col not in sheet1_columns])
+                    final_column_order = sheet1_columns + new_columns
+                    
+                    # Prepare Sheet 1 with all columns
+                    df_sheet1_final = df_sheet1.copy()
+                    for col in new_columns:
+                        if col not in df_sheet1_final.columns:
+                            df_sheet1_final[col] = ''
+                    df_sheet1_final = df_sheet1_final[final_column_order]
+                    df_sheet1_final = df_sheet1_final.fillna('')
+                    
+                    # Prepare other sheets with all columns (in correct order)
+                    all_sheets_data = [df_sheet1_final]
+                    
+                    for df_sheet in other_sheets_data:
+                        # Ensure all columns exist in this sheet (fill missing with blank)
+                        for col in final_column_order:
+                            if col not in df_sheet.columns:
+                                df_sheet[col] = ''
+                        
+                        # Reorder columns to match Sheet 1's order + new columns
+                        df_sheet = df_sheet[final_column_order]
+                        df_sheet = df_sheet.fillna('')
+                        
+                        all_sheets_data.append(df_sheet)
+                    
+                    # Concatenate all sheets vertically (no row merging)
+                    df = pd.concat(all_sheets_data, ignore_index=True)
+                
+                df.columns = df.columns.str.strip()
+                uploaded_file.seek(0)
+                
+                st.markdown("#### 📊 Merged Data Preview (All Sheets)")
+                
+                # Show detailed row counts
+                total_rows = len(df)
+                preview_rows = min(50, total_rows)  # Show up to 50 rows in preview
+                
+                st.success(f"✅ Merged {len(excel_file.sheet_names)} sheet(s) into {total_rows} total rows")
+                if total_rows > preview_rows:
+                    st.info(f"📋 Showing first {preview_rows} rows (scroll down in table to see more)")
+                
+                st.dataframe(df.head(preview_rows), width='stretch', height=400)
+            else:
+                # CSV file
+                df = pd.read_csv(uploaded_file)
+                uploaded_file.seek(0)
+                df.columns = df.columns.str.strip()
+                
+                st.markdown("#### 📊 Data Preview")
+                st.dataframe(df.head(10), width='stretch')
             
             # Upload form
             st.markdown("#### ⚙️ Dataset Configuration")
@@ -755,22 +865,32 @@ def show_upload_dataset_tab(project):
             form_state_key = f"form_state_{project['id']}_{uploaded_file.name}"
             previous_state = st.session_state.get(form_state_key, {})
             
+            # Remove file extension for default dataset name
+            default_name = uploaded_file.name
+            for ext in ['.csv', '.xlsx', '.xls']:
+                if default_name.lower().endswith(ext):
+                    default_name = default_name[:-len(ext)]
+                    break
+            
             dataset_name = st.text_input(
                 "Dataset Name",
-                value=uploaded_file.name.replace('.csv', ''),
+                value=default_name,
                 help="Give your dataset a descriptive name",
                 key=dataset_name_key
             )
             
+            # Use columns from the merged/preview dataframe
+            all_columns = df.columns.tolist()
+            
             lead_column = st.selectbox(
                 "Lead Column",
-                options=df.columns.tolist(),
-                help="Select the column containing company names/leads",
+                options=all_columns,
+                help="Select the column containing company names/leads (primary identifier - rows with the same value will be combined)",
                 key=lead_column_key
             )
             
             # Check if there are any columns available for enrichment (excluding lead column)
-            available_columns = [col for col in df.columns.tolist() if col != lead_column]
+            available_columns = [col for col in all_columns if col != lead_column]
             has_available_columns = len(available_columns) > 0
             
             # Checkbox to enable enrichment columns from dataset (outside form for immediate updates)
@@ -781,7 +901,7 @@ def show_upload_dataset_tab(project):
                 "Add enrichment columns from dataset",
                 value=st.session_state[checkbox_key],
                 disabled=not has_available_columns,
-                help="If checked, you can select columns from your CSV to use as enrichment columns. If unchecked, a single column named '{dataset_name}_exists' with all values TRUE will be created." + 
+                help="If checked, you can select columns from your file to use as enrichment columns. If unchecked, a single column named '{dataset_name}_exists' with all values TRUE will be created." + 
                      (" ⚠️ No other columns available (only lead column found)." if not has_available_columns else ""),
                 key=checkbox_key
             )
@@ -797,7 +917,7 @@ def show_upload_dataset_tab(project):
                         "Select Enrichment Columns",
                         options=available_columns,
                         default=default_selection,
-                        help="Select one or more columns from your CSV to use as enrichment columns. Each selected column will become a separate column in the merged results table.",
+                        help="Select one or more columns from your file to use as enrichment columns. Each selected column will become a separate column in the merged results table.",
                         key=enrichment_columns_key
                     )
                                         
@@ -867,7 +987,7 @@ def show_upload_dataset_tab(project):
                                 lead_column=lead_column,
                                 enrichment_column_list=enrichment_column_data,
                                 enrichment_column_exists=enrichment_column_exists,
-                                csv_file=uploaded_file
+                                file=uploaded_file
                             )
                             
                             if result and result.get('success'):
@@ -886,12 +1006,20 @@ def show_upload_dataset_tab(project):
                                 if updated_project:
                                     st.session_state.selected_project = get_project(project['id'])
                             else:
-                                st.error("❌ Failed to upload dataset. Please try again.")
+                                # Try to get error details from response
+                                error_msg = "❌ Failed to upload dataset. Please try again."
+                                if result and isinstance(result, dict):
+                                    if 'detail' in result:
+                                        error_msg = f"❌ {result['detail']}"
+                                    elif 'message' in result:
+                                        error_msg = f"❌ {result['message']}"
+                                st.error(error_msg)
                         except Exception as e:
                             st.error(f"❌ Error uploading dataset: {str(e)}")
         except Exception as e:
-            st.error(f"❌ Error reading CSV file: {str(e)}")
-            st.info("Please make sure your file is a valid CSV file.")
+            file_type = "Excel" if is_excel else "CSV"
+            st.error(f"❌ Error reading {file_type} file: {str(e)}")
+            st.info(f"Please make sure your file is a valid {file_type} file.")
 
         if upload_success_key in st.session_state:
             st.success(st.session_state[upload_success_key])
