@@ -54,6 +54,7 @@ def show_review_enrichment_page():
 def init_test_enrichment_session_state():
     """Initialize session state for test enrichment page."""
     current_project_id = st.session_state.selected_project.get("id") if st.session_state.selected_project else None
+    current_enrichment_id = st.session_state.selected_enrichment.get("id") if st.session_state.selected_enrichment else None
     if "test_enrichment_leads" not in st.session_state:
         st.session_state.test_enrichment_leads = {}
     if current_project_id and current_project_id not in st.session_state.test_enrichment_leads:
@@ -62,8 +63,6 @@ def init_test_enrichment_session_state():
         st.session_state.test_enrichment_success_message = None
     if "test_enriched_results" not in st.session_state:
         st.session_state.test_enriched_results = {}
-    if current_project_id and current_project_id not in st.session_state.test_enriched_results:
-        st.session_state.test_enriched_results[current_project_id] = None
 
 
 def show_leads():
@@ -155,8 +154,9 @@ def show_run_enrichment(enrichment):
                     leads_data = leads_cache.get("data", [])
                     result = enrich_leads(project_id, enrichment_id, leads_data, enrichment_name, result_format)
                     if result and result.get("success"):
-                        # Store enriched results in test-specific session state
-                        st.session_state.test_enriched_results[project_id] = {
+                        # Store enriched results in test-specific session state, keyed by project_id and enrichment_id
+                        results_key = f"{project_id}_{enrichment_id}"
+                        st.session_state.test_enriched_results[results_key] = {
                             "data": result.get("enriched_leads", leads_data),
                             "columns": result.get("columns", leads_cache.get("columns", ["lead"])),
                             "count": result.get("leads_processed", len(leads_data)),
@@ -172,8 +172,9 @@ def show_run_enrichment(enrichment):
                 except Exception as e:
                     st.error(f"❌ Error running enrichment: {str(e)}")
     
-    # Display enriched results if available
-    enriched_results = st.session_state.test_enriched_results.get(project_id)
+    # Display enriched results if available for this specific enrichment
+    results_key = f"{project_id}_{enrichment_id}"
+    enriched_results = st.session_state.test_enriched_results.get(results_key)
     if enriched_results and enriched_results.get("data"):
         st.write("**📊 Enriched Results:**")
         df = pd.DataFrame(enriched_results["data"])
