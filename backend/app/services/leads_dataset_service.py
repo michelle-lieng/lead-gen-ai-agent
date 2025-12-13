@@ -15,6 +15,7 @@ from .project_service import project_service
 from ..models.tables import ProjectDataset, Dataset, Project
 from .merged_results_service import merged_results_service
 from ..utils.lead_utils import normalize_lead_name, sanitize_value
+from ..exceptions import ProjectNotFoundError, DatabaseFailureError, InvalidFileError, InvalidEnrichmentColumnError
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 class LeadsDatasetService:
     """Service for managing dataset uploads and processing"""
 
-    def _merge_excel_sheets_preview(self, excel_content: bytes) -> pd.DataFrame:
+    def _merge_excel_sheets(self, excel_content: bytes) -> pd.DataFrame:
         """
         Merge all sheets from an Excel file into a single DataFrame WITHOUT requiring a lead column.
         Column order is based on Sheet 1, and sheets are concatenated vertically (no row merging).
@@ -119,10 +120,9 @@ class LeadsDatasetService:
         project_id: int,
         dataset_name: str,
         lead_column: str,
-        enrichment_column_list: list[str],  # Always a list (empty if no enrichment columns)
+        enrichment_column_list: str,  # JSON-encoded string (will be parsed)
         enrichment_column_exists: bool,
-        file_content: bytes,  # CSV or Excel file as bytes
-        is_excel: bool = False  # Whether the file is Excel format
+        file  # FastAPI UploadFile object
     ) -> dict:
         """
         Upload and process a CSV or Excel dataset.
@@ -131,216 +131,216 @@ class LeadsDatasetService:
             project_id: Project ID to link dataset to
             dataset_name: User-friendly name for the dataset
             lead_column: Name of column containing leads (company names)
-            enrichment_column_list: Name of column(s) for enrichment values in list
+            enrichment_column_list: JSON-encoded string of enrichment column names
             enrichment_column_exists: Whether the enrichment column exists in file
-            file_content: CSV or Excel file content as bytes
-            is_excel: Whether the file is Excel format (.xlsx, .xls)
+            file: FastAPI UploadFile object
             
         Returns:
             dict: Success status and statistics
         """
         try:
+            # Parse JSON-encoded enrichment_column_list string into list
+            enrichment_column_list_parsed = []
+            if enrichment_column_list and enrichment_column_list.strip():
+                try:
+                    enrichment_column_list_parsed = json.loads(enrichment_column_list)
+                    if not isinstance(enrichment_column_list_parsed, list):
+                        raise ValueError(f"enrichment_column_list must be a JSON array, got: {type(enrichment_column_list_parsed).__name__}")
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"Invalid JSON format for enrichment_column_list. Error: {str(e)}. Received: {repr(enrichment_column_list)}")
+            # If enrichment_column_list is empty string or '[]', enrichment_column_list_parsed will be []
+            
+            # Read file content
+            file_content = await file.read()
+            
+            # Validate filename and determine file type
+            if not file.filename:
+                raise InvalidFileError("File must have a filename")
+            
+            filename_lower = file.filename.lower()
+            is_csv = filename_lower.endswith('.csv')
+            is_excel = filename_lower.endswith(('.xlsx', '.xls'))
+            
+            if not (is_csv or is_excel):
+                raise InvalidFileError("File must be a CSV (.csv) or Excel (.xlsx, .xls) file")
+            
+            # Validate file is not empty
+            if not file_content:
+                raise InvalidFileError("File is empty")
+            
             with db_service.get_session() as session:
                 # Validate project exists
                 project = session.query(Project).filter(Project.id == project_id).first()
                 if not project:
-                    raise ValueError(f"Project {project_id} not found")
+                    raise ProjectNotFoundError(project_id)
                 
-                # Parse file based on type
-                try:
-                    if is_excel:
-                        # Merge all sheets by concatenating vertically (no row merging across sheets)
-                        # Column order is based on Sheet 1
-                        df = self._merge_excel_sheets_preview(file_content)
-                        
-                        # Validate lead_column exists
-                        if lead_column not in df.columns:
-                            raise ValueError(
-                                f"Lead column '{lead_column}' not found. "
-                                f"Available columns: {', '.join(df.columns.tolist())}"
-                            )
-                        
-                        # Filter out rows where lead_column is empty
-                        initial_count = len(df)
-                        df = df[df[lead_column].notna()]
-                        df[lead_column] = df[lead_column].astype(str).str.strip()
-                        df = df[
-                            (df[lead_column] != '') & 
-                            (df[lead_column] != 'nan') &
-                            (df[lead_column] != 'None') &
-                            (df[lead_column].str.len() > 0)
-                        ]
-                        
-                        # Deduplicate based on lead_column (keep first occurrence)
-                        # Use case-insensitive deduplication to match the duplicate check later
-                        before_dedup = len(df)
-                        # Create a temporary lowercase column for deduplication
-                        df['_temp_lower_lead'] = df[lead_column].astype(str).str.strip().str.lower()
-                        df = df.drop_duplicates(subset=['_temp_lower_lead'], keep='first')
-                        df = df.drop(columns=['_temp_lower_lead'])
-                        after_dedup = len(df)
-                        
-                        logger.info(
-                            f"Merged {len(pd.ExcelFile(BytesIO(file_content)).sheet_names)} Excel sheet(s): "
-                            f"{initial_count} rows before filtering, {before_dedup} rows after filtering empty lead_column, "
-                            f"{after_dedup} rows after deduplication"
-                        )
-                    else:
-                        # Parse CSV
-                        df = pd.read_csv(BytesIO(file_content), encoding='utf-8', encoding_errors='replace')
-                except ValueError as e:
-                    # Re-raise ValueError (e.g., lead column not found)
-                    raise
-                except Exception as e:
-                    file_type = "Excel" if is_excel else "CSV"
-                    raise ValueError(f"Failed to parse {file_type} file: {str(e)}")
+                # ============================================================
+                # STEP 1: Parse file (CSV or Excel)
+                # ============================================================
+                if is_excel:
+                    # Excel: Merge all sheets by concatenating vertically (no row merging across sheets)
+                    # Column order is based on Sheet 1
+                    df = self._merge_excel_sheets(file_content)
+                    logger.info(f"Merged {len(pd.ExcelFile(BytesIO(file_content)).sheet_names)} Excel sheet(s)")
+                else:
+                    # CSV: Read directly
+                    df = pd.read_csv(BytesIO(file_content), encoding='utf-8', encoding_errors='replace')
                 
-                # Normalize column names (strip whitespace)
+                # ============================================================
+                # STEP 2: Normalize column names and validate
+                # ============================================================
+                # Strip whitespace from all column names and user inputs
                 df.columns = df.columns.str.strip()
                 lead_column = lead_column.strip()
-                enrichment_column_list = [col.strip() for col in enrichment_column_list]
+                # Strip and filter out empty strings from enrichment column list
+                enrichment_column_list_parsed = [col.strip() for col in enrichment_column_list_parsed if col.strip()]
                 
-                # Normalize column names (strip whitespace)
-                df.columns = df.columns.str.strip()
-                lead_column = lead_column.strip()
-                enrichment_column_list = [col.strip() for col in enrichment_column_list]
-                
-                # Validate lead_column exists
-                file_type = "Excel" if is_excel else "CSV"
+                # Validate lead_column exists in the file
                 if lead_column not in df.columns:
-                    raise ValueError(f"Lead column '{lead_column}' not found in {file_type} file. Available columns: {', '.join(df.columns)}")
+                    raise ValueError(f"Lead column '{lead_column}' not found in file. Available columns: {', '.join(df.columns)}")
                 
-                # Handle enrichment columns (can be single or multiple)
+                # ============================================================
+                # STEP 3: Filter out rows with empty/invalid lead_column values
+                # ============================================================
+                # Remove rows where lead_column is NaN, empty string, 'nan', 'None', or zero-length
+                initial_count = len(df)
+                df = df[df[lead_column].notna()]
+                df[lead_column] = df[lead_column].astype(str).str.strip()
+                df = df[
+                    (df[lead_column] != '') & 
+                    (df[lead_column] != 'nan') &
+                    (df[lead_column] != 'None') &
+                    (df[lead_column].str.len() > 0)
+                ]
+                after_empty_filter = len(df)
+                
+                # ============================================================
+                # STEP 4: Deduplicate leads (case-insensitive)
+                # ============================================================
+                # Remove duplicate leads, keeping first occurrence
+                # Use case-insensitive comparison (e.g., "Apple" and "apple" are duplicates)
+                before_dedup = len(df)
+                df['_temp_lower_lead'] = df[lead_column].astype(str).str.strip().str.lower()
+                df = df.drop_duplicates(subset=['_temp_lower_lead'], keep='first')
+                df = df.drop(columns=['_temp_lower_lead'])
+                after_dedup = len(df)
+                
+                logger.info(
+                    f"File: {initial_count} rows initially, "
+                    f"{after_empty_filter} rows after filtering empty lead_column, "
+                    f"{after_dedup} rows after deduplication"
+                )
+                
+                # ============================================================
+                # STEP 5: Normalize all leads (vectorized operation for performance)
+                # ============================================================
+                # Normalize all leads at once using pandas apply (much faster than row-by-row)
+                # This removes legal suffixes, normalizes unicode, etc.
+                before_normalization = len(df)
+                df['_normalized_lead'] = df[lead_column].apply(normalize_lead_name)
+                # Filter out rows where normalization resulted in empty string
+                # (e.g., "Pty Ltd" becomes "" after removing legal suffixes)
+                df = df[df['_normalized_lead'] != '']
+                after_normalization = len(df)
+                skipped_normalization = before_normalization - after_normalization
+                
+                if skipped_normalization > 0:
+                    logger.warning(f"Skipped {skipped_normalization} rows that became empty after normalization")
+                
+                logger.info(
+                    f"After normalization: {after_normalization} rows remaining "
+                    f"({skipped_normalization} skipped)"
+                )
+                
+                # ============================================================
+                # STEP 6: Handle enrichment columns
+                # ============================================================
                 if enrichment_column_exists:
-                    # User selected columns from CSV - verify they all exist
-                    if len(enrichment_column_list) == 0:
-                        raise ValueError("enrichment_column_list cannot be empty when enrichment_column_exists is True")
+                    # User selected enrichment columns from file - verify they all exist
+                    if len(enrichment_column_list_parsed) == 0:
+                        raise InvalidEnrichmentColumnError("enrichment_column_list cannot be empty when enrichment_column_exists is True")
                     
-                    missing_columns = [col for col in enrichment_column_list if col not in df.columns]
+                    missing_columns = [col for col in enrichment_column_list_parsed if col not in df.columns]
                     if missing_columns:
-                        file_type = "Excel" if is_excel else "CSV"
-                        raise ValueError(
-                            f"Enrichment column(s) not found in {file_type} file: {', '.join(missing_columns)}. "
+                        raise InvalidEnrichmentColumnError(
+                            f"Enrichment column(s) not found in file: {', '.join(missing_columns)}. "
                             f"Available columns: {', '.join(df.columns)}"
                         )
     
-                    enrichment_column_for_merge = enrichment_column_list
-                    file_type = "Excel" if is_excel else "CSV"
-                    logger.info(f"Using {len(enrichment_column_list)} enrichment column(s) from {file_type}: {', '.join(enrichment_column_list)}")
+                    enrichment_column_for_merge = enrichment_column_list_parsed
+                    logger.info(f"Using {len(enrichment_column_list_parsed)} enrichment column(s): {', '.join(enrichment_column_list_parsed)}")
                 else:
-                    # Single enrichment column - will be created with value True
+                    # No enrichment columns in file - create a boolean column (e.g., "dataset_name_exists" = True)
                     safe_dataset_name = sanitize_value(dataset_name)
                     enrichment_column_for_merge = [f"{safe_dataset_name}_exists"]
                     logger.info(f"Creating column '{safe_dataset_name}_exists' with value True")
                 
-                # Check for duplicate leads (case-insensitive, whitespace-trimmed)
-                # Note: After Excel sheet merging, duplicates should already be handled,
-                # but we check again to ensure data integrity
-                lead_values = df[lead_column].astype(str).str.strip()
-                # Remove empty/NaN values for duplicate check
-                non_empty_leads = lead_values[lead_values != ''].str.lower()
-                duplicates = non_empty_leads[non_empty_leads.duplicated(keep=False)]
-                
-                if not duplicates.empty:
-                    # Get unique duplicate lead names (original case from first occurrence)
-                    duplicate_leads = []
-                    seen_lower = set()
-                    for idx, lead_lower in duplicates.items():
-                        if lead_lower not in seen_lower:
-                            seen_lower.add(lead_lower)
-                            # Get original case from dataframe
-                            original_lead = str(df.loc[idx, lead_column]).strip()
-                            duplicate_leads.append(original_lead)
-                    
-                    file_type = "Excel" if is_excel else "CSV"
-                    raise ValueError(
-                        f"Duplicate leads found in {file_type} file. Each lead must be unique. "
-                        f"Found duplicates: {', '.join(duplicate_leads[:10])}"
-                        f"{'...' if len(duplicate_leads) > 10 else ''}"
-                    )
-                
-                # Create ProjectDataset record
+                # ============================================================
+                # STEP 7: Create ProjectDataset record in database
+                # ============================================================
+                # This record tracks the dataset metadata (name, columns, row count)
                 project_dataset = ProjectDataset(
                     project_id=project_id,
                     dataset_name=dataset_name,
                     lead_column=lead_column,
                     enrichment_column_list=",".join(enrichment_column_for_merge),  # Store as comma-separated string in DB
-                    row_count=0  # Will update after processing
+                    row_count=0  # Will update after processing all rows
                 )
                 session.add(project_dataset)
-                session.flush()  # Get the ID without committing yet
+                session.flush()  # Get the ID without committing yet (need ID for Dataset records)
                 
-                # Process rows
+                # ============================================================
+                # STEP 8: Process rows and save to database
+                # ============================================================
+                # All leads are already normalized and filtered at this point
                 rows_processed = 0
-                skipped_empty = 0
-                skipped_normalization = 0
                 total_rows = len(df)
                 
                 logger.info(f"Processing {total_rows} rows from merged DataFrame")
                 
                 for idx, row in df.iterrows():
                     try:
-                        # Get lead value - handle NaN properly
-                        if pd.isna(row[lead_column]):
-                            skipped_empty += 1
-                            if skipped_empty <= 5:  # Log first 5 skipped rows
-                                logger.warning(f"Skipping row {idx}: lead column is NaN")
-                            continue
+                        # Get normalized lead (already computed in STEP 5)
+                        normalized_lead = row['_normalized_lead']
                         
-                        lead_value = str(row[lead_column]).strip()
-                        if not lead_value or lead_value.lower() in ['nan', 'none', '']:
-                            skipped_empty += 1
-                            if skipped_empty <= 5:  # Log first 5 skipped rows
-                                logger.warning(f"Skipping row {idx}: empty lead value: '{lead_value}'")
-                            continue
-                        
-                        # Normalize lead name before saving (lowercase, trim whitespace)
-                        normalized_lead = normalize_lead_name(lead_value)
-                        
-                        # Skip empty leads after normalization
-                        if not normalized_lead:
-                            skipped_normalization += 1
-                            if skipped_normalization <= 5:  # Log first 5 skipped rows
-                                logger.warning(f"Skipping row {idx}: lead '{lead_value}' became empty after normalization")
-                            continue
-                        
-                        # Get enrichment value(s)
-                        if enrichment_column_exists and len(enrichment_column_list) > 0:
-                            # Multiple or single enrichment columns from CSV
-                            if len(enrichment_column_list) == 1:
-                                # Single column - store value directly
-                                enrichment_value = str(row[enrichment_column_list[0]])
+                        # Get enrichment value(s) from the row
+                        if enrichment_column_exists and len(enrichment_column_list_parsed) > 0:
+                            if len(enrichment_column_list_parsed) == 1:
+                                # Single enrichment column - store value directly
+                                enrichment_value = str(row[enrichment_column_list_parsed[0]])
                             else:
-                                # Multiple columns - store as JSON object
-                                enrichment_dict = {col: str(row[col]) for col in enrichment_column_list}
+                                # Multiple enrichment columns - store as JSON object
+                                enrichment_dict = {col: str(row[col]) for col in enrichment_column_list_parsed}
                                 enrichment_value = json.dumps(enrichment_dict)
                         else:
-                            # Column doesn't exist (for col {safe_dataset_name}_exists) - set to True
+                            # No enrichment columns - set to "true" (boolean flag)
                             enrichment_value = "true"
                         
                         # Create Dataset record with normalized lead
                         dataset_row = Dataset(
                             project_dataset_id=project_dataset.id,
-                            lead=normalized_lead,  # Store normalized version
+                            lead=normalized_lead,  # Store normalized version for deduplication
                             enrichment_value=enrichment_value
                         )
                         session.add(dataset_row)
                         rows_processed += 1
                         
                     except Exception as e:
-                        logger.error(f"Error processing row {idx}: {e}")
+                        logger.exception(f"Error processing row {idx}")
                         continue
                 
-                # Update row count
+                # ============================================================
+                # STEP 9: Update metadata and commit
+                # ============================================================
+                # Update row count in ProjectDataset record
                 project_dataset.row_count = rows_processed
                 
-                # Commit all changes
+                # Commit all changes to database
                 session.commit()
                 
                 logger.info(
                     f"✅ Dataset '{dataset_name}' uploaded: "
-                    f"{rows_processed} rows processed out of {total_rows} total rows "
-                    f"({skipped_empty} skipped empty, {skipped_normalization} skipped after normalization)"
+                    f"{rows_processed} rows processed out of {total_rows} total rows"
                 )
                 
                 # Merge dataset leads into merged_results table
@@ -374,15 +374,9 @@ class LeadsDatasetService:
                     "project_dataset_id": project_dataset.id
                 }
                 
-        except ValueError as e:
-            # Validation errors - don't log as error, just re-raise
-            raise
         except SQLAlchemyError as e:
-            logger.error(f"❌ Database error uploading dataset: {e}")
-            raise Exception(f"Database error: {str(e)}")
-        except Exception as e:
-            logger.error(f"❌ Unexpected error uploading dataset: {e}")
-            raise Exception(f"Error uploading dataset: {str(e)}")
+            logger.exception("❌ Database error uploading dataset")
+            raise DatabaseFailureError("Failed to upload dataset") from e
 
 # Global service instance
 leads_dataset_service = LeadsDatasetService()
