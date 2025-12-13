@@ -8,6 +8,7 @@ lead_datasets
 fixtures
 planning.md
 .vscode
+experiment_enrichment_old
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
