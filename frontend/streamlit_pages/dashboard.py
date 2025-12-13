@@ -129,11 +129,11 @@ def show_dashboard():
                             if textarea_key in st.session_state:
                                 del st.session_state[textarea_key]
                             st.rerun()
-                        else:
-                            # Initial edit button - always visible
-                            if st.button("✏️ Edit", key=f"edit_{project['id']}", help="Edit self notes", width='stretch'):
-                                st.session_state[edit_key] = True
-                                st.rerun()
+                    else:
+                        # Not in edit mode - show edit button
+                        if st.button("✏️ Edit", key=f"edit_{project['id']}", help="Edit self notes", width='stretch'):
+                            st.session_state[edit_key] = True
+                            st.rerun()
                 
                 with col7:
                     delete_key = f"delete_confirm_{project['id']}"
