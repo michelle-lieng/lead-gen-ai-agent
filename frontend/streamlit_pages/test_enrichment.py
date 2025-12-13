@@ -120,7 +120,7 @@ def show_leads():
         key=editor_key,
     )
 
-    if st.button("💾 Save Test Leads (session only)", key=f"save_test_leads_{project_id}", use_container_width=True):
+    if st.button("💾 Save Test Leads (session only)", key=f"save_test_leads_{project_id}", width='stretch'):
         st.session_state.test_enrichment_leads[project_id] = {
             "data": edited_df.to_dict(orient="records"),
             "columns": list(edited_df.columns),
@@ -146,7 +146,7 @@ def show_run_enrichment(enrichment):
     leads_cache = st.session_state.test_enrichment_leads.get(project_id, {"data": []})
 
     st.subheader("🚀 Run Enrichment on Test Leads")
-    if st.button("Run Enrichment", key=f"run_enrichment_{project_id}", use_container_width=True):
+    if st.button("Run Enrichment", key=f"run_enrichment_{project_id}", width='stretch'):
         if not leads_cache.get("data"):
             st.warning("⚠️ No test leads available. Add or load leads above before running.")
         else:
@@ -186,7 +186,7 @@ def show_run_enrichment(enrichment):
         if result_format == "True/False" and enrichment_name in display_df.columns:
             display_df[enrichment_name] = display_df[enrichment_name].apply(lambda x: "True" if x is True else "False" if x is False else str(x))
         
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df, width='stretch', hide_index=True)
         st.caption(f"Showing {len(display_df)} enriched lead(s) with '{enriched_results.get('enrichment_name', '')}' column.")
 
 def show_goal_editor(enrichment):
@@ -321,7 +321,7 @@ def show_save_button(enrichment, field_key, payload_key, success_message):
         st.success(st.session_state[success_key])
         st.session_state[success_key] = None
     
-    if st.button("💾 Save", key=f"{field_key}_save", use_container_width=True):
+    if st.button("💾 Save", key=f"{field_key}_save", width='stretch'):
         current_value = st.session_state.get(field_key, "")
         save_field(
             enrichment,
@@ -338,7 +338,7 @@ def show_save_button_group(enrichment, payload, success_message):
         st.success(st.session_state[success_key])
         st.session_state[success_key] = None
     
-    if st.button("💾 Save", key=f"{list(payload.keys())[0]}_group_save", use_container_width=True):
+    if st.button("💾 Save", key=f"{list(payload.keys())[0]}_group_save", width='stretch'):
         save_field_group(
             enrichment=enrichment,
             payload=payload,

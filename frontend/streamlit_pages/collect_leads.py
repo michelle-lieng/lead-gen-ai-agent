@@ -490,7 +490,7 @@ def show_web_search_tab(project):
             key=f"bare_minimum_criteria_input_{project_id}"
         )
         
-        criteria_submitted = st.form_submit_button("💾 Save Criteria", use_container_width=True)
+        criteria_submitted = st.form_submit_button("💾 Save Criteria", width='stretch')
         
         if criteria_submitted:
             # Clear previous message when submitting new criteria

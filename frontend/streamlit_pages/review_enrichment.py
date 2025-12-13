@@ -196,5 +196,5 @@ def show_run_on_all_leads():
         if result_format == "True/False" and enrichment_name in display_df.columns:
             display_df[enrichment_name] = display_df[enrichment_name].apply(lambda x: "True" if x is True else "False" if x is False else str(x))
         
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df, width='stretch', hide_index=True)
         st.caption(f"Showing {len(display_df)} enriched lead(s) with '{enriched_results.get('enrichment_name', '')}' column.")
