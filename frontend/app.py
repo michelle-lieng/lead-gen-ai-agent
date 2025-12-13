@@ -6,7 +6,6 @@ from streamlit_pages.dashboard import show_dashboard
 from streamlit_pages.project_overview import show_project_overview
 from streamlit_pages.collect_leads import show_collect_leads
 from streamlit_pages.review_leads import show_review_leads
-from streamlit_pages.test_prompts import show_test_prompts
 from streamlit_pages.enrichments import show_enrichments
 from streamlit_pages.review_enrichment import show_review_enrichment
 from streamlit_pages.test_enrichment import show_test_enrichment
@@ -91,8 +90,6 @@ def main():
         show_collect_leads()
     elif st.session_state.current_page == "review_leads":
         show_review_leads()
-    elif st.session_state.current_page == "test_prompts":
-        show_test_prompts()
 
 if __name__ == "__main__":
     main()

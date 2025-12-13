@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api.routes import projects, leads_serp, leads_dataset, merged_results, test_lead_extraction_prompts
+from .api.routes import projects, leads_serp, leads_dataset, merged_results
 from .services.database_service import db_service
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,3 @@ app.include_router(leads_dataset.router, prefix="/api", tags=["datasets"])
 
 app.include_router(merged_results.router, prefix="/api", tags=["merged-results"])
 
-########## TEST PROMPTS ENDPOINTS
-
-app.include_router(test_lead_extraction_prompts.router, prefix="/api", tags=["test-lead-extraction-prompts"])
