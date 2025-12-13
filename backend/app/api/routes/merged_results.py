@@ -1,8 +1,12 @@
 """
 Merged results endpoints
 """
+import logging
 from fastapi import APIRouter, HTTPException, Response
 from ...services.merged_results_service import merged_results_service
+from ...exceptions import ProjectNotFoundError, DatabaseFailureError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -17,11 +21,13 @@ async def get_merged_results(project_id: int):
         result = merged_results_service.get_merged_results(project_id)
         return result
         
-    except ValueError as e:
-        # Handle "no data" or "project not found" errors
+    except ProjectNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except DatabaseFailureError as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting merged results: {str(e)}")
+        logger.error(f"❌ Unexpected error getting merged results: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/projects/{project_id}/results/download")
 async def download_merged_results(project_id: int):
@@ -30,9 +36,14 @@ async def download_merged_results(project_id: int):
     
     Returns merged_results table as a ZIP file with CSV file.
     Includes all enrichment columns (dynamically added).
+    Returns 204 No Content if there are no merged results to download.
     """
     try:
         zip_bytes, filename = merged_results_service.export_merged_results_as_zip(project_id)
+        
+        # Check if there's no data to download (returns None, None)
+        if zip_bytes is None and filename is None:
+            return Response(status_code=204)  # No Content
         
         return Response(
             content=zip_bytes,
@@ -42,9 +53,11 @@ async def download_merged_results(project_id: int):
             }
         )
         
-    except ValueError as e:
-        # Handle "no data" or "project not found" errors
+    except ProjectNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except DatabaseFailureError as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error downloading merged results: {str(e)}")
+        logger.error(f"❌ Unexpected error downloading merged results: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
