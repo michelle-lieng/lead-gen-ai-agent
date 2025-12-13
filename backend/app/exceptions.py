@@ -28,6 +28,24 @@ class InvalidProjectConfigurationError(ProjectError):
     pass
 
 # =========================
+# Dataset / file validation errors
+# =========================
+
+class InvalidFileError(Exception):
+    """Raised when file validation fails (e.g., empty file, invalid format)"""
+    pass
+
+class InvalidEnrichmentColumnError(Exception):
+    """Raised when enrichment column validation fails (e.g., missing columns, invalid format)"""
+    pass
+
+class ProjectDatasetNotFoundError(Exception):
+    """Raised when a ProjectDataset is not found"""
+    def __init__(self, project_dataset_id: int):
+        message = f"ProjectDataset with ID {project_dataset_id} not found"
+        super().__init__(message)
+
+# =========================
 # Infrastructure / system errors
 # =========================
 
