@@ -2,7 +2,7 @@
 Test enrichment page - edit enrichment configuration
 """
 import streamlit as st
-from api_client import get_enrichment, update_enrichment_fields, get_merged_results
+from api_client import get_enrichment, update_enrichment_fields, get_merged_results, enrich_leads
 
 def show_test_enrichment():
     """Test enrichment page - edit enrichment configuration"""
@@ -43,7 +43,7 @@ def show_test_enrichment():
     show_acceptable_evidence_editor(enrichment)
     show_result_format_editor(enrichment)
     st.divider()
-    show_run_enrichment()
+    show_run_enrichment(enrichment)
 
 def show_review_enrichment_page():
     """Button to navigate back to the review enrichment page"""
@@ -128,21 +128,30 @@ def show_leads():
     st.caption(f"Showing {total_session_leads} test lead(s) from session (not counting database).")
 
 
-def show_run_enrichment():
-    """Temporary stub to run enrichment on test leads (session only)."""
+def show_run_enrichment(enrichment):
+    """Run enrichment on test leads."""
     project = st.session_state.selected_project
     if not project:
         return
     project_id = project["id"]
+    enrichment_id = enrichment["id"]
     leads_cache = st.session_state.test_enrichment_leads.get(project_id, {"data": []})
 
     st.subheader("🚀 Run Enrichment on Test Leads")
-    if st.button("Run Enrichment (stub)", key=f"run_enrichment_stub_{project_id}", use_container_width=True):
+    if st.button("Run Enrichment", key=f"run_enrichment_{project_id}", use_container_width=True):
         if not leads_cache.get("data"):
             st.warning("⚠️ No test leads available. Add or load leads above before running.")
         else:
-            with st.spinner("Simulating enrichment on test leads..."):
-                st.success(f"✅ Simulated enrichment on {len(leads_cache['data'])} test lead(s). (Backend not implemented)")
+            with st.spinner("Running enrichment on test leads..."):
+                try:
+                    result = enrich_leads(project_id, enrichment_id)
+                    if result and result.get("success"):
+                        leads_processed = result.get("leads_processed", len(leads_cache.get("data", [])))
+                        st.success(f"✅ Enrichment completed successfully on {leads_processed} test lead(s).")
+                    else:
+                        st.error(f"❌ Failed to run enrichment: {result.get('message', 'Unknown error') if result else 'No response from server'}")
+                except Exception as e:
+                    st.error(f"❌ Error running enrichment: {str(e)}")
 
 def show_goal_editor(enrichment):
     """Editable goal field"""
