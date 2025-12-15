@@ -24,7 +24,7 @@ def show_project_overview():
     st.markdown("---")
     
     # Project stats
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         st.metric("Leads Collected", project['leads_collected'])
@@ -32,8 +32,6 @@ def show_project_overview():
         st.metric("Datasets Added", project['datasets_added'])
     with col3:
         st.metric("URLs Processed", project.get('urls_processed', 0))
-    with col4:
-        st.metric("Project ID", project['id'])
     
     st.markdown("---")
     
@@ -44,19 +42,24 @@ def show_project_overview():
     
     # Quick actions
     st.markdown("### 🚀 Quick Actions")
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         if st.button("🎯 Start Lead Collection", width='stretch'):
             st.session_state.current_page = "collect_leads"
             st.rerun()
-    
+
     with col2:
+        if st.button("🔍 Start Lead Enrichment", width='stretch'):
+            st.session_state.current_page = "enrichments"
+            st.rerun()
+
+    with col3:
         if st.button("📋 Review All Leads", width='stretch'):
             st.session_state.current_page = "review_leads"
             st.rerun()
     
-    with col3:
+    with col4:
         if st.button("🗑️ Delete Project", width='stretch', type="secondary"):
             delete_key = f"show_delete_confirm_{project['id']}"
             st.session_state[delete_key] = True
