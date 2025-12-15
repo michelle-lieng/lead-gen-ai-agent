@@ -221,53 +221,6 @@ def fetch_merged_results_zip(project_id: int):
     
     return None, None
 
-# Test lead extraction prompts endpoints
-def generate_test_urls(project_id: int, query: str):
-    """Generate test URLs from a search query and save them to test_serp_urls table"""
-    response = _request("POST", f"/api/projects/{project_id}/test/urls", json_data={"query": query})
-    return response.json() if response else None
-
-def get_test_urls(project_id: int):
-    """Get all test URLs for a project"""
-    response = _request("GET", f"/api/projects/{project_id}/test/urls")
-    return response.json() if response else []
-
-def create_test_url(project_id: int, link: str, title: str = None, snippet: str = None):
-    """Create a new test URL"""
-    data = {
-        "link": link
-    }
-    if title is not None:
-        data["title"] = title
-    if snippet is not None:
-        data["snippet"] = snippet
-    
-    response = _request("POST", f"/api/projects/{project_id}/test/urls/create", json_data=data)
-    return response.json() if response else None
-
-def update_test_url(project_id: int, url_id: int, title: str = None, snippet: str = None, link: str = None):
-    """Update a test URL"""
-    data = {}
-    if title is not None:
-        data["title"] = title
-    if snippet is not None:
-        data["snippet"] = snippet
-    if link is not None:
-        data["link"] = link
-    
-    response = _request("PUT", f"/api/projects/{project_id}/test/urls/{url_id}", json_data=data)
-    return response.json() if response else None
-
-def delete_test_url(project_id: int, url_id: int):
-    """Delete a test URL"""
-    response = _request("DELETE", f"/api/projects/{project_id}/test/urls/{url_id}")
-    return response.json() if response else None
-
-def extract_test_leads(project_id: int):
-    """Extract leads from test URLs and return them (without saving to database)"""
-    response = _request("POST", f"/api/projects/{project_id}/test/leads")
-    return response.json() if response else None
-
 # Mock enrichment storage (in-memory, will reset on server restart)
 def _ensure_enrichment_defaults(enrichment: dict) -> dict:
     """Ensure optional result fields exist."""
