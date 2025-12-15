@@ -11,6 +11,7 @@ import logging
 # Import existing Jina functions from utils
 from app.utils.scrapers import jina_serp_scraper, jina_url_scraper
 from app.config import settings
+from app.exceptions import ApiKeyNotConfiguredError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -258,7 +259,7 @@ async def enrich_company(
     """
     # Set OpenAI API key for agents SDK
     if not settings.openai_api_key:
-        raise ValueError("OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file.")
+        raise ApiKeyNotConfiguredError("OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file.")
     set_default_openai_key(settings.openai_api_key)
     
     # Validate that required prompts are provided based on output type
