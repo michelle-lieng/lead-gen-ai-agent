@@ -30,6 +30,7 @@ def show_review_enrichment():
     
     # Display enrichment configuration (read-only)
     st.subheader("📋 Review Enrichment Configuration")
+    show_column_name(enrichment)
     show_goal(enrichment)
     show_acceptable_evidence(enrichment)
     show_result_format(enrichment)
@@ -43,6 +44,17 @@ def show_test_enrichment_page():
         st.session_state.current_page = "test_enrichment"
         st.rerun()
 
+def show_column_name(enrichment):
+    """Display column name (read-only)"""
+    st.write("**📝 Column Name:**")
+    column_name_text = enrichment.get('column_name', 'Not set')
+    st.text_input(
+        "Column Name",
+        value=column_name_text,
+        disabled=True,
+        label_visibility="collapsed"
+    )
+
 def show_goal(enrichment):
     """Display enrichment goal (read-only)"""
     st.write("**🎯 Goal:**")
@@ -50,19 +62,19 @@ def show_goal(enrichment):
     st.text_area(
         "Goal",
         value=goal_text,
-        height=100,
+        height=50,
         disabled=True,
         label_visibility="collapsed"
     )
 
 def show_acceptable_evidence(enrichment):
-    """Display acceptable evidence (read-only)"""
-    st.write("**📝 Acceptable Evidence:**")
+    """Display agent reasoning (read-only)"""
+    st.write("**🤖 Agent Reasoning:**")
     evidence_text = enrichment.get('acceptable_evidence', 'Not set')
     st.text_area(
-        "Acceptable Evidence",
+        "Agent Reasoning",
         value=evidence_text,
-        height=100,
+        height=50,
         disabled=True,
         label_visibility="collapsed"
     )
@@ -130,12 +142,12 @@ def show_run_on_all_leads():
     
     project_id = selected_project['id']
     enrichment_id = selected_enrichment['id']
-    enrichment_name = selected_enrichment.get("enrichment_name", "")
+    column_name = selected_enrichment.get("column_name", "")
     result_format = selected_enrichment.get("result_format", "")
     
     if st.button("🚀 Run Enrichment on All Leads", width='stretch'):
-        if not enrichment_name:
-            st.warning("⚠️ Enrichment name is required to run enrichment.")
+        if not column_name:
+            st.warning("⚠️ Column name must be set before running enrichment. Please set it in the enrichment configuration.")
             return
         if not result_format:
             st.warning("⚠️ Result format must be set before running enrichment.")
@@ -156,15 +168,17 @@ def show_run_on_all_leads():
                     filtered_row = {"lead": row.get("lead", "")}
                     filtered_leads.append(filtered_row)
                 
-                result = enrich_leads(project_id, enrichment_id, filtered_leads, enrichment_name, result_format)
+                result = enrich_leads(project_id, enrichment_id, filtered_leads, column_name, result_format)
                 if result and result.get('success'):
                     # Store enriched results in review-specific session state, keyed by project_id and enrichment_id
                     results_key = f"{project_id}_{enrichment_id}"
+                    enrichment_name = selected_enrichment.get("enrichment_name", "")
                     st.session_state.review_enriched_results[results_key] = {
                         "data": result.get("enriched_leads", filtered_leads),
                         "columns": result.get("columns", ["lead"]),
                         "count": result.get("leads_processed", len(filtered_leads)),
                         "enrichment_name": enrichment_name,
+                        "column_name": column_name,
                         "result_format": result_format
                     }
                     st.success(f"✅ Enrichment '{enrichment_name}' completed successfully on {result.get('leads_processed', len(filtered_leads))} lead(s).")
@@ -186,10 +200,10 @@ def show_run_on_all_leads():
         display_df = df[display_columns] if display_columns else df
         
         # Convert boolean values to strings for True/False format
-        enrichment_name = enriched_results.get("enrichment_name", "")
+        column_name = enriched_results.get("column_name", "")
         result_format = enriched_results.get("result_format", "")
-        if result_format == "True/False" and enrichment_name in display_df.columns:
-            display_df[enrichment_name] = display_df[enrichment_name].apply(lambda x: "True" if x is True else "False" if x is False else str(x))
+        if result_format == "True/False" and column_name in display_df.columns:
+            display_df[column_name] = display_df[column_name].apply(lambda x: "True" if x is True else "False" if x is False else str(x))
         
         st.dataframe(display_df, width='stretch', hide_index=True)
         st.caption(f"Showing {len(display_df)} enriched lead(s) with '{enriched_results.get('enrichment_name', '')}' column.")
