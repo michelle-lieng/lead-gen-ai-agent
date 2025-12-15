@@ -46,9 +46,46 @@ class ProjectDatasetNotFoundError(Exception):
         super().__init__(message)
 
 # =========================
+# URL domain errors
+# =========================
+
+class UrlError(Exception):
+    """Base exception for URL-related errors"""
+    def __init__(self, message: str):
+        super().__init__(message)
+
+class UrlNotFoundError(UrlError):
+    """Raised when a URL is not found"""
+    def __init__(self, url_id: int, project_id: int):
+        message = f"URL with ID {url_id} not found for project {project_id}"
+        super().__init__(message)
+
+class DuplicateUrlError(UrlError):
+    """Raised when trying to create/update a URL that already exists in the project"""
+    def __init__(self, link: str, project_id: int):
+        message = f"URL already exists in this project: {link}"
+        super().__init__(message)
+
+# =========================
 # Infrastructure / system errors
 # =========================
 
 class DatabaseFailureError(Exception):
     """Raised when a database operation fails"""
+    pass
+
+class ApiKeyNotConfiguredError(Exception):
+    """Raised when a required API key is not configured"""
+    pass
+
+# =========================
+# External API / scraper errors
+# =========================
+
+class ExternalScraperError(Exception):
+    """Raised when an external scraper API fails (e.g., Jina SERP, Jina URL scraper)"""
+    pass
+
+class OpenAITokenLimitExceededError(Exception):
+    """Raised when OpenAI request exceeds token limit even after truncation attempts"""
     pass
