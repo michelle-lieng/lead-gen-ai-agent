@@ -181,7 +181,7 @@ def show_run_on_all_leads():
                         "column_name": column_name,
                         "result_format": result_format
                     }
-                    st.success(f"✅ Enrichment '{enrichment_name}' completed successfully on {result.get('leads_processed', len(filtered_leads))} lead(s).")
+                    st.success(f"✅ Enrichment '{enrichment_name}' completed successfully on {result.get('leads_processed', len(filtered_leads))} lead(s). Results have been automatically saved to merged leads.")
                     st.rerun()
                 else:
                     st.error(f"❌ Failed to run enrichment: {result.get('message', 'Unknown error') if result else 'No response from server'}")

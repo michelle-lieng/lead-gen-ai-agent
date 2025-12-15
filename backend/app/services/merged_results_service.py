@@ -13,7 +13,7 @@ import json
 
 from .database_service import db_service
 from .project_service import project_service
-from ..models.tables import SerpLeadAggregated, Dataset, ProjectDataset, MergedResult
+from ..models.tables import SerpLeadAggregated, Dataset, ProjectDataset, MergedResult, Enrichment
 from ..utils.lead_utils import normalize_lead_name, sanitize_value
 from ..exceptions import InvalidEnrichmentColumnError, DatabaseFailureError, ProjectNotFoundError, ProjectDatasetNotFoundError
 
@@ -320,32 +320,210 @@ class MergedResultsService:
             logger.exception("❌ Database error merging dataset leads")
             raise DatabaseFailureError("Failed to merge dataset leads") from e
 
+    def _ensure_ai_enrichment_columns_exist(self, column_name: str) -> tuple[str, str, str]:
+        """
+        Ensure AI enrichment columns exist in merged_results table.
+        Adds three columns if they don't exist: column_name, column_name_reasoning, column_name_evidence
+        
+        Args:
+            column_name: Base column name (e.g., "more_than_1_doctor")
+            
+        Returns:
+            tuple: (column_name, reasoning_column_name, evidence_column_name)
+            
+        Raises:
+            InvalidEnrichmentColumnError: If column name is invalid
+            DatabaseFailureError: If database operation fails
+        """
+        # Sanitize column name
+        safe_column_name = sanitize_value(column_name)
+        if not safe_column_name:
+            raise InvalidEnrichmentColumnError(f"Invalid column name: '{column_name}' (became empty after sanitization)")
+        
+        reasoning_column_name = f"{safe_column_name}_reasoning"
+        evidence_column_name = f"{safe_column_name}_evidence"
+        
+        try:
+            with db_service.get_session() as session:
+                # Check which columns exist
+                check_query = text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'merged_results' 
+                    AND column_name IN (:col1, :col2, :col3)
+                """)
+                existing_columns = session.execute(
+                    check_query, 
+                    {"col1": safe_column_name, "col2": reasoning_column_name, "col3": evidence_column_name}
+                ).fetchall()
+                existing_column_names = {row[0] for row in existing_columns}
+                
+                # Add missing columns
+                if safe_column_name not in existing_column_names:
+                    alter_query = text(f"""
+                        ALTER TABLE merged_results 
+                        ADD COLUMN {safe_column_name} TEXT
+                    """)
+                    session.execute(alter_query)
+                    logger.info(f"✅ Added AI enrichment column '{safe_column_name}' to merged_results table")
+                
+                if reasoning_column_name not in existing_column_names:
+                    alter_query = text(f"""
+                        ALTER TABLE merged_results 
+                        ADD COLUMN {reasoning_column_name} TEXT
+                    """)
+                    session.execute(alter_query)
+                    logger.info(f"✅ Added AI enrichment column '{reasoning_column_name}' to merged_results table")
+                
+                if evidence_column_name not in existing_column_names:
+                    alter_query = text(f"""
+                        ALTER TABLE merged_results 
+                        ADD COLUMN {evidence_column_name} TEXT
+                    """)
+                    session.execute(alter_query)
+                    logger.info(f"✅ Added AI enrichment column '{evidence_column_name}' to merged_results table")
+                
+                session.commit()
+                return (safe_column_name, reasoning_column_name, evidence_column_name)
+                
+        except SQLAlchemyError as e:
+            logger.exception(f"❌ Error ensuring AI enrichment columns for '{column_name}' exist")
+            raise DatabaseFailureError(f"Failed to ensure AI enrichment columns for '{column_name}' exist") from e
+
+    def save_ai_enrichment_results(
+        self, 
+        project_id: int, 
+        column_name: str, 
+        enriched_leads: list[dict]
+    ) -> dict:
+        """
+        Save AI enrichment results to merged_results table.
+        Only updates existing leads - does not create new leads.
+        Enrichment is applied to leads that already exist in merged_results.
+        
+        Args:
+            project_id: Project ID
+            column_name: Base column name (e.g., "more_than_1_doctor")
+            enriched_leads: List of dictionaries with keys: "lead", column_name, column_name_reasoning, column_name_evidence
+            
+        Returns:
+            dict: Success status and statistics
+            
+        Raises:
+            ProjectNotFoundError: If project not found
+            DatabaseFailureError: If database operation fails
+        """
+        try:
+            # Verify project exists
+            project_service.get_project(project_id)
+            
+            # Ensure columns exist
+            col_name, reasoning_col, evidence_col = self._ensure_ai_enrichment_columns_exist(column_name)
+            
+            with db_service.get_session() as session:
+                updated_count = 0
+                
+                for enriched_lead in enriched_leads:
+                    lead_name = enriched_lead.get("lead", "")
+                    if not lead_name:
+                        continue
+                    
+                    # Normalize lead name for matching (leads from merged_results are already normalized)
+                    normalized_lead = normalize_lead_name(lead_name)
+                    if not normalized_lead:
+                        continue
+                    
+                    # Get enrichment values
+                    enrichment_value = enriched_lead.get(col_name)
+                    enrichment_reasoning = enriched_lead.get(reasoning_col, "")
+                    enrichment_evidence = enriched_lead.get(evidence_col, "")
+                    
+                    # Convert None to NULL string for database
+                    enrichment_value_str = str(enrichment_value) if enrichment_value is not None else None
+                    enrichment_reasoning_str = str(enrichment_reasoning) if enrichment_reasoning else None
+                    enrichment_evidence_str = str(enrichment_evidence) if enrichment_evidence else None
+                    
+                    # Find and update the lead in merged_results (all leads should exist since we're enriching leads from merged_results)
+                    existing = session.query(MergedResult).filter(
+                        MergedResult.project_id == project_id,
+                        MergedResult.lead == normalized_lead
+                    ).first()
+                    
+                    # Update existing record
+                    update_query = text(f"""
+                        UPDATE merged_results 
+                        SET {col_name} = :value,
+                            {reasoning_col} = :reasoning,
+                            {evidence_col} = :evidence
+                        WHERE id = :id
+                    """)
+                    session.execute(update_query, {
+                        "value": enrichment_value_str,
+                        "reasoning": enrichment_reasoning_str,
+                        "evidence": enrichment_evidence_str,
+                        "id": existing.id
+                    })
+                    updated_count += 1
+                
+                session.commit()
+                
+                logger.info(f"✅ Saved AI enrichment results for {updated_count} lead(s) in project {project_id}")
+                
+                return {
+                    "success": True,
+                    "leads_updated": updated_count,
+                    "total_processed": updated_count,
+                    "message": f"Saved enrichment results for {updated_count} lead(s)"
+                }
+                
+        except ProjectNotFoundError:
+            raise
+        except SQLAlchemyError as e:
+            logger.exception(f"❌ Error saving AI enrichment results for project {project_id}")
+            raise DatabaseFailureError(f"Failed to save AI enrichment results for project {project_id}") from e
+
     def _get_project_enrichment_columns(self, session, project_id: int) -> list[str]:
         """
         Get list of enrichment column names that belong to this project.
-        These are the prefixed columns created from datasets uploaded to this project.
-        
-        Efficient approach: Read prefixed column names directly from ProjectDataset records,
-        which are stored when datasets are merged.
+        Includes both:
+        1. Prefixed columns created from datasets uploaded to this project
+        2. AI enrichment columns (column_name, column_name_reasoning, column_name_evidence)
         
         Args:
             session: Database session
             project_id: Project ID to get enrichment columns for
             
         Returns:
-            list[str]: List of enrichment column names (prefixed with dataset names)
+            list[str]: List of enrichment column names
         """
-        # Get all ProjectDataset records for this project and extract prefixed column names
+        enrichment_columns = []
+        
+        # 1. Get dataset enrichment columns (prefixed with dataset names)
         project_datasets = session.query(ProjectDataset).filter(
             ProjectDataset.project_id == project_id
         ).all()
         
         # Parse comma-separated prefixed column names from each dataset
-        enrichment_columns = [
+        dataset_columns = [
             col.strip()
             for project_dataset in project_datasets
             for col in project_dataset.enrichment_column_list.split(',')
         ]
+        enrichment_columns.extend(dataset_columns)
+        
+        # 2. Get AI enrichment columns for this project
+        enrichments = session.query(Enrichment).filter(
+            Enrichment.project_id == project_id,
+            Enrichment.column_name.isnot(None)  # Only include enrichments with column_name set
+        ).all()
+        
+        for enrichment in enrichments:
+            column_name = enrichment.column_name
+            if column_name:
+                # Add the three AI enrichment columns
+                enrichment_columns.append(column_name)
+                enrichment_columns.append(f"{column_name}_reasoning")
+                enrichment_columns.append(f"{column_name}_evidence")
         
         return enrichment_columns
     
@@ -353,6 +531,7 @@ class MergedResultsService:
         """
         Get merged_results table as list of dictionaries (JSON-friendly).
         Only includes enrichment columns that belong to this project.
+        Validates that columns exist in the database before querying.
         
         Args:
             project_id: Project ID to get merged results for
@@ -369,7 +548,25 @@ class MergedResultsService:
                 enrichment_columns = self._get_project_enrichment_columns(session, project_id)
                 
                 # Combine base columns and project-specific enrichment columns
-                column_names = base_columns + enrichment_columns
+                all_column_names = base_columns + enrichment_columns
+                
+                # Verify which columns actually exist in the database table
+                # This prevents errors if a column is expected but doesn't exist
+                check_query = text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'merged_results'
+                """)
+                existing_columns_result = session.execute(check_query).fetchall()
+                existing_column_names = {row[0] for row in existing_columns_result}
+                
+                # Filter to only include columns that actually exist in the database
+                column_names = [col for col in all_column_names if col in existing_column_names]
+                
+                # Log if any expected columns are missing
+                missing_columns = [col for col in all_column_names if col not in existing_column_names]
+                if missing_columns:
+                    logger.warning(f"⚠️ Expected columns not found in merged_results table: {missing_columns}")
                 
                 # Get all merged results for this project using raw SQL
                 columns_str = ", ".join([f'"{col}"' for col in column_names])

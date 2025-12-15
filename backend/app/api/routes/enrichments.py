@@ -7,6 +7,7 @@ from typing import List
 
 from ...services.enrichment_execution_service import enrichment_execution_service
 from ...services.enrichment_service import enrichment_service
+from ...services.merged_results_service import merged_results_service
 from ...models.schemas import (
     EnrichmentCreate, 
     EnrichmentUpdate, 
@@ -318,6 +319,13 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
         if f"{request.column_name}_evidence" not in columns:
             columns.append(f"{request.column_name}_evidence")
         
+        # Automatically save enrichment results to merged_results table
+        save_result = merged_results_service.save_ai_enrichment_results(
+            project_id=project_id,
+            column_name=request.column_name,
+            enriched_leads=enriched_leads
+        )
+        logger.info(f"✅ Automatically saved enrichment results to merged_results: {save_result.get('message', '')}")
         return {
             "success": True,
             "message": f"Enrichment '{enrichment.enrichment_name}' (column: {request.column_name}) processed successfully on {len(enriched_leads)} lead(s) for project {project_id}",
