@@ -133,3 +133,94 @@ class UrlUpdate(BaseModel):
                 raise ValueError('Link cannot be empty or whitespace only. Omit the field if you do not want to update it.')
             return v.strip()
         return None
+
+def validate_column_name(v: str) -> str:
+    """Validate column name is a valid SQL column name (lowercase, underscores, alphanumeric)"""
+    if not v or not v.strip():
+        raise ValueError('Column name cannot be empty or whitespace only')
+    v = v.strip()
+    # Check if it's a valid SQL identifier (lowercase, alphanumeric, underscores only)
+    if not v.replace('_', '').isalnum():
+        raise ValueError('Column name must contain only lowercase letters, numbers, and underscores')
+    if not v.islower():
+        raise ValueError('Column name must be lowercase')
+    if v[0].isdigit():
+        raise ValueError('Column name cannot start with a number')
+    return v
+
+class EnrichmentCreate(BaseModel):
+    """Schema for creating a new enrichment"""
+    enrichment_name: str
+    column_name: Optional[str] = None
+    enrichment_description: Optional[str] = None
+    # Note: project_id comes from URL path, not request body
+    
+    @field_validator('enrichment_name')
+    @classmethod
+    def validate_not_empty(cls, v: str) -> str:
+        """Ensure field is not empty or just whitespace"""
+        return validate_not_empty_string(v)
+    
+    @field_validator('column_name')
+    @classmethod
+    def validate_column_name_if_provided(cls, v: Optional[str]) -> Optional[str]:
+        """Validate column name is a valid SQL column name if provided"""
+        if v is not None:
+            return validate_column_name(v)
+        return v
+
+class EnrichmentUpdate(BaseModel):
+    """Schema for updating an enrichment - all fields optional"""
+    enrichment_name: Optional[str] = None
+    column_name: Optional[str] = None
+    enrichment_description: Optional[str] = None
+    goal: Optional[str] = None
+    acceptable_evidence: Optional[str] = None
+    result_format: Optional[str] = None
+    result_true_if: Optional[str] = None
+    result_false_if: Optional[str] = None
+    result_number_value: Optional[str] = None
+    result_text_value: Optional[str] = None
+    
+    @field_validator('enrichment_name')
+    @classmethod
+    def validate_not_empty_if_provided(cls, v: Optional[str]) -> Optional[str]:
+        """If provided, ensure field is not empty or just whitespace"""
+        if v is not None:  # Only validate if field is being updated (not None)
+            return validate_not_empty_string(v)
+        return v
+    
+    @field_validator('column_name')
+    @classmethod
+    def validate_column_name_if_provided(cls, v: Optional[str]) -> Optional[str]:
+        """If provided, validate column name is a valid SQL column name"""
+        if v is not None:  # Only validate if field is being updated (not None)
+            return validate_column_name(v)
+        return v
+
+class EnrichmentResponse(BaseModel):
+    """Schema for enrichment API responses"""
+    id: int
+    project_id: int
+    enrichment_name: str
+    column_name: Optional[str] = None
+    enrichment_description: Optional[str] = None
+    goal: Optional[str] = None
+    acceptable_evidence: Optional[str] = None
+    result_format: Optional[str] = None
+    result_true_if: Optional[str] = None
+    result_false_if: Optional[str] = None
+    result_number_value: Optional[str] = None
+    result_text_value: Optional[str] = None
+    date_added: str
+    last_updated: str
+    
+    class Config:
+        from_attributes = True
+
+class EnrichLeadsRequest(BaseModel):
+    """Schema for enriching leads"""
+    enrichment_id: int
+    column_name: str  # Column name to use for the enrichment results
+    result_format: str
+    leads_data: list[dict]  # List of lead dictionaries with at least a "lead" key
