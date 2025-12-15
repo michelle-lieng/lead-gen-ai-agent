@@ -30,6 +30,7 @@ class Project(Base):
     serp_leads_aggregated = relationship("SerpLeadAggregated", back_populates="project", cascade="all, delete-orphan")
     project_datasets = relationship("ProjectDataset", back_populates="project", cascade="all, delete-orphan")
     merged_results = relationship("MergedResult", back_populates="project", cascade="all, delete-orphan")
+    enrichments = relationship("Enrichment", back_populates="project", cascade="all, delete-orphan")
 
 class SerpQuery(Base):
     """PostgreSQL table: serp_queries - for generating search questions"""
@@ -135,3 +136,29 @@ class MergedResult(Base):
     
     # Note: Enrichment columns (bcorp_score, sustainability_rating, etc.) are added dynamically
     # via ALTER TABLE when datasets are uploaded. They are not defined in the model.
+
+class Enrichment(Base):
+    """PostgreSQL table: enrichments - for storing enrichment configurations"""
+    __tablename__ = "enrichments"
+    __table_args__ = (
+        UniqueConstraint('project_id', 'enrichment_name', name='uq_enrichments_project_name'),  # Unique enrichment name per project
+        UniqueConstraint('project_id', 'column_name', name='uq_enrichments_project_column'),  # Unique column name per project
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete='CASCADE'), nullable=False)  # Foreign key to Project.id
+    enrichment_name = Column(String(255), nullable=False)  # Display name (e.g., "More than 1 doctor") - unique per project
+    column_name = Column(String(255), nullable=True)  # Database column name (e.g., "more_than_1_doctor") - unique per project (optional, can be set later)
+    enrichment_description = Column(Text, nullable=True)  # User notes/description
+    goal = Column(Text, nullable=True)  # Goal description for the enrichment
+    acceptable_evidence = Column(Text, nullable=True)  # Description of acceptable evidence
+    result_format = Column(String(50), nullable=True)  # "True/False", "Text", or "Number"
+    result_true_if = Column(Text, nullable=True)  # Description of true condition (for bool)
+    result_false_if = Column(Text, nullable=True)  # Description of false condition (for bool)
+    result_number_value = Column(Text, nullable=True)  # Description of number value (for int)
+    result_text_value = Column(Text, nullable=True)  # Description of text value (for str)
+    date_added = Column(DateTime, default=datetime.utcnow)
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    project = relationship("Project", back_populates="enrichments")
