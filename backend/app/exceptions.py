@@ -89,3 +89,30 @@ class ExternalScraperError(Exception):
 class OpenAITokenLimitExceededError(Exception):
     """Raised when OpenAI request exceeds token limit even after truncation attempts"""
     pass
+
+# =========================
+# Enrichment domain errors
+# =========================
+
+class EnrichmentError(Exception):
+    """Base exception for enrichment-related errors"""
+    def __init__(self, message: str):
+        super().__init__(message)
+
+class DuplicateEnrichmentNameError(EnrichmentError):
+    """Raised when trying to create an enrichment with a name that already exists"""
+    def __init__(self, enrichment_name: str):
+        message = f"Enrichment name '{enrichment_name}' already exists"
+        super().__init__(message)
+
+class DuplicateColumnNameError(EnrichmentError):
+    """Raised when trying to create an enrichment with a column name that already exists"""
+    def __init__(self, column_name: str):
+        message = f"Column name '{column_name}' already exists"
+        super().__init__(message)
+
+class EnrichmentNotFoundError(EnrichmentError):
+    """Raised when an enrichment is not found"""
+    def __init__(self, enrichment_id: int):
+        message = f"Enrichment with ID {enrichment_id} not found"
+        super().__init__(message)
