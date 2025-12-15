@@ -5,15 +5,13 @@ Jina Scrapers
 
 Note: They all cache content.
 """
-import requests
-import json
-import ast
 import re
 import unicodedata
 import httpx
 import asyncio
 
 from ..config import settings
+from ..exceptions import ExternalScraperError
 
 def clean_content(content: str) -> str:
     """
@@ -72,19 +70,20 @@ async def jina_url_scraper(url: str) -> str:
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.get(url, headers=headers)
+                response.raise_for_status()
                 raw_content = response.text
             # Clean the scraped content
             cleaned_content = clean_content(raw_content)
             return cleaned_content
-        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException) as e:
+        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as e:
             if attempt < max_retries - 1:
                 # Exponential backoff: wait 2^attempt seconds
                 wait_time = 2 ** attempt
                 await asyncio.sleep(wait_time)
                 continue
             else:
-                # Last attempt failed, raise the exception
-                raise
+                # Last attempt failed, raise ExternalScraperError
+                raise ExternalScraperError(f"Jina URL scraper failed after {max_retries} attempts: {str(e)}") from e
 
 async def jina_serp_scraper(search_phrase:str) -> list[dict]:
     url = 'https://s.jina.ai/'
@@ -104,16 +103,18 @@ async def jina_serp_scraper(search_phrase:str) -> list[dict]:
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.get(url, params=params, headers=headers)
-                return ast.literal_eval(response.text)['data'] # convert to dict then extract data
-        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException) as e:
+                response.raise_for_status()
+                json_data = response.json()
+                return json_data['data']  # Parse JSON and extract data
+        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as e:
             if attempt < max_retries - 1:
                 # Exponential backoff: wait 2^attempt seconds
                 wait_time = 2 ** attempt
                 await asyncio.sleep(wait_time)
                 continue
             else:
-                # Last attempt failed, raise the exception
-                raise 
+                # Last attempt failed, raise ExternalScraperError
+                raise ExternalScraperError(f"Jina SERP scraper failed after {max_retries} attempts: {str(e)}") from e 
 
 if __name__ == "__main__":
     from pprint import pprint
