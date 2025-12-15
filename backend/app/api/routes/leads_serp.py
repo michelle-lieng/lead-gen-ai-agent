@@ -1,9 +1,14 @@
 """
 Query endpoints
 """
+import logging
 from fastapi import APIRouter, HTTPException, Response
+import openai
 
 from ...services.leads_serp_service import leads_serp_service
+from ...exceptions import ExternalScraperError, UrlNotFoundError, DuplicateUrlError, OpenAITokenLimitExceededError, ProjectNotFoundError, InvalidProjectConfigurationError, DatabaseFailureError
+
+logger = logging.getLogger(__name__)
 
 from ...models.schemas import QueryListRequest, QueryGenerationRequest, UrlCreate, UrlUpdate
 
@@ -26,11 +31,11 @@ async def generate_queries(
     try:
         query_list = leads_serp_service.generate_search_queries_for_project(project_id, num_queries=request.num_queries)
         return query_list
-    except ValueError as e:
-        # Handle project not found (ValueError from service)
+    except ProjectNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating queries: {str(e)}")
+        logger.exception(f"Error generating queries: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/projects/{project_id}/urls")
 async def generate_urls(project_id: int, request: QueryListRequest):
@@ -44,11 +49,17 @@ async def generate_urls(project_id: int, request: QueryListRequest):
     try:
         result = await leads_serp_service.save_queries_and_generate_urls(project_id, request.queries)
         return result
-    except ValueError as e:
-        # Handle specific validation errors (like foreign key violations)
-        raise HTTPException(status_code=400, detail=str(e))
+    except ProjectNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ExternalScraperError as e:
+        # External scraper API failed (already retried in scraper)
+        raise HTTPException(status_code=502, detail=f"External scraper service error: {str(e)}")
+    except DatabaseFailureError as e:
+        logger.exception(f"Database error saving queries and generating URLs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error saving queries: {str(e)}")
+        logger.exception(f"Error saving queries and generating URLs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/projects/{project_id}/urls")
 async def get_urls(project_id: int):
@@ -58,10 +69,12 @@ async def get_urls(project_id: int):
     try:
         urls = leads_serp_service.get_urls(project_id)
         return urls
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except DatabaseFailureError as e:
+        logger.exception(f"Database error fetching URLs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching URLs: {str(e)}")
+        logger.exception(f"Error fetching URLs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/projects/{project_id}/urls/create")
 async def create_url(project_id: int, url_data: UrlCreate):
@@ -76,10 +89,14 @@ async def create_url(project_id: int, url_data: UrlCreate):
             snippet=url_data.snippet
         )
         return result
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except DuplicateUrlError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except DatabaseFailureError as e:
+        logger.exception(f"Database error creating URL: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating URL: {str(e)}")
+        logger.exception(f"Error creating URL: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.put("/projects/{project_id}/urls/{url_id}")
 async def update_url(project_id: int, url_id: int, update: UrlUpdate):
@@ -95,10 +112,16 @@ async def update_url(project_id: int, url_id: int, update: UrlUpdate):
             link=update.link
         )
         return result
-    except ValueError as e:
+    except DuplicateUrlError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except UrlNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except DatabaseFailureError as e:
+        logger.exception(f"Database error updating URL: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating URL: {str(e)}")
+        logger.exception(f"Error updating URL: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.delete("/projects/{project_id}/urls/{url_id}")
 async def delete_url(project_id: int, url_id: int):
@@ -108,10 +131,14 @@ async def delete_url(project_id: int, url_id: int):
     try:
         result = leads_serp_service.delete_url(project_id=project_id, url_id=url_id)
         return result
-    except ValueError as e:
+    except UrlNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except DatabaseFailureError as e:
+        logger.exception(f"Database error deleting URL: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting URL: {str(e)}")
+        logger.exception(f"Error deleting URL: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/projects/{project_id}/leads")
 async def generate_leads(project_id: int):
@@ -126,11 +153,25 @@ async def generate_leads(project_id: int):
         result = await leads_serp_service.extract_and_add_leads_to_table(project_id)
 
         return result
-    except ValueError as e:
-        # Handle specific validation errors (like foreign key violations)
+    except ProjectNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except InvalidProjectConfigurationError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except ExternalScraperError as e:
+        # External scraper API failed (already retried in scraper)
+        raise HTTPException(status_code=502, detail=f"External scraper service error: {str(e)}")
+    except OpenAITokenLimitExceededError as e:
+        # OpenAI request too large even after truncation
+        raise HTTPException(status_code=413, detail=str(e))
+    except openai.APIError as e:
+        # All OpenAI API errors (server down, auth issues, etc.) - service layer already handles retries
+        raise HTTPException(status_code=502, detail=f"OpenAI service error: {str(e)}")
+    except DatabaseFailureError as e:
+        logger.exception(f"Database error extracting leads: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error saving queries: {str(e)}")
+        logger.exception(f"Error extracting leads: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/projects/{project_id}/leads/download")
 async def get_latest_run_results(project_id: int):
@@ -142,6 +183,10 @@ async def get_latest_run_results(project_id: int):
     try:
         zip_bytes, filename = leads_serp_service.export_all_data_as_zip(project_id)
         
+        # No data available - return 204 No Content
+        if zip_bytes is None:
+            return Response(status_code=204)
+        
         return Response(
             content=zip_bytes,
             media_type="application/zip",
@@ -149,9 +194,11 @@ async def get_latest_run_results(project_id: int):
                 "Content-Disposition": f"attachment; filename={filename}"
             }
         )
-        
-    except ValueError as e:
-        # Handle "no data" or "project not found" errors
+    except ProjectNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except DatabaseFailureError as e:
+        logger.exception(f"Database error downloading data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error downloading data: {str(e)}")
+        logger.exception(f"Error downloading data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")

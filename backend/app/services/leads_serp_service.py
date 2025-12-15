@@ -4,8 +4,7 @@ Lead generation from search using AI-powered query generation
 """
 import logging
 import asyncio
-import traceback
-from openai import OpenAI
+import openai
 import csv
 from io import StringIO, BytesIO
 from datetime import datetime
@@ -14,10 +13,12 @@ import zipfile
 from agents import Agent, Runner, set_default_openai_key
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import func, distinct
+from sqlalchemy.exc import SQLAlchemyError
 
 from .database_service import db_service
 from .project_service import project_service
 from .merged_results_service import merged_results_service
+from ..exceptions import ProjectNotFoundError, DatabaseFailureError, InvalidProjectConfigurationError, ApiKeyNotConfiguredError, ExternalScraperError, UrlNotFoundError, DuplicateUrlError, OpenAITokenLimitExceededError
 
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..utils.lead_utils import normalize_lead_name
@@ -39,8 +40,8 @@ class LeadsSerpService:
         """Initialise leads from search service with database service"""
         # Initialize OpenAI client once
         if not settings.openai_api_key:
-            raise ValueError("OpenAI API key not configured")
-        self.openai_client = OpenAI(api_key=settings.openai_api_key)
+            raise ApiKeyNotConfiguredError("OpenAI API key not configured")
+        self.openai_client = openai.OpenAI(api_key=settings.openai_api_key)
 
         # for openai agents sdk
         set_default_openai_key(settings.openai_api_key)
@@ -64,7 +65,7 @@ class LeadsSerpService:
             list[str]: List of generated search queries
         
         Raises:
-            ValueError: If project with project_id does not exist
+            ProjectNotFoundError: If project with project_id does not exist
         """
         project = project_service.get_project(project_id)
 
@@ -125,34 +126,27 @@ class LeadsSerpService:
                 
                 logger.info(f"Uploaded {total_queries} queries to serp_queries table")
                 return True
-                
-        except Exception as e:
-            logger.error(f"❌ Error saving queries to database: {str(e)}")
-            # Check if it's a foreign key violation
-            if "ForeignKeyViolation" in str(e):
-                raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
-            raise
+        except SQLAlchemyError as e:
+            logger.exception(f"❌ Error saving queries to database")
+            raise DatabaseFailureError("Failed to save queries to database") from e
 
     async def _process_query(self, query: str, project_id: int) -> list[dict]:
         """Process a single query with semaphore protection for API calls"""
         async with self.serp_scraper_semaphore:
-            try:
-                serp_object = await jina_serp_scraper(query)  # Protected by serp_scraper_semaphore
-                query_urls = []
-                for serp_result in serp_object:
-                    link = serp_result.get('url')
-                    if link:
-                        query_urls.append({
-                            'project_id': project_id,
-                            'query': query,
-                            'title': serp_result.get('title'),
-                            'link': link,
-                            'snippet': serp_result.get('description')
-                        })
-                return query_urls
-            except Exception as e:
-                logger.error(f"❌ Error processing query '{query}': {str(e)}")
-                return []
+            serp_object = await jina_serp_scraper(query)  # Protected by serp_scraper_semaphore
+            # ExternalScraperError will propagate to caller (caught in _generate_and_add_urls_to_table)
+            query_urls = []
+            for serp_result in serp_object:
+                link = serp_result.get('url')
+                if link:
+                    query_urls.append({
+                        'project_id': project_id,
+                        'query': query,
+                        'title': serp_result.get('title'),
+                        'link': link,
+                        'snippet': serp_result.get('description')
+                    })
+            return query_urls
 
     async def _generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> dict:
         """
@@ -165,6 +159,7 @@ class LeadsSerpService:
         try:
             with db_service.get_session() as session:
                 # Process all queries in parallel using asyncio
+                # ExternalScraperError from _process_query will propagate to caller
                 tasks = [self._process_query(query, project_id) for query in queries]
                 results = await asyncio.gather(*tasks)
                 
@@ -208,13 +203,9 @@ class LeadsSerpService:
                 "queries_processed": len(queries),
                 "message": f"Successfully added {len(all_urls)} URLs from {len(queries)} search queries"
             }
-                
-        except Exception as e:
-            logger.error(f"❌ Error generating and saving URLs to database: {str(e)}")
-            # Check if it's a foreign key violation
-            if "ForeignKeyViolation" in str(e):
-                raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
-            raise
+        except SQLAlchemyError as e:
+            logger.exception(f"❌ Error generating and saving URLs to database")
+            raise DatabaseFailureError("Failed to generate and save URLs to database") from e
 
     async def save_queries_and_generate_urls(self, project_id: int, queries: list[str]) -> dict:
         """
@@ -233,7 +224,8 @@ class LeadsSerpService:
                 - message: str with summary message
         
         Raises:
-            ValueError: If project does not exist or validation fails
+            ProjectNotFoundError: If project does not exist
+            DatabaseFailureError: If database operation fails
         """
         # Step 1: Save queries to database
         queries_saved = self._add_queries_to_table(project_id, queries)
@@ -261,7 +253,7 @@ class LeadsSerpService:
                        snippet, website_scraped, status, created_at (only URLs with status="unprocessed")
                        
         Raises:
-            ValueError: If project does not exist
+            DatabaseFailureError: If database operation fails
         """
         try:
             with db_service.get_session() as session:
@@ -284,9 +276,9 @@ class LeadsSerpService:
                     }
                     for url in urls
                 ]
-        except Exception as e:
-            logger.error(f"Error fetching URLs for project {project_id}: {str(e)}")
-            raise
+        except SQLAlchemyError as e:
+            logger.exception(f"Error fetching URLs for project {project_id}")
+            raise DatabaseFailureError("Failed to fetch URLs") from e
 
     def create_url(self, project_id: int, link: str, title: str = None, snippet: str = None) -> dict:
         """
@@ -302,7 +294,8 @@ class LeadsSerpService:
             dict: Contains success status, message, and created URL data
             
         Raises:
-            ValueError: If URL already exists in this project or project does not exist
+            DuplicateUrlError: If URL already exists in this project
+            DatabaseFailureError: If database operation fails
         """
         try:
             with db_service.get_session() as session:
@@ -313,7 +306,7 @@ class LeadsSerpService:
                 ).first()
                 
                 if existing:
-                    raise ValueError(f"URL already exists in this project: {link}")
+                    raise DuplicateUrlError(link, project_id)
                 
                 # Create new URL
                 # Query is automatically set to "Manual Entry" for manually created URLs
@@ -345,11 +338,9 @@ class LeadsSerpService:
                         "status": new_url.status
                     }
                 }
-        except ValueError:
-            raise
-        except Exception as e:
-            logger.error(f"Error creating URL for project {project_id}: {str(e)}")
-            raise
+        except SQLAlchemyError as e:
+            logger.exception(f"Error creating URL for project {project_id}")
+            raise DatabaseFailureError("Failed to create URL") from e
 
     def update_url(self, project_id: int, url_id: int, title: str = None, snippet: str = None, link: str = None) -> dict:
         """
@@ -366,7 +357,8 @@ class LeadsSerpService:
             dict: Contains success status, message, and updated URL data
             
         Raises:
-            ValueError: If URL not found
+            UrlNotFoundError: If URL not found
+            DatabaseFailureError: If database operation fails
         """
         try:
             with db_service.get_session() as session:
@@ -376,7 +368,7 @@ class LeadsSerpService:
                 ).first()
                 
                 if not url:
-                    raise ValueError("URL not found")
+                    raise UrlNotFoundError(url_id, project_id)
                 
                 # Update fields if provided
                 if title is not None:
@@ -392,7 +384,7 @@ class LeadsSerpService:
                     ).first()
                     
                     if existing:
-                        raise ValueError(f"URL already exists in this project: {link}")
+                        raise DuplicateUrlError(link, project_id)
                     
                     url.link = link
                 
@@ -413,11 +405,9 @@ class LeadsSerpService:
                         "status": url.status
                     }
                 }
-        except ValueError:
-            raise
-        except Exception as e:
-            logger.error(f"Error updating URL {url_id} for project {project_id}: {str(e)}")
-            raise
+        except SQLAlchemyError as e:
+            logger.exception(f"Error updating URL {url_id} for project {project_id}")
+            raise DatabaseFailureError("Failed to update URL") from e
 
     def delete_url(self, project_id: int, url_id: int) -> dict:
         """
@@ -431,32 +421,18 @@ class LeadsSerpService:
             dict: Contains success status and message
             
         Raises:
-            ValueError: If URL not found
+            UrlNotFoundError: If URL not found
+            DatabaseFailureError: If database operation fails
         """
         try:
             with db_service.get_session() as session:
-                # Debug: Check if URL exists at all (any project)
-                url_any_project = session.query(SerpUrl).filter(SerpUrl.id == url_id).first()
-                # Debug: Check if URL exists for this project
                 url = session.query(SerpUrl).filter(
                     SerpUrl.id == url_id,
                     SerpUrl.project_id == project_id
                 ).first()
                 
                 if not url:
-                    # Enhanced error message with debug info
-                    if url_any_project:
-                        raise ValueError(f"URL {url_id} exists but belongs to project {url_any_project.project_id}, not project {project_id}")
-                    else:
-                        # Check all URLs for this project to see what IDs exist
-                        all_urls = session.query(SerpUrl.id, SerpUrl.status).filter(
-                            SerpUrl.project_id == project_id
-                        ).all()
-                        existing_ids = [u.id for u in all_urls]
-                        logger.error(f"URL {url_id} not found for project {project_id}. Existing URL IDs: {existing_ids[:20]}")  # Log first 20
-                        # Include debug info in error message so it shows in API response
-                        existing_ids_str = str(existing_ids[:20]) if existing_ids else "none"
-                        raise ValueError(f"URL {url_id} not found for project {project_id}. Existing URL IDs for this project: {existing_ids_str}")
+                    raise UrlNotFoundError(url_id, project_id)
                 
                 session.delete(url)
                 session.commit()
@@ -467,11 +443,9 @@ class LeadsSerpService:
                     "success": True,
                     "message": "URL deleted successfully"
                 }
-        except ValueError:
-            raise
-        except Exception as e:
-            logger.error(f"Error deleting URL {url_id} for project {project_id}: {str(e)}")
-            raise
+        except SQLAlchemyError as e:
+            logger.exception(f"Error deleting URL {url_id} for project {project_id}")
+            raise DatabaseFailureError("Failed to delete URL") from e
 
     def _truncate_by_word_count(self, text: str, max_words: int) -> str:
         """
@@ -493,99 +467,124 @@ class LeadsSerpService:
         truncated_words = words[:max_words]
         return ' '.join(truncated_words) + "\n\n[Content truncated due to token limit]"
 
-    async def _lead_extractor(self, query, title, snippet, url, lead_minimum_criteria: str) -> tuple[list, str | None]:
-        """
-        Extract leads from a search result by always scraping the URL first, then passing
-        the scraped content to the LLM for extraction.
+    async def _process_url_and_extract_lead(self, url_data: dict, lead_minimum_criteria: str) -> dict:
+        """Process a single URL and return result (using plain dict, not ORM object)"""
+        url = url_data['link']
+        query = url_data['query']
+        title = url_data['title']
+        snippet = url_data['snippet']
         
-        Args:
-            query: Search query
-            title: Search result title
-            snippet: Search result snippet
-            url: URL to scrape
-            lead_minimum_criteria: Required criteria that leads must meet (e.g., "Pilling company")
-        """
-        # Always scrape the URL first - protected by url_scraper_semaphore
-        logger.info(f"Scraping URL: {url}")
-        async with self.url_scraper_semaphore:
-            scraped_content = await jina_url_scraper(url)
+        try:
+            logger.info(f"Processing URL: {url}")
+            
+            # Always scrape the URL first - protected by url_scraper_semaphore
+            logger.info(f"Scraping URL: {url}")
+            async with self.url_scraper_semaphore:
+                scraped_content = await jina_url_scraper(url)
 
-        # Format prompt with criteria
-        extraction_prompt = SERP_EXTRACTION_PROMPT.format(lead_minimum_criteria=lead_minimum_criteria)
-        
-        # Create agent without tools (no tool calls needed)
-        agent = Agent(
-            name="Lead Generator",
-            instructions=extraction_prompt,
-            tools=[],  # No tools - we always scrape first
-            output_type=list[str], # Specify the output type as a list of strings
-        )
-        
-        # Build input with scraped content included
-        # Track original scraped content for return value
-        original_scraped_content = scraped_content
-        # Start with full content, will truncate only if error occurs
-        current_scraped_content = scraped_content if scraped_content else "No content available"
-        
-        # Run the agent with scraped content already in the input - protected by llm_semaphore
-        # Retry logic: 3 retries max, parse wait time from error message
-        max_retries = 3
-        default_wait_time = 10.0  # Fallback if we can't parse the time
-        
-        for attempt in range(max_retries):
-            # Build input text with current (possibly truncated) scraped content
-            input_text = f"""
-                Search Result:
-                Query: {query}
-                Title: {title}
-                Snippet: {snippet}
-                URL: {url}
+            # Format prompt with criteria
+            extraction_prompt = SERP_EXTRACTION_PROMPT.format(lead_minimum_criteria=lead_minimum_criteria)
+            
+            # Create agent without tools (no tool calls needed)
+            agent = Agent(
+                name="Lead Generator",
+                instructions=extraction_prompt,
+                tools=[],  # No tools - we always scrape first
+                output_type=list[str], # Specify the output type as a list of strings
+            )
+            
+            # Track original scraped content for return value
+            original_scraped_content = scraped_content
+            # Start with full content, will truncate only if error occurs
+            current_scraped_content = scraped_content if scraped_content else "No content available"
+            
+            # Run the agent with scraped content already in the input - protected by llm_semaphore
+            # Retry logic: 3 retries max, parse wait time from error message
+            max_retries = 3
+            default_wait_time = 10.0  # Fallback if we can't parse the time
+            
+            leads = []
+            for attempt in range(max_retries):
+                # Build input text with current (possibly truncated) scraped content
+                input_text = f"""
+                    Search Result:
+                    Query: {query}
+                    Title: {title}
+                    Snippet: {snippet}
+                    URL: {url}
 
-                Scraped Content:
-                {current_scraped_content}
-                """
-            try:
-                async with self.llm_semaphore:
-                    result = await Runner.run(agent, input=input_text)
-                
-                logger.info(f"Final output (company names): {result.final_output}")
-                # enforce list type for leads
-                leads = result.final_output
-                return leads, original_scraped_content  # Return original, not truncated
-                
-            except Exception as e:
-                # Check if it's a rate limit error
-                error_str = str(e)
-                error_lower = error_str.lower()
-                is_rate_limit = (
-                    "429" in error_str or
-                    "rate limit" in error_lower or
-                    "rate_limit" in error_lower or
-                    "rate_limit_exceeded" in error_lower
-                )
-                
-                # Check if it's a "request too large" error (truncate and retry)
-                is_request_too_large = (
-                    "request too large" in error_lower or
-                    "tokens must be reduced" in error_lower
-                )
-                
-                # Check if it's a timeout error (from LLM, not scraper)
-                is_timeout = (
-                    "timeout" in error_lower or
-                    "readtimeout" in error_lower or
-                    isinstance(e, (TimeoutError,))
-                )
-                
-                # Handle "request too large" errors - truncate content and retry
-                if is_request_too_large and attempt < max_retries - 1:
-                    # OpenAI TPM limit: 30,000 tokens
-                    # ~1.3 tokens per word → 30,000 tokens ≈ 23,000 words
-                    # But need to leave room for prompt, instructions, and output
-                    # Safe target: 15,000 words (≈20,000 tokens) for scraped content
-                    max_words = 10000
+                    Scraped Content:
+                    {current_scraped_content}
+                    """
+                try:
+                    async with self.llm_semaphore:
+                        result = await Runner.run(agent, input=input_text)
                     
-                    if isinstance(current_scraped_content, str):
+                    logger.info(f"Final output (company names): {result.final_output}")
+                    # enforce list type for leads
+                    leads = result.final_output
+                    scraped_content = original_scraped_content  # Use original, not truncated
+                    break  # Success, exit retry loop
+
+                except (TimeoutError, openai.APITimeoutError) as e:
+                    # Timeout errors from OpenAI API (not scraper)
+                    if attempt < max_retries - 1:
+                        wait_time = min(2.0 * (2 ** attempt), 30.0)  # Exponential backoff: 2s, 4s, 8s (max 30s)
+                        logger.warning(
+                            f"⚠️ Timeout error for {url} (attempt {attempt + 1}/{max_retries}). "
+                            f"Waiting {wait_time:.1f}s before retry..."
+                        )
+                        await asyncio.sleep(wait_time)
+                        continue
+                    else:
+                        raise
+                except openai.RateLimitError as e:
+                    # Rate limit errors - retry with parsed wait time
+                    if attempt < max_retries - 1:
+                        error_str = str(e)
+                        wait_time = default_wait_time
+                        # Try to parse the retry time from the error message
+                        retry_time_match = re.search(r'Please try again in ([\d.]+)s', error_str, re.IGNORECASE)
+                        if retry_time_match:
+                            try:
+                                parsed_time = float(retry_time_match.group(1))
+                                wait_time = max(parsed_time + 1.0, 2.0)  # Minimum 2 seconds
+                            except ValueError:
+                                # Invalid float format (e.g., "1.2.3"), use default
+                                pass  # wait_time already set to default_wait_time
+                        else:
+                            # Try to match milliseconds
+                            retry_time_match = re.search(r'Please try again in ([\d.]+)ms', error_str, re.IGNORECASE)
+                            if retry_time_match:
+                                try:
+                                    parsed_time_ms = float(retry_time_match.group(1))
+                                    parsed_time = parsed_time_ms / 1000.0
+                                    wait_time = max(parsed_time + 1.0, 2.0)
+                                except ValueError:
+                                    # Invalid float format, use default
+                                    pass  # wait_time already set to default_wait_time
+                        
+                        logger.warning(
+                            f"⚠️ Rate limit error for {url} (attempt {attempt + 1}/{max_retries}). "
+                            f"Waiting {wait_time:.1f}s before retry..."
+                        )
+                        await asyncio.sleep(wait_time)
+                        continue
+                    else:
+                        raise
+                except openai.BadRequestError as e:
+                    # Check if it's a "request too large" error (truncate and retry)
+                    error_str = str(e)
+                    error_lower = error_str.lower()
+                    is_request_too_large = (
+                        "request too large" in error_lower or
+                        "tokens must be reduced" in error_lower or
+                        "maximum context length" in error_lower or
+                        "token limit" in error_lower
+                    )
+                    
+                    if is_request_too_large and attempt < max_retries - 1:
+                        max_words = 10000
                         word_count = len(current_scraped_content.split())
                         if word_count > max_words:
                             current_scraped_content = self._truncate_by_word_count(current_scraped_content, max_words)
@@ -593,105 +592,21 @@ class LeadsSerpService:
                                 f"⚠️ Request too large for {url} (attempt {attempt + 1}/{max_retries}). "
                                 f"Truncating from {word_count} words to {max_words} words and retrying..."
                             )
-                            await asyncio.sleep(1.0)  # Brief pause before retry
+                            await asyncio.sleep(1.0)
                             continue
                         else:
                             # Already at or below limit, can't truncate further
                             logger.error(
                                 f"❌ Request too large for {url} even with {word_count} words. "
-                                f"Error: {error_str[:200]}"
+                                f"Error: {error_str}"
                             )
-                            raise ValueError(f"Request too large: input exceeds token limit even after truncation. {error_str[:200]}")
+                            raise OpenAITokenLimitExceededError(f"Request too large: input exceeds token limit even after truncation. {error_str}")
                     else:
-                        logger.error(
-                            f"❌ Request too large for {url} - invalid content type. "
-                            f"Error: {error_str[:200]}"
-                        )
-                        raise ValueError(f"Request too large: {error_str[:200]}")
-                
-                # Handle timeout errors - retry with exponential backoff
-                if is_timeout and attempt < max_retries - 1:
-                    wait_time = min(2.0 * (2 ** attempt), 30.0)  # Exponential backoff: 2s, 4s, 8s (max 30s)
-                    logger.warning(
-                        f"⚠️ Timeout error for {url} (attempt {attempt + 1}/{max_retries}). "
-                        f"Waiting {wait_time:.1f}s before retry..."
-                    )
-                    await asyncio.sleep(wait_time)
-                    continue
-                
-                # Handle regular rate limit errors
-                if is_rate_limit and attempt < max_retries - 1:
-                    # Try to parse the retry time from the error message
-                    # Format: "Please try again in X.XXXs" or "Please try again in Xms"
-                    wait_time = default_wait_time
-                    # Try to match seconds first (e.g., "15.981s" or "15s")
-                    retry_time_match = re.search(r'Please try again in ([\d.]+)s', error_str, re.IGNORECASE)
-                    if retry_time_match:
-                        try:
-                            parsed_time = float(retry_time_match.group(1))
-                            # Add a small buffer (1 second) to be safe
-                            wait_time = max(parsed_time + 1.0, 2.0)  # Minimum 2 seconds
-                        except (ValueError, AttributeError):
-                            # If parsing fails, use default
-                            pass
-                    else:
-                        # Try to match milliseconds (e.g., "446ms")
-                        retry_time_match = re.search(r'Please try again in ([\d.]+)ms', error_str, re.IGNORECASE)
-                        if retry_time_match:
-                            try:
-                                parsed_time_ms = float(retry_time_match.group(1))
-                                # Convert milliseconds to seconds and add buffer
-                                parsed_time = parsed_time_ms / 1000.0
-                                wait_time = max(parsed_time + 1.0, 2.0)  # Minimum 2 seconds
-                            except (ValueError, AttributeError):
-                                # If parsing fails, use default
-                                pass
-                    
-                    logger.warning(
-                        f"⚠️ Rate limit error for {url} (attempt {attempt + 1}/{max_retries}). "
-                        f"Waiting {wait_time:.1f}s before retry..."
-                    )
-                    await asyncio.sleep(wait_time)
-                    continue
-                else:
-                    # Not a rate limit error, or max retries reached
-                    raise
-
-    async def _process_url(self, url_data: dict, lead_minimum_criteria: str) -> dict:
-        """Process a single URL and return result (using plain dict, not ORM object)"""
-        try:
-            logger.info(f"Processing URL: {url_data['link']}")
-            
-            # Extract leads using the _lead_extractor method
-            # Note: semaphore protection is inside _lead_extractor for each API call
-            leads = []
-            scraped_content = None
-            try:
-                leads, scraped_content = await self._lead_extractor(
-                    query=url_data['query'],
-                    title=url_data['title'],
-                    snippet=url_data['snippet'],
-                    url=url_data['link'],
-                    lead_minimum_criteria=lead_minimum_criteria
-                )
-            except Exception as extract_error:
-                # Extraction failed - log but continue processing
-                error_traceback = traceback.format_exc()
-                logger.error(f"❌ Extraction error for {url_data['link']}: {str(extract_error)}\n{error_traceback}")
-                return {
-                    'url_id': url_data['id'],
-                    'url': url_data['link'],
-                    'title': url_data['title'],
-                    'query': url_data['query'],
-                    'snippet': url_data['snippet'],
-                    'leads': [],
-                    'scraped_content': None,
-                    'status': 'failed',
-                    'error': str(extract_error)
-                }
+                        # Not a "request too large" error, or max retries reached
+                        raise
             
             # Clean up leads - handle AI returning ['[]'] or similar
-            if leads and isinstance(leads, list):
+            if leads:
                 # Remove any strings that look like empty lists or invalid entries
                 cleaned_leads = []
                 for lead in leads:
@@ -707,7 +622,7 @@ class LeadsSerpService:
                 logger.info(f"Cleaned leads: {leads}")
             
             # Determine status based on results
-            if leads and isinstance(leads, list) and len(leads) > 0:
+            if leads:
                 status = "processed"
             else:
                 status = "skip"
@@ -719,16 +634,19 @@ class LeadsSerpService:
                 'title': url_data['title'],
                 'query': url_data['query'],
                 'snippet': url_data['snippet'],
-                'leads': leads if leads else [],
+                'leads': leads,
                 'scraped_content': scraped_content,
                 'status': status,
                 'error': None
             }
             
-        except Exception as e:
-            # Unexpected error - log and return failed status
-            error_traceback = traceback.format_exc()
-            logger.error(f"❌ Unexpected error processing {url_data['link']}: {str(e)}\n{error_traceback}")
+        except (ExternalScraperError, OpenAITokenLimitExceededError, TimeoutError, openai.APITimeoutError, openai.RateLimitError, openai.BadRequestError) as e:
+            # External API errors only: scraper failures, retryable OpenAI errors, timeouts
+            # OpenAITokenLimitExceededError is raised by our code for "request too large" that can't be truncated
+            # Note: Non-retryable OpenAI errors are NOT caught - let them propagate to route layer:
+            #   - openai.APIError: base class
+            # Note: Programming errors (KeyError, TypeError, etc.) are NOT caught - they should propagate
+            logger.exception(f"❌ Error processing {url_data['link']}")
             return {
                 'url_id': url_data['id'],
                 'url': url_data['link'],
@@ -745,22 +663,27 @@ class LeadsSerpService:
         """
         Process unprocessed URLs from serp_urls table:
         1. Get all URLs with status="unprocessed" for the project
-        2. Extract leads using _lead_extractor (in parallel)
+        2. Extract leads using _process_url_and_extract_lead (in parallel)
         3. Update website_scraped column with scraped content
         4. Update status based on results:
            - "processed" if leads found
            - "skip" if no leads found (empty list)
            - "failed" if extraction or saving failed
         5. Save extracted leads to serp_leads table
+        
+        Raises:
+            ProjectNotFoundError: If project does not exist
+            InvalidProjectConfigurationError: If lead_minimum_criteria is not set
+            DatabaseFailureError: If database operation fails
         """
         try:
             with db_service.get_session() as session:
                 # Step 0: Get project to retrieve lead_minimum_criteria
-                project = project_service.get_project(project_id)
-                lead_minimum_criteria = project.lead_minimum_criteria if project else None
+                project = project_service.get_project(project_id)  # Raises ProjectNotFoundError if not found
+                lead_minimum_criteria = project.lead_minimum_criteria
                 
                 if not lead_minimum_criteria or not lead_minimum_criteria.strip():
-                    raise ValueError(f"Project {project_id} does not have lead_minimum_criteria set. Please set it before extracting leads.")
+                    raise InvalidProjectConfigurationError("Project does not have lead_minimum_criteria set. Please set it before extracting leads.")
                 
                 logger.info(f"Using lead minimum criteria for project {project_id}: {lead_minimum_criteria}")
                 
@@ -798,7 +721,7 @@ class LeadsSerpService:
                 
                 # Step 2: Process URLs in parallel using asyncio
                 # Process all URLs concurrently
-                tasks = [self._process_url(url_data, lead_minimum_criteria) for url_data in url_data_list]
+                tasks = [self._process_url_and_extract_lead(url_data, lead_minimum_criteria) for url_data in url_data_list]
                 results = await asyncio.gather(*tasks)
                 
                 # Step 3: Process results and update database (query fresh ORM objects by ID)
@@ -860,9 +783,9 @@ class LeadsSerpService:
                                 new_leads_count += 1
                             
                             logger.info(f"✅ Extracted {len(leads)} leads from {result['url']}")
-                        except Exception as save_error:
+                        except SQLAlchemyError as save_error:
                             # Failed to save leads - log but continue
-                            logger.error(f"❌ Failed to save leads for {result['url']}: {str(save_error)}")
+                            logger.exception(f"❌ Failed to save leads for {result['url']}")
                             url_record.status = "failed"
                             failed_count += 1
                             processed_count -= 1  # Adjust count
@@ -900,23 +823,15 @@ class LeadsSerpService:
                 logger.info(f"   - New leads extracted: {new_leads_count}")
                 
                 # Transform leads to aggregated format after extraction
-                try:
-                    aggregation_result = self._transform_leads_to_aggregated(project_id)
-                    logger.info(f"✅ Lead aggregation completed: {aggregation_result.get('message', '')}")
-                    
-                    # Merge aggregated leads into merged_results table
-                    try:
-                        merge_result = merged_results_service.merge_serp_leads(project_id)
-                        logger.info(f"✅ SERP leads merged: {merge_result.get('message', '')}")
-                        
-                        # Update project counts (including leads_collected from merged_results) after merge
-                        project_service.update_project_counts_from_db(project_id)
-                    except Exception as merge_error:
-                        # Log merge error but don't fail the whole extraction
-                        logger.warning(f"⚠️ SERP leads merge failed (extraction still succeeded): {str(merge_error)}")
-                except Exception as agg_error:
-                    # Log aggregation error but don't fail the whole extraction
-                    logger.warning(f"⚠️ Lead aggregation failed (extraction still succeeded): {str(agg_error)}")
+                aggregation_result = self._transform_leads_to_aggregated(project_id)
+                logger.info(f"✅ Lead aggregation completed: {aggregation_result.get('message', '')}")
+                
+                # Merge aggregated leads into merged_results table
+                merge_result = merged_results_service.merge_serp_leads(project_id)
+                logger.info(f"✅ SERP leads merged: {merge_result.get('message', '')}")
+                
+                # Update project counts (including leads_collected from merged_results) after merge
+                project_service.update_project_counts_from_db(project_id)
                                 
                 return {
                     "success": True,
@@ -928,14 +843,9 @@ class LeadsSerpService:
                     "extracted_leads": all_extracted_leads,  # Return detailed results for each URL
                     "message": f"Processed {processed_count} URLs, extracted {new_leads_count} new leads ({skipped_count} skipped, {failed_count} failed)"
                 }
-                
-        except Exception as e:
-            logger.error(f"❌ Error extracting leads from URLs: {str(e)}")
-            # Check if it's a foreign key violation
-            if "ForeignKeyViolation" in str(e):
-                raise ValueError(f"Project with ID {project_id} does not exist. Please create the project first.")
-            raise
-    
+        except SQLAlchemyError as e:
+            logger.exception(f"❌ Error extracting leads from URLs")
+            raise DatabaseFailureError("Failed to extract leads from URLs") from e
     
     def _transform_leads_to_aggregated(self, project_id: int) -> dict:
         """
@@ -951,10 +861,8 @@ class LeadsSerpService:
         """
         try:
             with db_service.get_session() as session:
-                # Validate project exists
-                project = session.query(Project).filter(Project.id == project_id).first()
-                if not project:
-                    raise ValueError(f"Project {project_id} not found")
+                # Validate project exists (raises ProjectNotFoundError if not found)
+                project_service.get_project(project_id)
                 
                 # Query all SerpLead records for this project and group by lead name
                 # Count distinct serp_url_ids for each lead (leads are already normalized)
@@ -1001,12 +909,9 @@ class LeadsSerpService:
                     "message": f"Successfully aggregated {leads_aggregated_count} unique leads"
                 }
                 
-        except ValueError as e:
-            # Re-raise validation errors
-            raise
-        except Exception as e:
-            logger.error(f"❌ Error transforming leads to aggregated format: {str(e)}")
-            raise Exception(f"Error transforming leads: {str(e)}")
+        except SQLAlchemyError as e:
+            logger.exception(f"❌ Error transforming leads to aggregated format")
+            raise DatabaseFailureError("Failed to transform leads to aggregated format") from e
     
     def _export_all_data_as_csv(self, project_id: int) -> dict:
         """
@@ -1100,11 +1005,11 @@ class LeadsSerpService:
             
             return {"csv_files": csv_files}
                 
-        except Exception as e:
-            logger.error(f"❌ Error exporting data as CSV: {str(e)}")
-            raise
+        except SQLAlchemyError as e:
+            logger.exception(f"❌ Error exporting data as CSV")
+            raise DatabaseFailureError("Failed to export data as CSV") from e
 
-    def export_all_data_as_zip(self, project_id: int) -> tuple[bytes, str]:
+    def export_all_data_as_zip(self, project_id: int) -> tuple[bytes | None, str | None]:
         """
         Export all project data as a ZIP file containing CSV files.
         
@@ -1115,21 +1020,21 @@ class LeadsSerpService:
             project_id: Project ID
         
         Returns:
-            tuple[bytes, str]: 
-                - zip_file_bytes: Binary content of the ZIP file
-                - filename: Suggested filename for download (e.g., "project_name_serp_lead_gen_20240101_120000.zip")
+            tuple[bytes | None, str | None]: 
+                - zip_file_bytes: Binary content of the ZIP file, or None if no data
+                - filename: Suggested filename for download, or None if no data
         
         Raises:
-            ValueError: If no data found for project or project doesn't exist
+            DatabaseFailureError: If database operation fails
         """
         try:
             # Step 1: Get CSV data using private method
             export_result = self._export_all_data_as_csv(project_id)
             csv_files = export_result.get("csv_files", {})
             
-            # Step 2: Validate that we have data
+            # Step 2: Check if we have data (not an error, just no data)
             if not csv_files:
-                raise ValueError("No data found for this project")
+                return None, None
             
             # Step 3: Generate timestamp for filename
             timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1159,41 +1064,9 @@ class LeadsSerpService:
             
             return zip_bytes, zip_filename
                 
-        except ValueError:
-            # Re-raise ValueError as-is (for "no data" or "project not found")
-            raise
-        except Exception as e:
-            logger.error(f"❌ Error exporting data as ZIP: {str(e)}")
-            raise
+        except SQLAlchemyError as e:
+            logger.exception(f"❌ Error exporting data as ZIP")
+            raise DatabaseFailureError("Failed to export data as ZIP") from e
 
 # Global project service instance
 leads_serp_service = LeadsSerpService()
-
-if __name__ == "__main__":
-    #print(leads_serp_service.generate_search_queries("Best sushi stores in Australia")[0])
-    #print(leads_serp_service.jina_serp_scrape("Best sushi stores in Australia")
-    #print(leads_serp_service._add_queries_to_table(3, ["What is a dog","Pizza?"]))
-    #print(leads_serp_service._generate_and_add_urls_to_table(2, ["Coles company greenwashing","Pizza?"]))
-    
-    # CASE 1: Easy company extraction
-    # query = "what are the top environmental corporates in australia"
-    # title = "Orica crowned Australia’s most sustainable company for Impact"
-    # snippet = "Orica's success this year follows Acconia, an infrastucture and renewable..."
-    # url = "https://www.afr.com/companies/mining/orica-crowned-australia-s-most-sustainable-company-for-impact-20240625-p5jojc"
-
-    # CASE 2: Need to scrape
-    # query = "what are the top environmental corporates in australia"
-    # title = "crowned Australia’s most sustainable company for Impact"
-    # snippet = "an infrastucture and renewable..."
-    # url = "https://www.afr.com/companies/mining/orica-crowned-australia-s-most-sustainable-company-for-impact-20240625-p5jojc"
-
-    # CASE 3: Should return empty list
-    # query = "what are the top environmental corporates in australia"
-    # title = "Top 14 Most Polluting Companies in 2023"
-    # url = "https://www.theecoexperts.co.uk"
-    # snippet = "5 June 2025 — The Top 10 Most Polluting Companies · 1. Saudi Aramco · 2. Chevron · 3. Gazprom · 4. ExxonMobil · 5. National Iranian Oil Company (NIOC) · 6. BP · 7."
-    # leads, scraped_content = asyncio.run(leads_serp_service._lead_extractor(query, title, snippet, url))
-    # print(leads)
-    
-    print(asyncio.run(leads_serp_service.extract_and_add_leads_to_table(3)))
-
