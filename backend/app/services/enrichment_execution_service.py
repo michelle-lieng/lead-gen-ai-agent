@@ -3,15 +3,17 @@ Enrichment Execution Service - Uses OpenAI Agent with SERP and Web Scraper tools
 to enrich company data based on user-defined fields.
 """
 import asyncio
+import re
 from typing import Literal, Optional
 from pydantic import Field, create_model
 from agents import Agent, Runner, function_tool, set_default_openai_key
 import logging
+import openai
 
 # Import existing Jina functions from utils
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..config import settings
-from ..exceptions import ApiKeyNotConfiguredError
+from ..exceptions import ApiKeyNotConfiguredError, OpenAITokenLimitExceededError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -33,6 +35,12 @@ class EnrichmentExecutionService:
         # Set up OpenAI API key if available
         if settings.openai_api_key:
             set_default_openai_key(settings.openai_api_key)
+        
+        # Separate semaphores for each API type since they have different rate limits
+        # and are used in different workflow stages
+        self.serp_scraper_semaphore = asyncio.Semaphore(15)  # For jina_serp_scraper (increased from 10)
+        self.url_scraper_semaphore = asyncio.Semaphore(15)    # For jina_url_scraper (increased from 10, Jina Reader API: 200 RPM)
+        self.llm_semaphore = asyncio.Semaphore(3)             # For Runner.run (OpenAI API, reduced from 12 due to TPM limits: 30K TPM)
     
     def _create_tools(self):
         """
@@ -53,7 +61,8 @@ class EnrichmentExecutionService:
             """
             self.jina_serp_calls += 1
             try:
-                results = await jina_serp_scraper(search_phrase)
+                async with self.serp_scraper_semaphore:
+                    results = await jina_serp_scraper(search_phrase)
                 logger.info(f"SERP search successful: {len(results)} results")
                 return results
             except Exception as e:
@@ -74,7 +83,8 @@ class EnrichmentExecutionService:
             """
             self.jina_url_calls += 1
             try:
-                content = await jina_url_scraper(url)
+                async with self.url_scraper_semaphore:
+                    content = await jina_url_scraper(url)
                 logger.info(f"URL scrape successful: {url}")
                 return content
             except Exception as e:
@@ -167,7 +177,7 @@ Output type: Integer (whole number)
 """
         elif output_type == "bool":
             json_value_example = 'true/false or None'
-            null_handling = "If you search and find no evidence of the condition being true, return false (not None). Only return None if you truly cannot determine anything."
+            null_handling = "If the company name doesn't match exactly, return None. If you search and find no evidence of the condition being true (but company matches), return false. Only return None if company name doesn't match exactly or you truly cannot determine anything."
             type_specific_instructions = f"""True condition: {is_true_prompt}
 False condition: {is_false_prompt}
 Output type: Boolean (true/false)
@@ -237,6 +247,26 @@ In {enrichment_name} return None if you do not find any information at all. Do n
 """
         
         return base_prompt
+    
+    def _truncate_by_word_count(self, text: str, max_words: int) -> str:
+        """
+        Truncate text to max_words, cutting at word boundaries.
+        
+        OpenAI TPM limit: 30,000 tokens
+        - ~1.3 tokens per word on average
+        - Need to leave room for prompt, instructions, and output
+        - Safe target: ~20,000 tokens for content = ~15,000 words
+        """
+        if not text:
+            return text
+        
+        words = text.split()
+        if len(words) <= max_words:
+            return text
+        
+        # Truncate to max_words and rejoin
+        truncated_words = words[:max_words]
+        return ' '.join(truncated_words) + "\n\n[Content truncated due to token limit]"
     
     async def enrich_company(
         self,
@@ -321,7 +351,103 @@ In {enrichment_name} return None if you do not find any information at all. Do n
         
         # Run the agent with increased max_turns for enrichment (default is 10, enrichment may need more)
         input_text = f"Company to enrich: {company_name}\nEnrichment field: {enrichment_name}"
-        result = await Runner.run(agent, input=input_text, max_turns=20)
+        
+        # Retry logic: 3 retries max, parse wait time from error message
+        max_retries = 3
+        default_wait_time = 10.0  # Fallback if we can't parse the time
+        
+        # Track original input for truncation if needed
+        original_input_text = input_text
+        current_input_text = input_text
+        
+        result = None
+        for attempt in range(max_retries):
+            try:
+                async with self.llm_semaphore:
+                    result = await Runner.run(agent, input=current_input_text, max_turns=10)
+                break  # Success, exit retry loop
+
+            except (TimeoutError, openai.APITimeoutError) as e:
+                # Timeout errors from OpenAI API
+                if attempt < max_retries - 1:
+                    wait_time = min(2.0 * (2 ** attempt), 30.0)  # Exponential backoff: 2s, 4s, 8s (max 30s)
+                    logger.warning(
+                        f"⚠️ Timeout error for {company_name} enrichment (attempt {attempt + 1}/{max_retries}). "
+                        f"Waiting {wait_time:.1f}s before retry..."
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
+                else:
+                    raise
+            except openai.RateLimitError as e:
+                # Rate limit errors - retry with parsed wait time
+                if attempt < max_retries - 1:
+                    error_str = str(e)
+                    wait_time = default_wait_time
+                    # Try to parse the retry time from the error message
+                    retry_time_match = re.search(r'Please try again in ([\d.]+)s', error_str, re.IGNORECASE)
+                    if retry_time_match:
+                        try:
+                            parsed_time = float(retry_time_match.group(1))
+                            wait_time = max(parsed_time + 1.0, 2.0)  # Minimum 2 seconds
+                        except ValueError:
+                            # Invalid float format (e.g., "1.2.3"), use default
+                            pass  # wait_time already set to default_wait_time
+                    else:
+                        # Try to match milliseconds
+                        retry_time_match = re.search(r'Please try again in ([\d.]+)ms', error_str, re.IGNORECASE)
+                        if retry_time_match:
+                            try:
+                                parsed_time_ms = float(retry_time_match.group(1))
+                                parsed_time = parsed_time_ms / 1000.0
+                                wait_time = max(parsed_time + 1.0, 2.0)
+                            except ValueError:
+                                # Invalid float format, use default
+                                pass  # wait_time already set to default_wait_time
+                    
+                    logger.warning(
+                        f"⚠️ Rate limit error for {company_name} enrichment (attempt {attempt + 1}/{max_retries}). "
+                        f"Waiting {wait_time:.1f}s before retry..."
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
+                else:
+                    raise
+            except openai.BadRequestError as e:
+                # Check if it's a "request too large" error (truncate and retry)
+                error_str = str(e)
+                error_lower = error_str.lower()
+                is_request_too_large = (
+                    "request too large" in error_lower or
+                    "tokens must be reduced" in error_lower or
+                    "maximum context length" in error_lower or
+                    "token limit" in error_lower
+                )
+                
+                if is_request_too_large and attempt < max_retries - 1:
+                    max_words = 10000
+                    word_count = len(current_input_text.split())
+                    if word_count > max_words:
+                        current_input_text = self._truncate_by_word_count(current_input_text, max_words)
+                        logger.warning(
+                            f"⚠️ Request too large for {company_name} enrichment (attempt {attempt + 1}/{max_retries}). "
+                            f"Truncating from {word_count} words to {max_words} words and retrying..."
+                        )
+                        await asyncio.sleep(1.0)
+                        continue
+                    else:
+                        # Already at or below limit, can't truncate further
+                        logger.error(
+                            f"❌ Request too large for {company_name} enrichment even with {word_count} words. "
+                            f"Error: {error_str}"
+                        )
+                        raise OpenAITokenLimitExceededError(f"Request too large: input exceeds token limit even after truncation. {error_str}")
+                else:
+                    # Not a "request too large" error, or max retries reached
+                    raise
+        
+        if result is None:
+            raise RuntimeError(f"Failed to get result after {max_retries} attempts")
         
         # Extract and convert output to dictionary
         output = result.final_output
