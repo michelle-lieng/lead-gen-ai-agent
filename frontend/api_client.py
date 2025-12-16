@@ -84,6 +84,16 @@ def delete_project(project_id: int):
     return response is not None
 
 # Lead generation endpoints
+def get_queries(project_id: int):
+    """
+    Get all queries for a project from the database via API
+    
+    Args:
+        project_id: ID of the project
+    """
+    response = _request("GET", f"/api/projects/{project_id}/queries")
+    return response.json() if response else None
+
 def generate_queries(project_id: int, num_queries: int = 3):
     """
     Generate search queries for a project via API

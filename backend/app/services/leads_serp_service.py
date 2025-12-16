@@ -241,6 +241,38 @@ class LeadsSerpService:
             "message": f"Saved {len(queries)} queries and {urls_result.get('urls_added', 0)} URLs"
         }
 
+    def get_queries(self, project_id: int) -> list[dict]:
+        """
+        Get all queries for a project from the database.
+        
+        Args:
+            project_id (int): ID of the project
+            
+        Returns:
+            list[dict]: List of query dictionaries with id, project_id, query, date_added
+                       
+        Raises:
+            DatabaseFailureError: If database operation fails
+        """
+        try:
+            with db_service.get_session() as session:
+                queries = session.query(SerpQuery).filter(
+                    SerpQuery.project_id == project_id
+                ).order_by(SerpQuery.date_added.desc()).all()
+                
+                return [
+                    {
+                        "id": query.id,
+                        "project_id": query.project_id,
+                        "query": query.query,
+                        "date_added": query.date_added.isoformat() if query.date_added else None
+                    }
+                    for query in queries
+                ]
+        except SQLAlchemyError as e:
+            logger.exception(f"Error fetching queries for project {project_id}")
+            raise DatabaseFailureError("Failed to fetch queries") from e
+
     def get_urls(self, project_id: int) -> list[dict]:
         """
         Get all unprocessed production URLs for a project.

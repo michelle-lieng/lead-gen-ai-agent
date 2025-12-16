@@ -37,6 +37,21 @@ async def generate_queries(
         logger.exception(f"Error generating queries: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+@router.get("/projects/{project_id}/queries")
+async def get_queries(project_id: int):
+    """
+    Get all queries for a project from the database.
+    """
+    try:
+        queries = leads_serp_service.get_queries(project_id)
+        return queries
+    except DatabaseFailureError as e:
+        logger.exception(f"Database error fetching queries: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    except Exception as e:
+        logger.exception(f"Error fetching queries: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 @router.post("/projects/{project_id}/urls")
 async def generate_urls(project_id: int, request: QueryListRequest):
     """

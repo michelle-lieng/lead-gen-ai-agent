@@ -3,7 +3,7 @@ Lead collection page
 """
 import streamlit as st
 import pandas as pd
-from api_client import update_project, generate_queries, generate_urls, get_urls, create_url, update_url, delete_url, generate_leads, fetch_latest_run_zip, get_project, upload_dataset
+from api_client import update_project, generate_queries, get_queries, generate_urls, get_urls, create_url, update_url, delete_url, generate_leads, fetch_latest_run_zip, get_project, upload_dataset
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -95,101 +95,9 @@ def show_web_search_tab(project):
     
     # Step 1: Search Queries
     st.markdown("## Step 1: Search Queries")
-    st.markdown("**Generate AI queries:**")
     
-    # Query Search Target editor (required for AI generation)
-    # Use latest project data from session state
-    current_project = st.session_state.selected_project
-    current_target = current_project.get('query_search_target', '')
-
-    with st.form("generate_queries_form"):
-        # Text area on left, number of queries on right
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            # Editable field
-            updated_target = st.text_area(
-                "Edit query search target",
-                value=current_target,
-                placeholder="e.g., Find sustainable energy companies in California that are focused on solar and wind power...",
-                height=100,
-                help="Describe what you're looking for. This helps AI generate better search queries.",
-                key="query_search_target_input"
-            )
-
-        with col2:
-            num_queries = st.number_input(
-                "Number of queries to generate",
-                min_value=1,
-                max_value=20,
-                value=st.session_state.num_queries,
-                step=1,
-                help="How many AI-generated queries would you like? (1-20)",
-                key="num_queries_input"
-            )
-            st.session_state.num_queries = num_queries
-
-        # Generate button (form submit button)
-        generate_submitted = st.form_submit_button(
-            "🔍 Generate Smart Queries"
-        )
-
-        if generate_submitted:
-            # Validate input
-            if not updated_target or not updated_target.strip():
-                st.error("❌ Query Search Target cannot be empty")
-            else:
-                # Save query_search_target if it has changed
-                if updated_target.strip() != current_target:
-                    with st.spinner("Saving Query Search Target..."):
-                        result = update_project(project['id'], query_search_target=updated_target.strip())
-                        if result:
-                            st.session_state.selected_project = result
-                        else:
-                            st.error("❌ Failed to save Query Search Target")
-                            st.stop()
-                
-                # Clear extraction results when generating new queries
-                st.session_state.extraction_results[project_id] = []
-                
-                # Generate queries
-                with st.spinner(f"🤖 AI is generating {st.session_state.num_queries} targeted search queries..."):
-                    # Clear previous message when generating new queries
-                    st.session_state.query_message[project_id] = None
-                    
-                    generated_queries = generate_queries(project['id'], num_queries=st.session_state.num_queries)
-                    if generated_queries:
-                        # Get existing queries for this project (case-insensitive comparison)
-                        existing_queries = {q.lower().strip() for q in st.session_state.generated_queries.get(project_id, {}).values()}
-                        
-                        # Assign unique IDs to all new AI queries, skipping duplicates
-                        added_count = 0
-                        skipped_queries = []
-                        for query in generated_queries:
-                            normalized_query = query.lower().strip()
-                            if normalized_query not in existing_queries:
-                                query_id = f"q{st.session_state.query_counter}"
-                                st.session_state.query_counter += 1
-                                st.session_state.generated_queries[project_id][query_id] = query
-                                existing_queries.add(normalized_query)  # Add to set to prevent duplicates in same batch
-                                added_count += 1
-                            else:
-                                skipped_queries.append(query)
-                        
-                        # Store message in session state so it persists after rerun
-                        if added_count > 0:
-                            if skipped_queries:
-                                skipped_list = ', '.join([f'"{q}"' for q in skipped_queries])
-                                st.session_state.query_message[project_id] = f"⚠️ Added {added_count} new queries. Skipped {len(skipped_queries)} duplicate(s): {skipped_list}"
-                            else:
-                                st.session_state.query_message[project_id] = f"✅ Generated {added_count} search queries!"
-                        else:
-                            st.session_state.query_message[project_id] = f"⚠️ All {len(generated_queries)} generated queries are already present in the list."
-                        st.rerun()
-                    else:
-                        st.session_state.query_message[project_id] = "❌ Failed to generate queries. Please try again."
-                        st.rerun()
-
-    st.markdown("**Or add your own search queries:**")
+    # Main feature: Add search queries (always visible)
+    st.markdown("**Add your own search queries:**")
     # Use a form to handle input clearing properly
     with st.form("add_query_form", clear_on_submit=True):
         new_query = st.text_input("Add custom query", placeholder="Enter your own search query...", key="new_query_input")
@@ -213,7 +121,120 @@ def show_web_search_tab(project):
                 st.session_state.query_counter += 1
                 st.session_state.generated_queries[project_id][query_id] = new_query.strip()
                 st.rerun()
+    
+    # Optional feature: Generate AI queries (collapsible/expandable)
+    with st.expander("🤖 Generate AI queries (Optional)", expanded=False):
+        # Query Search Target editor (required for AI generation)
+        # Use latest project data from session state
+        current_project = st.session_state.selected_project
+        current_target = current_project.get('query_search_target', '')
 
+        with st.form("generate_queries_form"):
+            # Text area on left, number of queries on right
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                # Editable field
+                updated_target = st.text_area(
+                    "Edit query search target",
+                    value=current_target,
+                    placeholder="e.g., Find sustainable energy companies in California that are focused on solar and wind power...",
+                    height=100,
+                    help="Describe what you're looking for. This helps AI generate better search queries.",
+                    key="query_search_target_input"
+                )
+
+            with col2:
+                num_queries = st.number_input(
+                    "Number of queries to generate",
+                    min_value=1,
+                    max_value=20,
+                    value=st.session_state.num_queries,
+                    step=1,
+                    help="How many AI-generated queries would you like? (1-20)",
+                    key="num_queries_input"
+                )
+                st.session_state.num_queries = num_queries
+
+            # Generate button (form submit button)
+            generate_submitted = st.form_submit_button(
+                "🔍 Generate Smart Queries"
+            )
+
+            if generate_submitted:
+                # Validate input
+                if not updated_target or not updated_target.strip():
+                    st.error("❌ Query Search Target cannot be empty")
+                else:
+                    # Save query_search_target if it has changed
+                    if updated_target.strip() != current_target:
+                        with st.spinner("Saving Query Search Target..."):
+                            result = update_project(project['id'], query_search_target=updated_target.strip())
+                            if result:
+                                st.session_state.selected_project = result
+                            else:
+                                st.error("❌ Failed to save Query Search Target")
+                                st.stop()
+                    
+                    # Clear extraction results when generating new queries
+                    st.session_state.extraction_results[project_id] = []
+                    
+                    # Generate queries
+                    with st.spinner(f"🤖 AI is generating {st.session_state.num_queries} targeted search queries..."):
+                        # Clear previous message when generating new queries
+                        st.session_state.query_message[project_id] = None
+                        
+                        generated_queries = generate_queries(project['id'], num_queries=st.session_state.num_queries)
+                        if generated_queries:
+                            # Get existing queries for this project (case-insensitive comparison)
+                            existing_queries = {q.lower().strip() for q in st.session_state.generated_queries.get(project_id, {}).values()}
+                            
+                            # Assign unique IDs to all new AI queries, skipping duplicates
+                            added_count = 0
+                            skipped_queries = []
+                            for query in generated_queries:
+                                normalized_query = query.lower().strip()
+                                if normalized_query not in existing_queries:
+                                    query_id = f"q{st.session_state.query_counter}"
+                                    st.session_state.query_counter += 1
+                                    st.session_state.generated_queries[project_id][query_id] = query
+                                    existing_queries.add(normalized_query)  # Add to set to prevent duplicates in same batch
+                                    added_count += 1
+                                else:
+                                    skipped_queries.append(query)
+                            
+                            # Store message in session state so it persists after rerun
+                            if added_count > 0:
+                                if skipped_queries:
+                                    skipped_list = ', '.join([f'"{q}"' for q in skipped_queries])
+                                    st.session_state.query_message[project_id] = f"⚠️ Added {added_count} new queries. Skipped {len(skipped_queries)} duplicate(s): {skipped_list}"
+                                else:
+                                    st.session_state.query_message[project_id] = f"✅ Generated {added_count} search queries!"
+                            else:
+                                st.session_state.query_message[project_id] = f"⚠️ All {len(generated_queries)} generated queries are already present in the list."
+                            st.rerun()
+                        else:
+                            st.session_state.query_message[project_id] = "❌ Failed to generate queries. Please try again."
+                            st.rerun()
+    
+    # Display all queries from database (always visible)
+    st.markdown("**Previously run queries:**")
+    try:
+        db_queries = get_queries(project['id'])
+        if db_queries and len(db_queries) > 0:
+            # Create DataFrame for display
+            queries_df = pd.DataFrame(db_queries)
+            # Format date_added column for better readability
+            if 'date_added' in queries_df.columns:
+                queries_df['date_added'] = pd.to_datetime(queries_df['date_added']).dt.strftime('%Y-%m-%d %H:%M:%S')
+            # Display only query and date_added columns
+            display_df = queries_df[['query', 'date_added']].copy()
+            display_df.columns = ['Query', 'Date Added']
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No queries have been run yet for this project.")
+    except Exception as e:
+        st.warning(f"Could not load queries from database: {str(e)}")
+    
     # Display query messages if they exist (persists after rerun)
     if project_query_message:
         st.info(project_query_message)
