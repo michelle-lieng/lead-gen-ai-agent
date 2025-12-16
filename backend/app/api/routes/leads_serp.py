@@ -101,7 +101,8 @@ async def create_url(project_id: int, url_data: UrlCreate):
             project_id=project_id,
             link=url_data.link,
             title=url_data.title,
-            snippet=url_data.snippet
+            snippet=url_data.snippet,
+            date=url_data.date
         )
         return result
     except DuplicateUrlError as e:
@@ -116,7 +117,7 @@ async def create_url(project_id: int, url_data: UrlCreate):
 @router.put("/projects/{project_id}/urls/{url_id}")
 async def update_url(project_id: int, url_id: int, update: UrlUpdate):
     """
-    Update a production URL (title, snippet or link).
+    Update a production URL (title, snippet, date or link).
     """
     try:
         result = leads_serp_service.update_url(
@@ -124,7 +125,8 @@ async def update_url(project_id: int, url_id: int, update: UrlUpdate):
             url_id=url_id,
             title=update.title,
             snippet=update.snippet,
-            link=update.link
+            link=update.link,
+            date=update.date
         )
         return result
     except DuplicateUrlError as e:

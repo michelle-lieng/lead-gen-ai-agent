@@ -57,6 +57,7 @@ class SerpUrl(Base):
     title = Column(Text)  # title of the result
     link = Column(Text)  # final URL (unique per project via composite constraint)
     snippet = Column(Text)  # snippet/description from search
+    date = Column(Text, nullable=True)  # date from SERP result (optional, e.g., "Oct 9, 2025")
     website_scraped = Column(Text)  # website scraped status
     status = Column(String(50), default="unprocessed")  # processing status
     created_at = Column(DateTime, default=datetime.utcnow)  # creation timestamp

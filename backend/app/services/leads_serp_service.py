@@ -144,7 +144,8 @@ class LeadsSerpService:
                         'query': query,
                         'title': serp_result.get('title'),
                         'link': link,
-                        'snippet': serp_result.get('description')
+                        'snippet': serp_result.get('description'),
+                        'date': serp_result.get('date')  # Optional date field
                     })
             return query_urls
 
@@ -188,7 +189,8 @@ class LeadsSerpService:
                         index_elements=['project_id', 'link'],
                         set_=dict(
                             title=statement.excluded.title,
-                            snippet=statement.excluded.snippet
+                            snippet=statement.excluded.snippet,
+                            date=statement.excluded.date
                         )
                     )
                     session.execute(statement)
@@ -282,7 +284,7 @@ class LeadsSerpService:
             
         Returns:
             list[dict]: List of URL dictionaries with id, project_id, query, title, link, 
-                       snippet, website_scraped, status, created_at (only URLs with status="unprocessed")
+                       snippet, date, website_scraped, status, created_at (only URLs with status="unprocessed")
                        
         Raises:
             DatabaseFailureError: If database operation fails
@@ -302,6 +304,7 @@ class LeadsSerpService:
                         "title": url.title,
                         "link": url.link,
                         "snippet": url.snippet,
+                        "date": url.date,  # Optional date field
                         "website_scraped": url.website_scraped,
                         "status": url.status,
                         "created_at": url.created_at.isoformat() if url.created_at else None
@@ -312,7 +315,7 @@ class LeadsSerpService:
             logger.exception(f"Error fetching URLs for project {project_id}")
             raise DatabaseFailureError("Failed to fetch URLs") from e
 
-    def create_url(self, project_id: int, link: str, title: str = None, snippet: str = None) -> dict:
+    def create_url(self, project_id: int, link: str, title: str = None, snippet: str = None, date: str = None) -> dict:
         """
         Create a single production URL manually.
         
@@ -321,6 +324,7 @@ class LeadsSerpService:
             link (str): URL link (required)
             title (str, optional): Title of the URL
             snippet (str, optional): Snippet/description of the URL
+            date (str, optional): Date from SERP result (e.g., "Oct 9, 2025")
             
         Returns:
             dict: Contains success status, message, and created URL data
@@ -347,6 +351,7 @@ class LeadsSerpService:
                     link=link,
                     title=title or '',
                     snippet=snippet or '',
+                    date=date or '',  # Optional date field
                     query='Manual Entry',  # Automatically set for manually created URLs
                     status="unprocessed"
                 )
@@ -367,6 +372,7 @@ class LeadsSerpService:
                         "title": new_url.title,
                         "link": new_url.link,
                         "snippet": new_url.snippet,
+                        "date": new_url.date,
                         "status": new_url.status
                     }
                 }
@@ -374,9 +380,9 @@ class LeadsSerpService:
             logger.exception(f"Error creating URL for project {project_id}")
             raise DatabaseFailureError("Failed to create URL") from e
 
-    def update_url(self, project_id: int, url_id: int, title: str = None, snippet: str = None, link: str = None) -> dict:
+    def update_url(self, project_id: int, url_id: int, title: str = None, snippet: str = None, link: str = None, date: str = None) -> dict:
         """
-        Update a production URL (title, snippet or link).
+        Update a production URL (title, snippet, date, or link).
         
         Args:
             project_id (int): ID of the project
@@ -384,6 +390,7 @@ class LeadsSerpService:
             title (str, optional): New title
             snippet (str, optional): New snippet
             link (str, optional): New link
+            date (str, optional): New date from SERP result (e.g., "Oct 9, 2025")
             
         Returns:
             dict: Contains success status, message, and updated URL data
@@ -407,6 +414,8 @@ class LeadsSerpService:
                     url.title = title
                 if snippet is not None:
                     url.snippet = snippet
+                if date is not None:
+                    url.date = date
                 if link is not None:
                     # Check if the new link already exists in this project (excluding current URL)
                     existing = session.query(SerpUrl).filter(
@@ -434,6 +443,7 @@ class LeadsSerpService:
                         "title": url.title,
                         "link": url.link,
                         "snippet": url.snippet,
+                        "date": url.date,
                         "status": url.status
                     }
                 }
@@ -984,7 +994,7 @@ class LeadsSerpService:
                 if urls:
                     output = StringIO()
                     writer = csv.writer(output)
-                    writer.writerow(["id", "query", "title", "link", "snippet", "website_scraped", "status"])
+                    writer.writerow(["id", "query", "title", "link", "snippet", "date", "website_scraped", "status"])
                     for record in urls:
                         # Truncate website_scraped to 32600 characters to prevent CSV cell overflow (Excel limit is 32767)
                         website_scraped = record.website_scraped
@@ -996,6 +1006,7 @@ class LeadsSerpService:
                             record.title,
                             record.link,
                             record.snippet,
+                            record.date or "",
                             website_scraped or "",
                             record.status
                         ])

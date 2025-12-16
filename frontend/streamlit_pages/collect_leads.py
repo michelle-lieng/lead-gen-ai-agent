@@ -328,6 +328,7 @@ def show_web_search_tab(project):
                 'Query': url.get('query', ''),
                 'Title': url.get('title', ''),
                 'Snippet': url.get('snippet', ''),
+                'Date': url.get('date', ''),
                 'Status': url.get('status', 'unprocessed')
             }
             for url in urls
@@ -351,6 +352,7 @@ def show_web_search_tab(project):
                 "URL": st.column_config.TextColumn("URL", width="medium"),
                 "Title": st.column_config.TextColumn("Title", width="medium"),
                 "Snippet": st.column_config.TextColumn("Snippet", width="large"),
+                "Date": st.column_config.TextColumn("Date", width="small"),
                 "Status": None
             },
             disabled=["Query", "Status", "ID"],  # These are read only!
@@ -376,7 +378,8 @@ def show_web_search_tab(project):
                         new_rows.append({
                             'link': str(row['URL']).strip(),
                             'title': str(row['Title']).strip() if pd.notna(row['Title']) else '',
-                            'snippet': str(row['Snippet']).strip() if pd.notna(row['Snippet']) else ''
+                            'snippet': str(row['Snippet']).strip() if pd.notna(row['Snippet']) else '',
+                            'date': str(row['Date']).strip() if pd.notna(row.get('Date')) else None
                         })
                 else:
                     # Existing row - track ID and check for changes
@@ -413,6 +416,11 @@ def show_web_search_tab(project):
                         if edited_snippet != original_snippet:
                             updates['snippet'] = edited_snippet
                         
+                        edited_date = normalize_for_compare(row.get('Date', ''))
+                        original_date = normalize_for_compare(original_row.get('Date', ''))
+                        if edited_date != original_date:
+                            updates['date'] = edited_date if edited_date else None
+                        
                         if updates:
                             edited_rows.append((url_id, updates))
         
@@ -444,7 +452,8 @@ def show_web_search_tab(project):
                             project['id'],
                             link=new_row['link'],
                             title=new_row['title'] if new_row['title'] else None,
-                            snippet=new_row['snippet'] if new_row['snippet'] else None
+                            snippet=new_row['snippet'] if new_row['snippet'] else None,
+                            date=new_row['date'] if new_row.get('date') else None
                         )
                         if result and result.get('success'):
                             changes_made = True
