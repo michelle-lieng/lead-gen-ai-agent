@@ -285,7 +285,15 @@ def delete_enrichment(enrichment_id: int):
     return response is not None
 
 def enrich_leads(project_id: int, enrichment_id: int, leads_data: list, column_name: str, result_format: str):
-    """Run enrichment on leads and add enrichment column via API"""
+    """Run enrichment on leads and add enrichment column via API
+    
+    Args:
+        project_id: Project ID
+        enrichment_id: Enrichment ID
+        leads_data: List of lead dictionaries
+        column_name: Column name for enrichment results
+        result_format: Result format (True/False, Text, or Number)
+    """
     if not column_name:
         return {
             "success": False,
