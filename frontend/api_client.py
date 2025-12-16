@@ -313,3 +313,33 @@ def enrich_leads(project_id: int, enrichment_id: int, leads_data: list, column_n
     if response:
         return response.json()
     return None
+
+def test_enrich_leads(project_id: int, enrichment_id: int, leads_data: list, column_name: str, result_format: str):
+    """Run test enrichment on leads and add enrichment column via API"""
+    if not column_name:
+        return {
+            "success": False,
+            "message": "Column name is required to add enrichment column.",
+            "leads_processed": 0,
+            "enrichment_id": enrichment_id,
+            "project_id": project_id
+        }
+    
+    if not result_format:
+        return {
+            "success": False,
+            "message": "Result format must be set before running enrichment.",
+            "leads_processed": 0,
+            "enrichment_id": enrichment_id,
+            "project_id": project_id
+        }
+    
+    response = _request("POST", f"/api/projects/{project_id}/enrichments/{enrichment_id}/test-enrich-leads", json_data={
+        "enrichment_id": enrichment_id,
+        "column_name": column_name,
+        "result_format": result_format,
+        "leads_data": leads_data
+    })
+    if response:
+        return response.json()
+    return None

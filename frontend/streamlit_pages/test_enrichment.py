@@ -2,7 +2,7 @@
 Test enrichment page - edit enrichment configuration
 """
 import streamlit as st
-from api_client import get_enrichment, update_enrichment, get_merged_results, enrich_leads
+from api_client import get_enrichment, update_enrichment, get_merged_results, test_enrich_leads
 
 def show_test_enrichment():
     """Test enrichment page - edit enrichment configuration"""
@@ -254,7 +254,7 @@ def show_run_enrichment(enrichment):
                 with st.spinner("Running enrichment on test leads..."):
                     try:
                         leads_data = leads_cache.get("data", [])
-                        result = enrich_leads(project_id, enrichment_id, leads_data, saved_column_name, saved_result_format)
+                        result = test_enrich_leads(project_id, enrichment_id, leads_data, saved_column_name, saved_result_format)
                         if result and result.get("success"):
                             # Store enriched results in test-specific session state, keyed by project_id and enrichment_id
                             results_key = f"{project_id}_{enrichment_id}"
