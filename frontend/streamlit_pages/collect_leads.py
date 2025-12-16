@@ -638,57 +638,57 @@ def show_web_search_tab(project):
         st.dataframe(df, width='stretch', hide_index=True)
         
         # Show detailed results in expandable sections
-        st.markdown("### 📋 Detailed Results")
-        for i, result in enumerate(project_extraction_results):
-            leads = result.get('leads', [])
-            status = result.get('status', 'unknown')
-            status_display = {
-                'processed': '✅ Processed',
-                'skip': '⏭️ Skipped',
-                'failed': '❌ Failed',
-                'unprocessed': '⏳ Unprocessed'
-            }.get(status, status)
+        # st.markdown("### 📋 Detailed Results")
+        # for i, result in enumerate(project_extraction_results):
+        #     leads = result.get('leads', [])
+        #     status = result.get('status', 'unknown')
+        #     status_display = {
+        #         'processed': '✅ Processed',
+        #         'skip': '⏭️ Skipped',
+        #         'failed': '❌ Failed',
+        #         'unprocessed': '⏳ Unprocessed'
+        #     }.get(status, status)
             
-            with st.expander(f"{status_display} | URL {i+1}: {result['url'][:70]}... ({len(leads)} leads)"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown(f"**Query:** {result.get('query', 'N/A')}")
-                    st.markdown(f"**Title:** {result.get('title', 'N/A')}")
-                    st.markdown(f"**Snippet:** {result.get('snippet', 'N/A')}")
-                with col2:
-                    st.markdown(f"**Leads Found:** {len(leads)}")
-                    st.markdown(f"**URL:** {result['url']}")
+        #     with st.expander(f"{status_display} | URL {i+1}: {result['url'][:70]}... ({len(leads)} leads)"):
+        #         col1, col2 = st.columns(2)
+        #         with col1:
+        #             st.markdown(f"**Query:** {result.get('query', 'N/A')}")
+        #             st.markdown(f"**Title:** {result.get('title', 'N/A')}")
+        #             st.markdown(f"**Snippet:** {result.get('snippet', 'N/A')}")
+        #         with col2:
+        #             st.markdown(f"**Leads Found:** {len(leads)}")
+        #             st.markdown(f"**URL:** {result['url']}")
                 
-                # Show scraped content if available
-                if result.get('website_scraped'):
-                    st.markdown("**Scraped Website Content:**")
-                    st.text_area(
-                        "Scraped Content",
-                        value=result.get('website_scraped', ''),
-                        height=300,
-                        disabled=False,
-                        key=f"scraped_{i}",
-                        label_visibility="collapsed",
-                        help="Scraped website content"
-                    )
-                elif status == 'failed':
-                    st.warning("⚠️ Website scraping failed or was not attempted")
-                elif status == 'skip':
-                    st.info("ℹ️ No scraped content (leads extracted from snippet/title only)")
-                else:
-                    st.info("ℹ️ No scraped content available")
+        #         # Show scraped content if available
+        #         if result.get('website_scraped'):
+        #             st.markdown("**Scraped Website Content:**")
+        #             st.text_area(
+        #                 "Scraped Content",
+        #                 value=result.get('website_scraped', ''),
+        #                 height=300,
+        #                 disabled=False,
+        #                 key=f"scraped_{i}",
+        #                 label_visibility="collapsed",
+        #                 help="Scraped website content"
+        #             )
+        #         elif status == 'failed':
+        #             st.warning("⚠️ Website scraping failed or was not attempted")
+        #         elif status == 'skip':
+        #             st.info("ℹ️ No scraped content (leads extracted from snippet/title only)")
+        #         else:
+        #             st.info("ℹ️ No scraped content available")
                 
-                if leads:
-                    st.markdown("**Extracted Leads:**")
-                    for lead in leads:
-                        st.markdown(f"- {lead}")
-                else:
-                    if status == 'skip':
-                        st.info("⏭️ No leads extracted from this URL (skipped)")
-                    elif status == 'failed':
-                        st.error("❌ Failed to extract leads from this URL")
-                    else:
-                        st.info("No leads extracted from this URL")
+        #         if leads:
+        #             st.markdown("**Extracted Leads:**")
+        #             for lead in leads:
+        #                 st.markdown(f"- {lead}")
+        #         else:
+        #             if status == 'skip':
+        #                 st.info("⏭️ No leads extracted from this URL (skipped)")
+        #             elif status == 'failed':
+        #                 st.error("❌ Failed to extract leads from this URL")
+        #             else:
+        #                 st.info("No leads extracted from this URL")
     
     # Always show download section at the bottom of Web Search tab
     st.markdown("---")
