@@ -350,7 +350,7 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/projects/{project_id}/enrichments/{enrichment_id}/test-enrich-leads", response_model=dict)
-async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeadsRequest):
+async def test_enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeadsRequest):
     """
     Run test enrichment on a list of leads using the enrichment configuration.
     
