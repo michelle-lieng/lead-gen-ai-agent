@@ -2,7 +2,7 @@
 Test enrichment page - edit enrichment configuration
 """
 import streamlit as st
-from api_client import get_enrichment, update_enrichment_fields, get_merged_results, enrich_leads
+from api_client import get_enrichment, update_enrichment, get_merged_results, test_enrich_leads
 
 def show_test_enrichment():
     """Test enrichment page - edit enrichment configuration"""
@@ -24,24 +24,78 @@ def show_test_enrichment():
         return
 
     init_test_enrichment_session_state()
+    
+    # Initialize session state values from database ONLY if they don't exist
+    # This allows user edits to persist across reruns
+    enrichment_id = enrichment['id']
+    format_key = f"enrichment_result_format_edit_{enrichment_id}"
+    true_if_key = f"{format_key}_true_if"
+    false_if_key = f"{format_key}_false_if"
+    number_def_key = f"{format_key}_number_def"
+    text_def_key = f"{format_key}_text_def"
+    
+    # Only initialize if not already set (don't overwrite user edits)
+    if format_key not in st.session_state:
+        st.session_state[format_key] = enrichment.get('result_format', '')
+    if true_if_key not in st.session_state:
+        st.session_state[true_if_key] = enrichment.get('result_true_if', '')
+    if false_if_key not in st.session_state:
+        st.session_state[false_if_key] = enrichment.get('result_false_if', '')
+    if number_def_key not in st.session_state:
+        st.session_state[number_def_key] = enrichment.get('result_number_value', '')
+    if text_def_key not in st.session_state:
+        st.session_state[text_def_key] = enrichment.get('result_text_value', '')
 
-    # Display success message if present
-    if st.session_state.test_enrichment_success_message:
-        st.success(st.session_state.test_enrichment_success_message)
-        st.session_state.test_enrichment_success_message = None
+    project_id = selected_project['id']
+    enrichment_id = enrichment['id']
 
     st.title(f"🧪 Test Enrichment - {enrichment['enrichment_name']}")
     st.info("Edit the enrichment configuration below. Saved changes will be reflected in the Review Enrichment page.")
     show_review_enrichment_page()
+    
     st.divider()
 
     show_leads()
     st.divider()
     
     st.subheader("🧪 Edit Enrichment Configuration")
-    show_goal_editor(enrichment)
-    show_acceptable_evidence_editor(enrichment)
+    st.markdown("Configure how the enrichment agent extracts information from each lead.")
+    
+    # Column name editor (full width at top)
+    show_column_name_editor(enrichment)
+    st.markdown("")  # Add spacing
+    
+    # Use columns for better layout
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        show_goal_editor(enrichment)
+        st.markdown("")  # Add spacing
+    
+    with col2:
+        show_acceptable_evidence_editor(enrichment)
+        st.markdown("")  # Add spacing
+    
+    # Result format section (full width)
     show_result_format_editor(enrichment)
+    
+    # Check if any changes were made and show save button
+    has_changes = check_enrichment_changes(enrichment)
+    save_changes_key = f"save_all_changes_message_{enrichment_id}"
+    
+    # Clear save message if new changes are detected
+    if has_changes and st.session_state.get(save_changes_key):
+        st.session_state[save_changes_key] = None
+    
+    # Display save message below the button if it exists (from previous save)
+    # Only show if there are no pending changes (to avoid confusion)
+    if st.session_state.get(save_changes_key) and not has_changes:
+        st.success(st.session_state[save_changes_key])
+    
+    if has_changes:
+        if st.button("💾 Save All Changes", key=f"save_all_changes_{enrichment_id}", type="primary", use_container_width=True):
+            save_all_enrichment_changes(enrichment)
+    
     st.divider()
     show_run_enrichment(enrichment)
 
@@ -59,14 +113,25 @@ def init_test_enrichment_session_state():
         st.session_state.test_enrichment_leads = {}
     if current_project_id and current_project_id not in st.session_state.test_enrichment_leads:
         st.session_state.test_enrichment_leads[current_project_id] = {"data": None, "columns": None, "count": 0}
-    if "test_enrichment_success_message" not in st.session_state:
-        st.session_state.test_enrichment_success_message = None
     if "test_enriched_results" not in st.session_state:
         st.session_state.test_enriched_results = {}
+    
+    # Initialize success message keys
+    if current_project_id:
+        save_leads_key = f"save_test_leads_message_{current_project_id}"
+        if save_leads_key not in st.session_state:
+            st.session_state[save_leads_key] = None
+    if current_enrichment_id:
+        save_changes_key = f"save_all_changes_message_{current_enrichment_id}"
+        if save_changes_key not in st.session_state:
+            st.session_state[save_changes_key] = None
+        run_enrichment_key = f"run_enrichment_message_{current_enrichment_id}"
+        if run_enrichment_key not in st.session_state:
+            st.session_state[run_enrichment_key] = None
 
 
 def show_leads():
-    """Show first 10 leads for the current project (cached in session state)."""
+    """Show first 5 leads for the current project (cached in session state)."""
     project = st.session_state.selected_project
     if not project:
         return
@@ -75,7 +140,7 @@ def show_leads():
     init_test_enrichment_session_state()
 
     st.subheader("📋 Test Leads")
-    st.caption("Temporary test leads (session-only). Add or delete without touching the database.")
+    st.markdown("Edit or add test leads to validate your enrichment configuration.")
 
     leads_cache = st.session_state.test_enrichment_leads.get(project_id, {"data": None, "columns": None, "count": 0})
 
@@ -83,7 +148,7 @@ def show_leads():
         try:
             result = get_merged_results(project_id)
             if result and result.get("data"):
-                leads_data = result["data"][:10]  # first 10 rows
+                leads_data = result["data"][:5]  # first 5 rows
                 # Filter to only include lead column
                 filtered_data = []
                 for row in leads_data:
@@ -119,18 +184,37 @@ def show_leads():
         key=editor_key,
     )
 
-    if st.button("💾 Save Test Leads (session only)", key=f"save_test_leads_{project_id}", width='stretch'):
-        st.session_state.test_enrichment_leads[project_id] = {
-            "data": edited_df.to_dict(orient="records"),
-            "columns": list(edited_df.columns),
-            "count": len(edited_df),
-        }
-        st.success("✅ Test leads saved in session (not persisted to the database).")
-        st.rerun()
+    # Check if there are changes by comparing the lead values as simple lists
+    # Since it's just one column, we can extract the lead values and compare lists
+    original_leads = display_df["lead"].tolist() if "lead" in display_df.columns else []
+    edited_leads = edited_df["lead"].tolist() if "lead" in edited_df.columns else []
+    
+    # Compare the lists - catches value changes, additions, deletions
+    has_changes = original_leads != edited_leads
+    
+    save_leads_key = f"save_test_leads_message_{project_id}"
+    
+    # Clear save message if new changes are detected
+    if has_changes and st.session_state.get(save_leads_key):
+        st.session_state[save_leads_key] = None
+    
+    # Display save message below the button if it exists (from previous save)
+    # Only show if there are no pending changes (to avoid confusion)
+    if st.session_state.get(save_leads_key) and not has_changes:
+        st.success(st.session_state[save_leads_key])
+
+    if has_changes:
+        if st.button("💾 Save Test Leads", key=f"save_test_leads_{project_id}", width='stretch'):
+            st.session_state.test_enrichment_leads[project_id] = {
+                "data": edited_df.to_dict(orient="records"),
+                "columns": list(edited_df.columns),
+                "count": len(edited_df),
+            }
+            # Store message in session state so it persists across rerun
+            st.session_state[save_leads_key] = "✅ Test leads saved successfully."
+            st.rerun()
 
     total_session_leads = len(display_df)
-    st.caption(f"Showing {total_session_leads} test lead(s) from session (not counting database).")
-
 
 def show_run_enrichment(enrichment):
     """Run enrichment on test leads."""
@@ -140,59 +224,112 @@ def show_run_enrichment(enrichment):
         return
     project_id = project["id"]
     enrichment_id = enrichment["id"]
-    enrichment_name = enrichment.get("enrichment_name", "")
+    # Use session state column_name if it exists (user may have edited it), otherwise use enrichment's saved column_name
+    # Column name is REQUIRED before running enrichment
+    column_name_key = f"enrichment_column_name_edit_{enrichment_id}"
+    column_name = st.session_state.get(column_name_key, '').strip() or enrichment.get("column_name", "") or ""
     result_format = enrichment.get("result_format", "")
     leads_cache = st.session_state.test_enrichment_leads.get(project_id, {"data": []})
 
     st.subheader("🚀 Run Enrichment on Test Leads")
-    if st.button("Run Enrichment", key=f"run_enrichment_{project_id}", width='stretch'):
-        if not leads_cache.get("data"):
+    st.markdown("Test your configuration by running enrichment on the test leads above.")
+    run_enrichment_key = f"run_enrichment_message_{enrichment_id}"
+    
+    if st.button("Run Enrichment", key=f"run_enrichment_{enrichment_id}", width='stretch'):
+        # Validate all required fields (checks both session state and saved values)
+        is_valid, error_msg = validate_enrichment_config(enrichment)
+        if not is_valid:
+            st.error(error_msg)
+        elif not leads_cache.get("data"):
             st.warning("⚠️ No test leads available. Add or load leads above before running.")
         else:
-            with st.spinner("Running enrichment on test leads..."):
-                try:
-                    leads_data = leads_cache.get("data", [])
-                    result = enrich_leads(project_id, enrichment_id, leads_data, enrichment_name, result_format)
-                    if result and result.get("success"):
-                        # Store enriched results in test-specific session state, keyed by project_id and enrichment_id
-                        results_key = f"{project_id}_{enrichment_id}"
-                        st.session_state.test_enriched_results[results_key] = {
-                            "data": result.get("enriched_leads", leads_data),
-                            "columns": result.get("columns", leads_cache.get("columns", ["lead"])),
-                            "count": result.get("leads_processed", len(leads_data)),
-                            "enrichment_name": enrichment_name,
-                            "result_format": result_format
-                        }
-                        
-                        leads_processed = result.get("leads_processed", len(leads_data))
-                        st.success(f"✅ Enrichment '{enrichment_name}' completed successfully on {leads_processed} test lead(s).")
-                        st.rerun()
-                    else:
-                        st.error(f"❌ Failed to run enrichment: {result.get('message', 'Unknown error') if result else 'No response from server'}")
-                except Exception as e:
-                    st.error(f"❌ Error running enrichment: {str(e)}")
+            # Use saved values from database for running (not unsaved session state values)
+            # This ensures we're running with the saved configuration
+            saved_column_name = enrichment.get("column_name", "") or ""
+            saved_result_format = enrichment.get("result_format", "") or ""
+            
+            if not saved_column_name or not saved_result_format:
+                st.error("❌ Please save your configuration changes before running enrichment.")
+            else:
+                with st.spinner("Running enrichment on test leads..."):
+                    try:
+                        leads_data = leads_cache.get("data", [])
+                        result = test_enrich_leads(project_id, enrichment_id, leads_data, saved_column_name, saved_result_format)
+                        if result and result.get("success"):
+                            # Store enriched results in test-specific session state, keyed by project_id and enrichment_id
+                            results_key = f"{project_id}_{enrichment_id}"
+                            enrichment_name = enrichment.get("enrichment_name", "")
+                            st.session_state.test_enriched_results[results_key] = {
+                                "data": result.get("enriched_leads", leads_data),
+                                "columns": result.get("columns", leads_cache.get("columns", ["lead"])),
+                                "count": result.get("leads_processed", len(leads_data)),
+                                "enrichment_name": enrichment_name,
+                                "column_name": saved_column_name,  # Store the column_name that was used at runtime
+                                "result_format": saved_result_format
+                            }
+                            
+                            leads_processed = result.get("leads_processed", len(leads_data))
+                            # Store message in session state so it persists across rerun
+                            st.session_state[run_enrichment_key] = f"✅ Enrichment '{enrichment_name}' completed successfully on {leads_processed} test lead(s)."
+                            st.rerun()
+                        else:
+                            st.error(f"❌ Failed to run enrichment: {result.get('message', 'Unknown error') if result else 'No response from server'}")
+                    except Exception as e:
+                        st.error(f"❌ Error running enrichment: {str(e)}")
+    
+    # Display success message below the button if it exists
+    if st.session_state.get(run_enrichment_key):
+        st.success(st.session_state[run_enrichment_key])
     
     # Display enriched results if available for this specific enrichment
     results_key = f"{project_id}_{enrichment_id}"
     enriched_results = st.session_state.test_enriched_results.get(results_key)
-    if enriched_results and enriched_results.get("data"):
-        st.write("**📊 Enriched Results:**")
+    if enriched_results and enriched_results.get("data"):        
         df = pd.DataFrame(enriched_results["data"])
-        # Exclude id, project_id, and serp_count columns
-        exclude_columns = ["id", "project_id", "serp_count"]
-        display_columns = [c for c in df.columns if c not in exclude_columns]
+        
+        # Use the column_name that was used when the enrichment was run (stored in results)
+        # This ensures we display the correct columns even if the user has since edited the column_name
+        result_column_name = enriched_results.get("column_name", enrichment.get("column_name", ""))
+        
+        # Only show: lead, column_name, column_name_reasoning, column_name_evidence
+        display_columns = ["lead"]
+        if result_column_name in df.columns:
+            display_columns.append(result_column_name)
+        reasoning_col = f"{result_column_name}_reasoning"
+        evidence_col = f"{result_column_name}_evidence"
+        if reasoning_col in df.columns:
+            display_columns.append(reasoning_col)
+        if evidence_col in df.columns:
+            display_columns.append(evidence_col)
+        
+        # Filter to only show these columns
         display_df = df[display_columns] if display_columns else df
         
         # Convert boolean values to strings for True/False format
-        if result_format == "True/False" and enrichment_name in display_df.columns:
-            display_df[enrichment_name] = display_df[enrichment_name].apply(lambda x: "True" if x is True else "False" if x is False else str(x))
+        if result_format == "True/False" and result_column_name in display_df.columns:
+            display_df[result_column_name] = display_df[result_column_name].apply(lambda x: "True" if x is True else "False" if x is False else str(x))
         
         st.dataframe(display_df, width='stretch', hide_index=True)
-        st.caption(f"Showing {len(display_df)} enriched lead(s) with '{enriched_results.get('enrichment_name', '')}' column.")
+
+def show_column_name_editor(enrichment):
+    """Editable column name field - REQUIRED before running enrichment"""
+    st.markdown("**📝 Column Name***")
+    enrichment_id = enrichment['id']
+    column_name_key = f"enrichment_column_name_edit_{enrichment_id}"
+    if column_name_key not in st.session_state:
+        st.session_state[column_name_key] = enrichment.get('column_name', '') or ''
+    
+    st.text_input(
+        "Column Name",
+        key=column_name_key,
+        placeholder="e.g. more_than_1_doctor",
+        label_visibility="collapsed",
+        help="Database column name used in the prompt (lowercase, underscores only). REQUIRED before running enrichment. Changing this affects how the AI agent structures its output.",
+    )
 
 def show_goal_editor(enrichment):
     """Editable goal field"""
-    st.write("**🎯 Goal:**")
+    st.markdown("**🎯 Goal***")
     goal_key = f"enrichment_goal_edit_{enrichment['id']}"
     if goal_key not in st.session_state:
         st.session_state[goal_key] = enrichment.get('goal', '')
@@ -200,52 +337,41 @@ def show_goal_editor(enrichment):
     st.text_area(
         "Goal",
         key=goal_key,
-        placeholder="Enter the goal for this enrichment...",
-        height=100,
+        placeholder="e.g., Determine if this medical center has more than 1 doctor",
+        height=50,
         label_visibility="collapsed",
         help="Describe what this enrichment is trying to achieve",
     )
-    show_save_button(
-        enrichment,
-        field_key=goal_key,
-        payload_key="goal",
-        success_message="Goal saved"
-    )
 
 def show_acceptable_evidence_editor(enrichment):
-    """Editable acceptable evidence field"""
-    st.write("**📝 Acceptable Evidence:**")
+    """Editable agent reasoning field"""
+    st.markdown("**🤖 Agent Reasoning***")
     evidence_key = f"enrichment_acceptable_evidence_edit_{enrichment['id']}"
     if evidence_key not in st.session_state:
         st.session_state[evidence_key] = enrichment.get('acceptable_evidence', '')
 
     st.text_area(
-        "Acceptable Evidence",
+        "Agent Reasoning",
         key=evidence_key,
-        placeholder="Enter acceptable evidence criteria...",
-        height=100,
+        placeholder="e.g., Look for staff listings, about pages, or directory information. Determine if there are more than 1 doctor listed.",
+        height=50,
         label_visibility="collapsed",
-        help="Describe what types of evidence are acceptable for this enrichment",
-    )
-    show_save_button(
-        enrichment,
-        field_key=evidence_key,
-        payload_key="acceptable_evidence",
-        success_message="Acceptable evidence saved"
+        help="Provide context and reasoning guidelines for how the agent should approach this enrichment",
     )
 
 def show_result_format_editor(enrichment):
     """Editable result format field"""
-    st.write("**📝 Result Format:**")
+    st.markdown("**📝 Result Format***")
     format_key = f"enrichment_result_format_edit_{enrichment['id']}"
     true_if_key = f"{format_key}_true_if"
     false_if_key = f"{format_key}_false_if"
     number_def_key = f"{format_key}_number_def"
     text_def_key = f"{format_key}_text_def"
     
+    # Initialize all session state values from enrichment if not already set
     if format_key not in st.session_state:
         current_format = enrichment.get('result_format', '')
-        st.session_state[format_key] = current_format
+        st.session_state[format_key] = current_format if current_format else ""
     if true_if_key not in st.session_state:
         st.session_state[true_if_key] = enrichment.get('result_true_if', '')
     if false_if_key not in st.session_state:
@@ -255,124 +381,195 @@ def show_result_format_editor(enrichment):
     if text_def_key not in st.session_state:
         st.session_state[text_def_key] = enrichment.get('result_text_value', '')
 
+    # Build options
     options = ["", "True/False", "Text", "Number"]
-    current_index = 0
-    if st.session_state[format_key] in options:
-        current_index = options.index(st.session_state[format_key])
-
+    
+    # Ensure session state value is valid (only check/reset if it's truly invalid)
+    # Don't reset if user just selected a valid option
+    current_format_value = st.session_state.get(format_key, "")
+    if current_format_value and current_format_value not in options:
+        # Only reset if it's an invalid value (not empty and not in options)
+        st.session_state[format_key] = ""
+    
+    # Create selectbox - uses key parameter so Streamlit automatically uses session state value
+    # and updates it when user selects a new value
     st.selectbox(
         "Result Format",
         options=options,
-        index=current_index,
         key=format_key,
         label_visibility="collapsed",
         help="Select the expected format for the enrichment result",
     )
+    
+    # Get the selected format from session state
     selected_format = st.session_state.get(format_key, "")
-
-    payload = {"result_format": selected_format}
 
     if selected_format == "True/False":
         st.text_input(
-            "True if",
+            "True if*",
             key=true_if_key,
-            placeholder="Describe when the result should be True",
+            placeholder="e.g., The company has more than 1 doctor working there",
         )
         st.text_input(
-            "False if",
+            "False if*",
             key=false_if_key,
-            placeholder="Describe when the result should be False",
+            placeholder="e.g., The company has only 1 doctor or no doctors listed",
         )
-        payload["result_true_if"] = st.session_state.get(true_if_key, "")
-        payload["result_false_if"] = st.session_state.get(false_if_key, "")
+    elif selected_format == "Number":
+        st.text_input(
+            "Define the Number Output*",
+            key=number_def_key,
+            placeholder="e.g., Determine if there are more than 1 doctor. Return true if yes, false if no.",
+        )
+    elif selected_format == "Text":
+        st.text_input(
+            "Define the Text Output*",
+            key=text_def_key,
+            placeholder="e.g., The company's primary service area or specialty",
+        )
+
+def validate_enrichment_config(enrichment):
+    """Validate all required enrichment configuration fields are set. Returns (is_valid, error_messages)"""
+    enrichment_id = enrichment['id']
+    errors = []
+    
+    # Get all session state keys for this enrichment
+    column_name_key = f"enrichment_column_name_edit_{enrichment_id}"
+    goal_key = f"enrichment_goal_edit_{enrichment_id}"
+    evidence_key = f"enrichment_acceptable_evidence_edit_{enrichment_id}"
+    format_key = f"enrichment_result_format_edit_{enrichment_id}"
+    true_if_key = f"{format_key}_true_if"
+    false_if_key = f"{format_key}_false_if"
+    number_def_key = f"{format_key}_number_def"
+    text_def_key = f"{format_key}_text_def"
+    
+    # Always required fields
+    column_name = st.session_state.get(column_name_key, '').strip() or enrichment.get('column_name', '') or ''
+    goal = st.session_state.get(goal_key, '').strip() or enrichment.get('goal', '') or ''
+    evidence = st.session_state.get(evidence_key, '').strip() or enrichment.get('acceptable_evidence', '') or ''
+    result_format = st.session_state.get(format_key, '').strip() or enrichment.get('result_format', '') or ''
+    
+    if not column_name:
+        errors.append("Column name")
+    if not goal:
+        errors.append("Goal")
+    if not evidence:
+        errors.append("Agent Reasoning")
+    if not result_format:
+        errors.append("Result Format")
+    
+    # Format-specific required fields
+    if result_format == "True/False":
+        true_if = st.session_state.get(true_if_key, '').strip() or enrichment.get('result_true_if', '') or ''
+        false_if = st.session_state.get(false_if_key, '').strip() or enrichment.get('result_false_if', '') or ''
+        if not true_if:
+            errors.append("True if")
+        if not false_if:
+            errors.append("False if")
+    elif result_format == "Number":
+        number_def = st.session_state.get(number_def_key, '').strip() or enrichment.get('result_number_value', '') or ''
+        if not number_def:
+            errors.append("Define the Value")
+    elif result_format == "Text":
+        text_def = st.session_state.get(text_def_key, '').strip() or enrichment.get('result_text_value', '') or ''
+        if not text_def:
+            errors.append("What do you want returned")
+    
+    if errors:
+        error_msg = "❌ The following fields are required before running enrichment:\n- " + "\n- ".join(errors)
+        return False, error_msg
+    return True, ""
+
+def check_enrichment_changes(enrichment):
+    """Check if any enrichment configuration fields have been changed"""
+    enrichment_id = enrichment['id']
+    
+    # Get all session state keys for this enrichment
+    column_name_key = f"enrichment_column_name_edit_{enrichment_id}"
+    goal_key = f"enrichment_goal_edit_{enrichment_id}"
+    evidence_key = f"enrichment_acceptable_evidence_edit_{enrichment_id}"
+    format_key = f"enrichment_result_format_edit_{enrichment_id}"
+    true_if_key = f"{format_key}_true_if"
+    false_if_key = f"{format_key}_false_if"
+    number_def_key = f"{format_key}_number_def"
+    text_def_key = f"{format_key}_text_def"
+    
+    # Compare current session state values with original enrichment values
+    column_name_changed = st.session_state.get(column_name_key, '') != enrichment.get('column_name', '')
+    goal_changed = st.session_state.get(goal_key, '') != enrichment.get('goal', '')
+    evidence_changed = st.session_state.get(evidence_key, '') != enrichment.get('acceptable_evidence', '')
+    format_changed = st.session_state.get(format_key, '') != enrichment.get('result_format', '')
+    true_if_changed = st.session_state.get(true_if_key, '') != enrichment.get('result_true_if', '')
+    false_if_changed = st.session_state.get(false_if_key, '') != enrichment.get('result_false_if', '')
+    number_changed = st.session_state.get(number_def_key, '') != enrichment.get('result_number_value', '')
+    text_changed = st.session_state.get(text_def_key, '') != enrichment.get('result_text_value', '')
+    
+    return column_name_changed or goal_changed or evidence_changed or format_changed or true_if_changed or false_if_changed or number_changed or text_changed
+
+def save_all_enrichment_changes(enrichment):
+    """Save all enrichment configuration changes at once"""
+    enrichment_id = enrichment['id']
+    
+    # Get all session state keys for this enrichment
+    column_name_key = f"enrichment_column_name_edit_{enrichment_id}"
+    goal_key = f"enrichment_goal_edit_{enrichment_id}"
+    evidence_key = f"enrichment_acceptable_evidence_edit_{enrichment_id}"
+    format_key = f"enrichment_result_format_edit_{enrichment_id}"
+    true_if_key = f"{format_key}_true_if"
+    false_if_key = f"{format_key}_false_if"
+    number_def_key = f"{format_key}_number_def"
+    text_def_key = f"{format_key}_text_def"
+    
+    # Validate all required fields
+    is_valid, error_msg = validate_enrichment_config(enrichment)
+    if not is_valid:
+        st.error(error_msg.replace("before running enrichment", "before saving"))
+        return
+    
+    # Get values from session state (validation already passed, so we know they exist)
+    column_name = st.session_state.get(column_name_key, '').strip()
+    
+    # Build payload with all current values
+    payload = {
+        "column_name": column_name,
+        "goal": st.session_state.get(goal_key, ''),
+        "acceptable_evidence": st.session_state.get(evidence_key, ''),
+        "result_format": st.session_state.get(format_key, ''),
+    }
+    
+    # Add format-specific fields based on selected format
+    selected_format = st.session_state.get(format_key, '')
+    if selected_format == "True/False":
+        payload["result_true_if"] = st.session_state.get(true_if_key, '')
+        payload["result_false_if"] = st.session_state.get(false_if_key, '')
         payload["result_number_value"] = ""
         payload["result_text_value"] = ""
     elif selected_format == "Number":
-        st.text_input(
-            "Define the Value",
-            key=number_def_key,
-            placeholder="Describe how the number should be calculated or formatted",
-        )
-        payload["result_number_value"] = st.session_state.get(number_def_key, "")
+        payload["result_number_value"] = st.session_state.get(number_def_key, '')
         payload["result_true_if"] = ""
         payload["result_false_if"] = ""
         payload["result_text_value"] = ""
     elif selected_format == "Text":
-        st.text_input(
-            "What do you want returned",
-            key=text_def_key,
-            placeholder="Describe the text that should be returned",
-        )
-        payload["result_text_value"] = st.session_state.get(text_def_key, "")
+        payload["result_text_value"] = st.session_state.get(text_def_key, '')
         payload["result_true_if"] = ""
         payload["result_false_if"] = ""
         payload["result_number_value"] = ""
-
-    show_save_button_group(
-        enrichment=enrichment,
-        payload=payload,
-        success_message="Result format saved",
-    )
-
-def show_save_button(enrichment, field_key, payload_key, success_message):
-    """Show save button for a single field"""
-    # Display success message if present for this field
-    success_key = f"{field_key}_success"
-    if st.session_state.get(success_key):
-        st.success(st.session_state[success_key])
-        st.session_state[success_key] = None
+    else:
+        # If no format selected, clear all format-specific fields
+        payload["result_true_if"] = ""
+        payload["result_false_if"] = ""
+        payload["result_number_value"] = ""
+        payload["result_text_value"] = ""
     
-    if st.button("💾 Save", key=f"{field_key}_save", width='stretch'):
-        current_value = st.session_state.get(field_key, "")
-        save_field(
-            enrichment,
-            {payload_key: current_value},
-            success_message,
-            success_key
-        )
-
-def show_save_button_group(enrichment, payload, success_message):
-    """Show save button for a group of fields"""
-    # Display success message if present for this group
-    success_key = f"{list(payload.keys())[0]}_group_success"
-    if st.session_state.get(success_key):
-        st.success(st.session_state[success_key])
-        st.session_state[success_key] = None
-    
-    if st.button("💾 Save", key=f"{list(payload.keys())[0]}_group_save", width='stretch'):
-        save_field_group(
-            enrichment=enrichment,
-            payload=payload,
-            success_message=success_message,
-            success_key=success_key
-        )
-
-def save_field(enrichment, payload, success_message, success_key):
-    """Persist a single field and refresh session state"""
-    with st.spinner("💾 Saving..."):
+    # Save all changes
+    with st.spinner("💾 Saving all changes..."):
         try:
-            result = update_enrichment_fields(enrichment["id"], **payload)
+            result = update_enrichment(enrichment_id, **payload)
             if result and result.get("success"):
-                st.session_state[success_key] = f"✅ {success_message}"
-                st.session_state.test_enrichment_success_message = f"✅ {success_message}"
-                updated = get_enrichment(enrichment["id"])
-                if updated:
-                    st.session_state.selected_enrichment = updated
-                st.rerun()
-            else:
-                st.error(f"❌ Failed to save: {result.get('message', 'Unknown error') if result else 'No response from server'}")
-        except Exception as e:
-            st.error(f"❌ Error saving changes: {str(e)}")
-
-def save_field_group(enrichment, payload, success_message, success_key):
-    """Persist multiple related fields and refresh session state"""
-    with st.spinner("💾 Saving..."):
-        try:
-            result = update_enrichment_fields(enrichment["id"], **payload)
-            if result and result.get("success"):
-                st.session_state[success_key] = f"✅ {success_message}"
-                st.session_state.test_enrichment_success_message = f"✅ {success_message}"
-                updated = get_enrichment(enrichment["id"])
+                # Store message in session state so it persists across rerun
+                save_changes_key = f"save_all_changes_message_{enrichment_id}"
+                st.session_state[save_changes_key] = "✅ All changes saved successfully!"
+                updated = get_enrichment(enrichment_id)
                 if updated:
                     st.session_state.selected_enrichment = updated
                 st.rerun()

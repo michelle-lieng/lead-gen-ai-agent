@@ -13,13 +13,8 @@ def show_review_leads():
     st.markdown(f"# 📋 Review Leads - {project['project_name']}")
     st.markdown("---")
     
-    # Header with refresh and download buttons
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.markdown("### 📊 Merged Leads Table")
-    with col2:
-        if st.button("🔄 Refresh", width='stretch'):
-            st.rerun()
+    # Header
+    st.markdown("### 📊 Merged Leads Table")
     
     # Fetch merged results
     try:

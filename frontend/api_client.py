@@ -221,120 +221,30 @@ def fetch_merged_results_zip(project_id: int):
     
     return None, None
 
-# Mock enrichment storage (in-memory, will reset on server restart)
-def _ensure_enrichment_defaults(enrichment: dict) -> dict:
-    """Ensure optional result fields exist."""
-    enrichment.setdefault("result_true_if", "")
-    enrichment.setdefault("result_false_if", "")
-    enrichment.setdefault("result_number_value", "")
-    enrichment.setdefault("result_text_value", "")
-    return enrichment
-
-_mock_enrichments = [
-    {
-        "id": 1,
-        "enrichment_name": "company_size",
-        "enrichment_description": "Number of employees in the company",
-        "goal": "Extract the number of employees or company size information from lead data",
-        "acceptable_evidence": "Company website, LinkedIn profile, job postings, news articles mentioning employee count",
-        "result_format": "Number",
-        "result_true_if": "",
-        "result_false_if": "",
-        "result_number_value": "Number of employees (approximate)",
-        "result_text_value": "",
-        "date_added": "2025-01-15T10:30:00",
-        "last_updated": "2025-01-15T10:30:00"
-    },
-    {
-        "id": 2,
-        "enrichment_name": "industry_sector",
-        "enrichment_description": "Primary industry or business sector",
-        "goal": "Identify the primary industry or business sector that the company operates in",
-        "acceptable_evidence": "Company website, About page, product descriptions, industry classifications",
-        "result_format": "Text",
-        "result_true_if": "",
-        "result_false_if": "",
-        "result_number_value": "",
-        "result_text_value": "Industry sector name",
-        "date_added": "2025-01-15T11:00:00",
-        "last_updated": "2025-01-15T11:00:00"
-    },
-    {
-        "id": 3,
-        "enrichment_name": "revenue_range",
-        "enrichment_description": "Annual revenue bracket",
-        "goal": "Determine the annual revenue range or bracket for the company",
-        "acceptable_evidence": "Financial reports, company filings, news articles, industry databases",
-        "result_format": "Text",
-        "result_true_if": "",
-        "result_false_if": "",
-        "result_number_value": "",
-        "result_text_value": "Revenue range (e.g., $10M-$50M)",
-        "date_added": "2025-01-15T11:15:00",
-        "last_updated": "2025-01-15T11:15:00"
-    }
-]
-_mock_enrichment_counter = 4  # Next ID to use
-
-def create_enrichment(enrichment_name: str, enrichment_description: Optional[str]=None):
-    """Create a new enrichment via API (MOCK - in-memory storage)"""
-    global _mock_enrichments, _mock_enrichment_counter
-    
-    # Check if name already exists
-    if any(e['enrichment_name'] == enrichment_name for e in _mock_enrichments):
-        raise Exception(f"Enrichment name '{enrichment_name}' already exists")
-    
-    from datetime import datetime
-    now = datetime.now().isoformat()
-    
-    new_enrichment = _ensure_enrichment_defaults({
-        "id": _mock_enrichment_counter,
+# Enrichment endpoints
+def create_enrichment(project_id: int, enrichment_name: str, enrichment_description: Optional[str]=None):
+    """Create a new enrichment via API"""
+    response = _request("POST", f"/api/projects/{project_id}/enrichments/", json_data={
         "enrichment_name": enrichment_name,
-        "enrichment_description": enrichment_description or "",
-        "goal": "",
-        "acceptable_evidence": "",
-        "result_format": "",
-        "result_true_if": "",
-        "result_false_if": "",
-        "result_number_value": "",
-        "result_text_value": "",
-        "date_added": now,
-        "last_updated": now
+        "enrichment_description": enrichment_description
     })
-    
-    _mock_enrichments.append(new_enrichment)
-    _mock_enrichment_counter += 1
-    
-    return {"success": True, "enrichment": new_enrichment}
+    return response.json() if response else None
 
-def get_enrichments():
-    """Get all enrichments from the API (MOCK - returns in-memory data)"""
-    return [_ensure_enrichment_defaults(e.copy()) for e in _mock_enrichments]
+def get_enrichments(project_id: int):
+    """Get all enrichments for a project from the API"""
+    response = _request("GET", f"/api/projects/{project_id}/enrichments/")
+    return response.json() if response else []
 
 def get_enrichment(enrichment_id: int):
-    """Get a specific enrichment by ID from the API (MOCK - returns in-memory data)"""
-    for enrichment in _mock_enrichments:
-        if enrichment['id'] == enrichment_id:
-            return _ensure_enrichment_defaults(enrichment.copy())
-    return None
+    """Get a specific enrichment by ID from the API"""
+    response = _request("GET", f"/api/enrichments/{enrichment_id}")
+    return response.json() if response else None
 
-def update_enrichment(enrichment_id: int, enrichment_description: Optional[str]=None):
-    """Update an enrichment via API (MOCK - in-memory storage)"""
-    global _mock_enrichments
-    
-    from datetime import datetime
-    
-    for enrichment in _mock_enrichments:
-        if enrichment['id'] == enrichment_id:
-            if enrichment_description is not None:
-                enrichment['enrichment_description'] = enrichment_description
-            enrichment['last_updated'] = datetime.now().isoformat()
-            return {"success": True, "enrichment": enrichment}
-    
-    return None
-
-def update_enrichment_fields(
+def update_enrichment(
     enrichment_id: int,
+    enrichment_name: Optional[str]=None,
+    column_name: Optional[str]=None,
+    enrichment_description: Optional[str]=None,
     goal: Optional[str]=None,
     acceptable_evidence: Optional[str]=None,
     result_format: Optional[str]=None,
@@ -343,53 +253,43 @@ def update_enrichment_fields(
     result_number_value: Optional[str]=None,
     result_text_value: Optional[str]=None
 ):
-    """Update enrichment configuration fields (MOCK - in-memory storage)"""
-    global _mock_enrichments
+    """Update an enrichment via API - all fields are optional"""
+    data = {}
+    if enrichment_name is not None:
+        data["enrichment_name"] = enrichment_name
+    if column_name is not None:
+        data["column_name"] = column_name
+    if enrichment_description is not None:
+        data["enrichment_description"] = enrichment_description
+    if goal is not None:
+        data["goal"] = goal
+    if acceptable_evidence is not None:
+        data["acceptable_evidence"] = acceptable_evidence
+    if result_format is not None:
+        data["result_format"] = result_format
+    if result_true_if is not None:
+        data["result_true_if"] = result_true_if
+    if result_false_if is not None:
+        data["result_false_if"] = result_false_if
+    if result_number_value is not None:
+        data["result_number_value"] = result_number_value
+    if result_text_value is not None:
+        data["result_text_value"] = result_text_value
     
-    from datetime import datetime
-    
-    for enrichment in _mock_enrichments:
-        if enrichment['id'] == enrichment_id:
-            enrichment = _ensure_enrichment_defaults(enrichment)
-            if goal is not None:
-                enrichment['goal'] = goal
-            if acceptable_evidence is not None:
-                enrichment['acceptable_evidence'] = acceptable_evidence
-            if result_format is not None:
-                enrichment['result_format'] = result_format
-            if result_true_if is not None:
-                enrichment['result_true_if'] = result_true_if
-            if result_false_if is not None:
-                enrichment['result_false_if'] = result_false_if
-            if result_number_value is not None:
-                enrichment['result_number_value'] = result_number_value
-            if result_text_value is not None:
-                enrichment['result_text_value'] = result_text_value
-            enrichment['last_updated'] = datetime.now().isoformat()
-            return {"success": True, "enrichment": enrichment}
-    
-    return None
+    response = _request("PUT", f"/api/enrichments/{enrichment_id}", json_data=data)
+    return response.json() if response else None
 
 def delete_enrichment(enrichment_id: int):
-    """Delete an enrichment via API (MOCK - in-memory storage)"""
-    global _mock_enrichments
-    
-    for i, enrichment in enumerate(_mock_enrichments):
-        if enrichment['id'] == enrichment_id:
-            _mock_enrichments.pop(i)
-            return True
-    
-    return False
+    """Delete an enrichment via API"""
+    response = _request("DELETE", f"/api/enrichments/{enrichment_id}")
+    return response is not None
 
-def enrich_leads(project_id: int, enrichment_id: int, leads_data: list, enrichment_name: str, result_format: str):
-    """Run enrichment on leads and add enrichment column (MOCK - simulates API call)"""
-    import time
-    import random
-    
-    if not enrichment_name:
+def enrich_leads(project_id: int, enrichment_id: int, leads_data: list, column_name: str, result_format: str):
+    """Run enrichment on leads and add enrichment column via API"""
+    if not column_name:
         return {
             "success": False,
-            "message": "Enrichment name is required to add enrichment column.",
+            "message": "Column name is required to add enrichment column.",
             "leads_processed": 0,
             "enrichment_id": enrichment_id,
             "project_id": project_id
@@ -404,43 +304,42 @@ def enrich_leads(project_id: int, enrichment_id: int, leads_data: list, enrichme
             "project_id": project_id
         }
     
-    # Simulate processing time
-    time.sleep(1)
-    
-    # Add enrichment column to each lead
-    updated_leads = []
-    
-    for lead_row in leads_data:
-        # Create a copy of the lead row
-        updated_lead = lead_row.copy()
-        
-        # Generate mock value based on result_format
-        if result_format == "True/False":
-            # Mock: randomly assign True/False
-            updated_lead[enrichment_name] = random.choice([True, False])
-        elif result_format == "Text":
-            # Mock: generate sample text
-            updated_lead[enrichment_name] = f"Sample text for {lead_row.get('lead', 'lead')}"
-        elif result_format == "Number":
-            # Mock: generate random number
-            updated_lead[enrichment_name] = random.randint(1, 100)
-        else:
-            # Default: empty string
-            updated_lead[enrichment_name] = ""
-        
-        updated_leads.append(updated_lead)
-    
-    # Update columns list if needed
-    columns = list(updated_leads[0].keys()) if updated_leads else []
-    if enrichment_name not in columns:
-        columns.append(enrichment_name)
-    
-    return {
-        "success": True,
-        "message": f"Enrichment '{enrichment_name}' processed successfully on {len(updated_leads)} lead(s) for project {project_id}",
-        "leads_processed": len(updated_leads),
+    response = _request("POST", f"/api/projects/{project_id}/enrichments/{enrichment_id}/enrich-leads", json_data={
         "enrichment_id": enrichment_id,
-        "project_id": project_id,
-        "enriched_leads": updated_leads,
-        "columns": columns
-    }
+        "column_name": column_name,
+        "result_format": result_format,
+        "leads_data": leads_data
+    })
+    if response:
+        return response.json()
+    return None
+
+def test_enrich_leads(project_id: int, enrichment_id: int, leads_data: list, column_name: str, result_format: str):
+    """Run test enrichment on leads and add enrichment column via API"""
+    if not column_name:
+        return {
+            "success": False,
+            "message": "Column name is required to add enrichment column.",
+            "leads_processed": 0,
+            "enrichment_id": enrichment_id,
+            "project_id": project_id
+        }
+    
+    if not result_format:
+        return {
+            "success": False,
+            "message": "Result format must be set before running enrichment.",
+            "leads_processed": 0,
+            "enrichment_id": enrichment_id,
+            "project_id": project_id
+        }
+    
+    response = _request("POST", f"/api/projects/{project_id}/enrichments/{enrichment_id}/test-enrich-leads", json_data={
+        "enrichment_id": enrichment_id,
+        "column_name": column_name,
+        "result_format": result_format,
+        "leads_data": leads_data
+    })
+    if response:
+        return response.json()
+    return None

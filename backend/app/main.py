@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api.routes import projects, leads_serp, leads_dataset, merged_results
+from .api.routes import projects, leads_serp, leads_dataset, merged_results, enrichments
 from .services.database_service import db_service
 
 logger = logging.getLogger(__name__)
@@ -65,4 +65,8 @@ app.include_router(leads_dataset.router, prefix="/api", tags=["datasets"])
 ########## MERGED RESULTS ENDPOINTS
 
 app.include_router(merged_results.router, prefix="/api", tags=["merged-results"])
+
+########## ENRICHMENT ENDPOINTS
+
+app.include_router(enrichments.router, prefix="/api", tags=["enrichments"])
 
