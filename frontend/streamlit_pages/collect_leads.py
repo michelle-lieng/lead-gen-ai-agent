@@ -280,7 +280,7 @@ def show_web_search_tab(project):
 
     # Step 2: Generate URLs (always visible)
     st.markdown("---")
-    st.markdown("## Step 2: Generate URLs")
+    st.markdown("## Step 2: Validate URLs")
     
     # Get current project values for lead features (use latest from session state)
     current_project = st.session_state.selected_project
@@ -318,7 +318,7 @@ def show_web_search_tab(project):
     
     # Display URLs table if they exist
     if urls:
-        st.markdown("**Your generated URLs (you can add, edit and delete URLs below):**")
+        st.markdown("Based on your search queries, these are your generated URLs.")
         
         # Create DataFrame from URLs
         df = pd.DataFrame([
