@@ -1,14 +1,5 @@
-WORK_LOG.md
-learning
-output
-CODE_REVIEW.md
-src
-config.yaml
-lead_datasets
-fixtures
-planning.md
+archive
 .vscode
-experiment_enrichment_old
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
