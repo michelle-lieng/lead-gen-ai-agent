@@ -22,21 +22,43 @@ An AI-powered lead generation platform that discovers and enriches potential cor
 
 ## 🛠️ Installation
 
-1. **Clone and install dependencies:**
+1. **Clone the repository:**
 ```bash
 git clone <repository-url>
 cd lead-gen-ai-agent
+```
+
+2. **Set up backend virtual environment and dependencies:**
+```bash
+cd backend
+python -m venv venv
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
-2. **Set up environment variables:**
+3. **Set up frontend virtual environment and dependencies:**
 ```bash
-cp env.example .env
-# Edit .env with your API keys and database credentials
+cd ../frontend
+python -m venv venv
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+
+pip install -r requirements.txt
 ```
 
-3. **Create database:**
-Create a new database named `ai_lead_generator` (I used psql)
+4. **Set up backend environment variables:**
+```bash
+cd ../backend
+cp env.example .env
+# Edit .env with your API keys and database credentials
+# Make sure your PostgreSQL database exists and is configured in .env
+```
 
 *Note: The backend will automatically create all required tables when it starts.*
 
@@ -45,12 +67,24 @@ Create a new database named `ai_lead_generator` (I used psql)
 **Start the backend:**
 ```bash
 cd backend
+# Activate backend virtual environment first
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
 **Start the frontend:**
 ```bash
 cd frontend
+# Activate frontend virtual environment first
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+
 streamlit run app.py
 ```
 
