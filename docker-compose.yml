@@ -1,0 +1,60 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: lead-gen-db
+    env_file:
+      - ./backend/.env  # Read database config from backend/.env
+    environment:
+      # Map backend env vars to PostgreSQL image env vars
+      POSTGRES_USER: ${POSTGRESQL_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRESQL_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRESQL_DATABASE:-ai_lead_generator}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend FastAPI Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lead-gen-backend
+    env_file:
+      - ./backend/.env  # Load from backend/.env file
+    environment:
+      # Override only Docker-specific values (host uses service name)
+      POSTGRESQL_HOST: db  # Docker service name, not localhost
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  # Frontend Streamlit Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lead-gen-frontend
+    environment:
+      BACKEND_URL: http://backend:8000  # Docker service name (defaults to localhost:8000 for local dev)
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

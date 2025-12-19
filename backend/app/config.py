@@ -17,10 +17,7 @@ class Settings(BaseSettings):
     
     # API Keys
     openai_api_key: str
-    tavily_api_key: str
-    serp_api_key: str
     jina_api_key: str
-    google_maps_api_key: str
 
     debug: bool = Field(default=False)
     
@@ -36,7 +33,7 @@ class Settings(BaseSettings):
 
     # tells pydantic how to load the file
     model_config = {
-        "env_file": "../.env",  # Look in project root, not backend directory
+        "env_file": ".env",  # Look in backend directory
         "env_file_encoding": "utf-8"
     }
 

@@ -10,7 +10,8 @@ from urllib3.util.retry import Retry
 import json
 
 # Configuration
-BASE_URL = "http://localhost:8000"
+# Read from environment variable (set by Docker) or default to localhost for local dev
+BASE_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 # Default timeout: 10 minutes (600 secs) for lead extraction operations which can process many URLs sequentially
 # Each URL can take 10-30 seconds with AI processing + scraping, so with 50 URLs this could take 8+ minutes
 TIMEOUT = 600
