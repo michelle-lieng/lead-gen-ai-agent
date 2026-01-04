@@ -15,9 +15,6 @@ logger = logging.getLogger(__name__)
 class ProjectService:
     """Service for project-related database operations"""
 
-    def create_project(self, 
-        project_name: str,
-        description: Optional[str] = None) -> Project:
     def _count_project_stats(self, session, project_id: int) -> tuple[int, int, int]:
         """
         Helper method to count URLs, leads, and datasets for a project.
@@ -40,6 +37,7 @@ class ProjectService:
         
         return urls_count, leads_count, datasets_count
 
+    def create_project(self, project_name: str, description: Optional[str] = None) -> Project:
         """Create a new project"""
         try:
             # this line returns a SQL Alchemy Session object --> have the query(), filter(), first() methods
@@ -52,14 +50,16 @@ class ProjectService:
                 project = Project(
                     project_name=project_name,
                     description=description)
+
                 session.add(project)
                 session.commit() #save data to database
                 session.refresh(project) # updates python object with database values to return 
+                
                 logger.info(f"✅ Created project: {project_name}")
                 return project
         except SQLAlchemyError as e:
-            logger.exception("❌ Error creating project")
-            raise DatabaseFailureError("Failed to create project") from e
+            logger.exception(f"❌ Database error while creating project '{project_name}': {type(e).__name__} - {str(e)}")
+            raise DatabaseFailureError("Unable to create project. Please try again.") from e
     
     def get_projects(self) -> List[Project]:
         """Get all projects, refreshing counts from database before returning"""
@@ -70,10 +70,10 @@ class ProjectService:
             with db_service.get_session() as session:
                 return session.query(Project).order_by(Project.date_added.desc()).all()
         except SQLAlchemyError as e:
-            logger.exception("❌ Error getting projects")
-            raise DatabaseFailureError("Failed to retrieve projects") from e
+            logger.exception(f"❌ Database error while retrieving all projects: {type(e).__name__} - {str(e)}")
+            raise DatabaseFailureError("Unable to retrieve projects. Please try again.") from e
     
-    def get_project(self, project_id: int) -> Optional[Project]:
+    def get_project(self, project_id: int) -> Project:
         """Get specific project by ID, refreshing counts from database before returning"""
         try:
             # Refresh project counts first to ensure accuracy
@@ -85,10 +85,10 @@ class ProjectService:
                     raise ProjectNotFoundError(project_id)
                 return project
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error getting project {project_id}")
-            raise DatabaseFailureError(f"Failed to retrieve project {project_id}") from e
+            logger.exception(f"❌ Database error while retrieving project {project_id}: {type(e).__name__} - {str(e)}")
+            raise DatabaseFailureError("Unable to retrieve project. Please try again.") from e
     
-    def update_project(self, project_id: int, **kwargs) -> Optional[Project]:
+    def update_project(self, project_id: int, **kwargs) -> Project:
         """Update project fields"""
         try:
             with db_service.get_session() as session:
@@ -123,8 +123,8 @@ class ProjectService:
                 logger.info(f"✅ Updated project {project_id}")
                 return project
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error updating project {project_id}")
-            raise DatabaseFailureError(f"Failed to update project {project_id}") from e
+            logger.exception(f"❌ Database error while updating project {project_id} with fields {list(kwargs.keys())}: {type(e).__name__} - {str(e)}")
+            raise DatabaseFailureError("Unable to update project. Please try again.") from e
     
     def delete_project(self, project_id: int) -> None:
         """Delete project by ID, including all related records (cascade deletes automatically)"""
@@ -147,8 +147,8 @@ class ProjectService:
                 
                 logger.info(f"✅ Deleted project {project_id} and {leads_count} leads, {urls_count} URLs, {queries_count} queries, {datasets_count} datasets (cascade delete)")
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error deleting project {project_id}")
-            raise DatabaseFailureError(f"Failed to delete project {project_id}") from e
+            logger.exception(f"❌ Database error while deleting project {project_id}: {type(e).__name__} - {str(e)}")
+            raise DatabaseFailureError("Unable to delete project. Please try again.") from e
     
     def update_project_counts_from_db(self, project_id: Optional[int] = None) -> None:
         """
@@ -183,7 +183,6 @@ class ProjectService:
                 else:
                     # Update all projects
                     projects = session.query(Project).all()
-                    updated_count = 0
                     
                     for project in projects:
                         # Get counts using helper method
@@ -193,14 +192,13 @@ class ProjectService:
                         project.urls_processed = urls_count
                         project.leads_collected = leads_count
                         project.datasets_added = datasets_count
-                        updated_count += 1
                     
                     session.commit()
-                    logger.info(f"✅ Updated counts for {updated_count} project(s)")
+                    logger.info(f"✅ Updated counts for {len(projects)} project(s)")
                 
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error updating project counts for {project_id if project_id else 'all projects'}")
-            raise DatabaseFailureError("Failed to update project counts") from e
+            logger.exception(f"❌ Database error while updating project counts for {project_id if project_id else 'all projects'}: {type(e).__name__} - {str(e)}")
+            raise DatabaseFailureError("Unable to update project statistics. Please try again.") from e
 
 # Global project service instance
 project_service = ProjectService()
