@@ -17,17 +17,8 @@ async def get_merged_results(project_id: int):
     
     Returns merged_results table as JSON with all enrichment columns (dynamically added).
     """
-    try:
-        result = merged_results_service.get_merged_results(project_id)
-        return result
-        
-    except ProjectNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except DatabaseFailureError as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    except Exception as e:
-        logger.error(f"❌ Unexpected error getting merged results: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+    result = merged_results_service.get_merged_results(project_id)
+    return result
 
 @router.get("/projects/{project_id}/results/download")
 async def download_merged_results(project_id: int):
@@ -38,26 +29,16 @@ async def download_merged_results(project_id: int):
     Includes all enrichment columns (dynamically added).
     Returns 204 No Content if there are no merged results to download.
     """
-    try:
-        zip_bytes, filename = merged_results_service.export_merged_results_as_zip(project_id)
-        
-        # Check if there's no data to download (returns None, None)
-        if zip_bytes is None and filename is None:
-            return Response(status_code=204)  # No Content
-        
-        return Response(
-            content=zip_bytes,
-            media_type="application/zip",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
-        )
-        
-    except ProjectNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except DatabaseFailureError as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    except Exception as e:
-        logger.error(f"❌ Unexpected error downloading merged results: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
-
+    zip_bytes, filename = merged_results_service.export_merged_results_as_zip(project_id)
+    
+    # Check if there's no data to download (returns None, None)
+    if zip_bytes is None and filename is None:
+        return Response(status_code=204)  # No Content
+    
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )

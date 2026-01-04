@@ -31,29 +31,14 @@ async def upload_dataset(
         enrichment_column_exists: Whether the enrichment column exists in file
         file: CSV or Excel file to upload (.csv, .xlsx, .xls)
     """
-    try:
-        # Call service to process the dataset
-        result = await leads_dataset_service.upload_dataset(
-            project_id=project_id,
-            dataset_name=dataset_name,
-            lead_column=lead_column,
-            enrichment_column_list=enrichment_column_list,
-            enrichment_column_exists=enrichment_column_exists,
-            file=file
-        )
-        
-        return result
-        
-    except ProjectNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except InvalidFileError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except InvalidEnrichmentColumnError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except DatabaseFailureError as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.exception(f"❌ Unexpected error uploading dataset: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+    # Call service to process the dataset
+    result = await leads_dataset_service.upload_dataset(
+        project_id=project_id,
+        dataset_name=dataset_name,
+        lead_column=lead_column,
+        enrichment_column_list=enrichment_column_list,
+        enrichment_column_exists=enrichment_column_exists,
+        file=file
+    )
+    
+    return result
