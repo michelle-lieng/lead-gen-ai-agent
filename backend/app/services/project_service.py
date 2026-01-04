@@ -18,6 +18,28 @@ class ProjectService:
     def create_project(self, 
         project_name: str,
         description: Optional[str] = None) -> Project:
+    def _count_project_stats(self, session, project_id: int) -> tuple[int, int, int]:
+        """
+        Helper method to count URLs, leads, and datasets for a project.
+        
+        Returns:
+            tuple: (urls_count, leads_count, datasets_count)
+        """
+        urls_count = session.query(SerpUrl).filter(
+            SerpUrl.project_id == project_id,
+            or_(SerpUrl.status == "processed", SerpUrl.status == "skip")
+        ).count()
+        
+        leads_count = session.query(MergedResult).filter(
+            MergedResult.project_id == project_id
+        ).count()
+        
+        datasets_count = session.query(ProjectDataset).filter(
+            ProjectDataset.project_id == project_id
+        ).count()
+        
+        return urls_count, leads_count, datasets_count
+
         """Create a new project"""
         try:
             # this line returns a SQL Alchemy Session object --> have the query(), filter(), first() methods
@@ -148,21 +170,8 @@ class ProjectService:
                     if not project:
                         raise ProjectNotFoundError(project_id)
                     
-                    # Count only processed or skipped URLs for this project
-                    urls_count = session.query(SerpUrl).filter(
-                        SerpUrl.project_id == project_id,
-                        or_(SerpUrl.status == "processed", SerpUrl.status == "skip")
-                    ).count()
-                    
-                    # Count leads from merged_results table (total unique leads)
-                    leads_count = session.query(MergedResult).filter(
-                        MergedResult.project_id == project_id
-                    ).count()
-                    
-                    # Count datasets for this project
-                    datasets_count = session.query(ProjectDataset).filter(
-                        ProjectDataset.project_id == project_id
-                    ).count()
+                    # Get counts using helper method
+                    urls_count, leads_count, datasets_count = self._count_project_stats(session, project_id)
                     
                     # Update project counts
                     project.urls_processed = urls_count
@@ -177,21 +186,8 @@ class ProjectService:
                     updated_count = 0
                     
                     for project in projects:
-                        # Count processed or skipped URLs for this project
-                        urls_count = session.query(SerpUrl).filter(
-                            SerpUrl.project_id == project.id,
-                            or_(SerpUrl.status == "processed", SerpUrl.status == "skip")
-                        ).count()
-                        
-                        # Count leads from merged_results table (total unique leads)
-                        leads_count = session.query(MergedResult).filter(
-                            MergedResult.project_id == project.id
-                        ).count()
-                        
-                        # Count datasets for this project
-                        datasets_count = session.query(ProjectDataset).filter(
-                            ProjectDataset.project_id == project.id
-                        ).count()
+                        # Get counts using helper method
+                        urls_count, leads_count, datasets_count = self._count_project_stats(session, project.id)
                         
                         # Update project counts
                         project.urls_processed = urls_count
