@@ -8,21 +8,9 @@ from typing import List
 from ...services.enrichment_execution_service import enrichment_execution_service
 from ...services.enrichment_service import enrichment_service
 from ...services.merged_results_service import merged_results_service
-from ...models.schemas import (
-    EnrichmentCreate, 
-    EnrichmentUpdate, 
-    EnrichmentResponse,
-    EnrichLeadsRequest
-)
-from ...exceptions import (
-    DuplicateEnrichmentNameError,
-    DuplicateColumnNameError,
-    EnrichmentNotFoundError, 
-    DatabaseFailureError,
-    ProjectNotFoundError
-)
 from ...services.project_service import project_service
-
+from ...models.schemas import (EnrichmentCreate, EnrichmentUpdate, EnrichmentResponse, EnrichLeadsRequest)
+from ...exceptions import EnrichmentNotFoundError, ProjectNotFoundError
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -44,7 +32,6 @@ async def create_enrichment(project_id: int, request: EnrichmentCreate):
     return enrichment_service.create_enrichment(
         project_id=project_id,
         enrichment_name=request.enrichment_name,
-        column_name=request.column_name,
         enrichment_description=request.enrichment_description
     )
 
@@ -91,7 +78,7 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
     Args:
         project_id: ID of the project
         enrichment_id: ID of the enrichment configuration to use
-        request: Request containing enrichment_id, enrichment_name, result_format, and leads_data
+        request: Request containing leads_data
     """
     # Verify project exists
     project = project_service.get_project(project_id)
@@ -103,42 +90,23 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
     if not enrichment:
         raise EnrichmentNotFoundError(enrichment_id)
     
-    # Validate enrichment configuration
-    is_valid, error_msg, missing_fields = enrichment_service.validate_enrichment_config(
-        enrichment,
-        request.column_name,
-        request.result_format
-    )
-    
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error_msg)
-    
-    # Process leads enrichment
-    enriched_leads, columns = await enrichment_service.process_leads_enrichment(
+    # Process leads enrichment using enrichment's configured values
+    enriched_leads, columns = await enrichment_execution_service.enrich_leads(
         enrichment=enrichment,
-        leads_data=request.leads_data,
-        column_name=request.column_name,
-        enrichment_execution_service=enrichment_execution_service
+        leads_data=request.leads_data
     )
-    
-    # Calculate success/failure statistics
-    successful = sum(1 for lead in enriched_leads if lead.get(request.column_name) is not None)
-    failed = len(enriched_leads) - successful
     
     # Automatically save enrichment results to merged_results table
-    save_result = merged_results_service.save_ai_enrichment_results(
+    merged_results_service.save_ai_enrichment_results(
         project_id=project_id,
-        column_name=request.column_name,
+        column_name=enrichment.column_name,
         enriched_leads=enriched_leads
     )
-    logger.info(f"✅ Automatically saved enrichment results to merged_results: {save_result.get('message', '')}")
     
     return {
         "success": True,
-        "message": f"Enrichment '{enrichment.enrichment_name}' (column: {request.column_name}) completed: {successful} successful, {failed} failed",
+        "message": f"Enrichment '{enrichment.enrichment_name}' completed on {len(enriched_leads)} lead(s). Results saved to merged leads.",
         "leads_processed": len(enriched_leads),
-        "successful": successful,
-        "failed": failed,
         "enrichment_id": enrichment_id,
         "project_id": project_id,
         "enriched_leads": enriched_leads,
@@ -154,7 +122,7 @@ async def test_enrich_leads(project_id: int, enrichment_id: int, request: Enrich
     Args:
         project_id: ID of the project
         enrichment_id: ID of the enrichment configuration to use
-        request: Request containing enrichment_id, enrichment_name, result_format, and leads_data
+        request: Request containing leads_data
     """
     # Verify project exists
     project = project_service.get_project(project_id)
@@ -165,36 +133,18 @@ async def test_enrich_leads(project_id: int, enrichment_id: int, request: Enrich
     enrichment = enrichment_service.get_enrichment(enrichment_id)
     if not enrichment:
         raise EnrichmentNotFoundError(enrichment_id)
-    
-    # Validate enrichment configuration
-    is_valid, error_msg, missing_fields = enrichment_service.validate_enrichment_config(
-        enrichment,
-        request.column_name,
-        request.result_format
-    )
-    
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error_msg)
-    
-    # Process leads enrichment
-    enriched_leads, columns = await enrichment_service.process_leads_enrichment(
+
+    # Process leads enrichment using enrichment's configured values
+    enriched_leads, columns = await enrichment_execution_service.enrich_leads(
         enrichment=enrichment,
-        leads_data=request.leads_data,
-        column_name=request.column_name,
-        enrichment_execution_service=enrichment_execution_service
+        leads_data=request.leads_data
     )
-    
-    # Calculate success/failure statistics
-    successful = sum(1 for lead in enriched_leads if lead.get(request.column_name) is not None)
-    failed = len(enriched_leads) - successful
     
     # Return results without saving (test mode)
     return {
         "success": True,
-        "message": f"Test enrichment '{enrichment.enrichment_name}' (column: {request.column_name}) completed: {successful} successful, {failed} failed",
+        "message": f"Test enrichment '{enrichment.enrichment_name}' completed on {len(enriched_leads)} lead(s)",
         "leads_processed": len(enriched_leads),
-        "successful": successful,
-        "failed": failed,
         "enrichment_id": enrichment_id,
         "project_id": project_id,
         "enriched_leads": enriched_leads,
