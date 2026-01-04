@@ -565,8 +565,10 @@ def save_all_enrichment_changes(enrichment):
     with st.spinner("💾 Saving all changes..."):
         try:
             result = update_enrichment(enrichment_id, **payload)
-            if result and result.get("success"):
-                # Store message in session state so it persists across rerun
+            if result:
+                # Show immediate success message
+                st.success("✅ All changes saved successfully!")
+                # Also store message in session state so it persists across rerun
                 save_changes_key = f"save_all_changes_message_{enrichment_id}"
                 st.session_state[save_changes_key] = "✅ All changes saved successfully!"
                 updated = get_enrichment(enrichment_id)
@@ -574,6 +576,6 @@ def save_all_enrichment_changes(enrichment):
                     st.session_state.selected_enrichment = updated
                 st.rerun()
             else:
-                st.error(f"❌ Failed to save: {result.get('message', 'Unknown error') if result else 'No response from server'}")
+                st.error("❌ Failed to save enrichment changes: No response from server")
         except Exception as e:
             st.error(f"❌ Error saving changes: {str(e)}")
