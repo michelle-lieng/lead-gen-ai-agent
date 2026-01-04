@@ -157,7 +157,7 @@ class DuplicateEnrichmentNameError(EnrichmentError):
         message = f"Enrichment name '{enrichment_name}' already exists"
         super().__init__(message)
 
-class DuplicateColumnNameError(EnrichmentError):
+class DuplicateEnrichmentColumnNameError(EnrichmentError):
     """Raised when trying to create an enrichment with a column name that already exists"""
     status_code = 409
     code = "DUPLICATE_COLUMN_NAME"
