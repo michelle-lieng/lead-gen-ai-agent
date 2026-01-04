@@ -254,7 +254,7 @@ def show_run_enrichment(enrichment):
                 with st.spinner("Running enrichment on test leads..."):
                     try:
                         leads_data = leads_cache.get("data", [])
-                        result = test_enrich_leads(project_id, enrichment_id, leads_data, saved_column_name, saved_result_format)
+                        result = test_enrich_leads(project_id, enrichment_id, leads_data)
                         if result and result.get("success"):
                             # Store enriched results in test-specific session state, keyed by project_id and enrichment_id
                             results_key = f"{project_id}_{enrichment_id}"
