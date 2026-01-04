@@ -2,7 +2,7 @@
 Dashboard page - main project overview and creation
 """
 import streamlit as st
-from api_client import get_projects, create_project, delete_project, update_project
+from api import get_projects, create_project, delete_project, update_project
 
 def show_dashboard():
     """Main dashboard - project overview and creation"""

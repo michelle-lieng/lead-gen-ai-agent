@@ -3,7 +3,7 @@ Review enrichment page
 """
 import streamlit as st
 import pandas as pd
-from api_client import get_enrichment, enrich_leads, get_merged_results
+from api import get_enrichment, enrich_leads, get_merged_results
 
 def show_review_enrichment():
     """Review enrichment page"""

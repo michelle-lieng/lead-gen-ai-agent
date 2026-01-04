@@ -2,7 +2,7 @@
 Project overview page
 """
 import streamlit as st
-from api_client import get_project, update_project, create_enrichment, get_enrichments, update_enrichment, delete_enrichment
+from api import get_project, update_project, create_enrichment, get_enrichments, update_enrichment, delete_enrichment
 
 def show_enrichments():
     """Enrichment page"""

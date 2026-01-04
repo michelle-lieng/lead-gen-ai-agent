@@ -10,6 +10,8 @@ from streamlit_pages.enrichments import show_enrichments
 from streamlit_pages.review_enrichment import show_review_enrichment
 from streamlit_pages.test_enrichment import show_test_enrichment
 
+from api import get_projects
+
 def init_session_state():
     """Initialize global session state variables"""
     if 'selected_project' not in st.session_state:
@@ -41,7 +43,6 @@ def main():
         
         # Project selection
         st.markdown("### 📁 Projects")
-        from api_client import get_projects
         projects = get_projects()
         
         if projects:

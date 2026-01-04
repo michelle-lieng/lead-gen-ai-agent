@@ -2,7 +2,7 @@
 Test enrichment page - edit enrichment configuration
 """
 import streamlit as st
-from api_client import get_enrichment, update_enrichment, get_merged_results, test_enrich_leads
+from api import get_enrichment, update_enrichment, get_merged_results, test_enrich_leads
 
 def show_test_enrichment():
     """Test enrichment page - edit enrichment configuration"""

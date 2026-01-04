@@ -3,7 +3,7 @@ Lead collection page
 """
 import streamlit as st
 import pandas as pd
-from api_client import update_project, generate_queries, get_queries, generate_urls, get_urls, create_url, update_url, delete_url, generate_leads, fetch_latest_run_zip, get_project, upload_dataset
+from api import update_project, generate_queries, get_queries, generate_urls, get_urls, create_url, update_url, delete_url, generate_leads, fetch_latest_run_zip, get_project, upload_dataset
 
 # =============================================================================
 # HELPER FUNCTIONS

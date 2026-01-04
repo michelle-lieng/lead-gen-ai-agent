@@ -2,7 +2,7 @@
 Project overview page
 """
 import streamlit as st
-from api_client import update_project, delete_project, get_project
+from api import update_project, delete_project, get_project
 
 def show_project_overview():
     """Project overview page"""
