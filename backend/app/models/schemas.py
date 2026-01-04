@@ -1,8 +1,8 @@
 """
 Pydantic models for API request/response validation
 """
-from pydantic import BaseModel, field_validator
-from typing import Optional
+from pydantic import BaseModel, field_validator, model_validator
+from typing import Optional, Literal
 
 def validate_not_empty_string(v: str) -> str:
     """Shared validation: ensure string is not empty or just whitespace"""
@@ -34,7 +34,7 @@ class ProjectUpdate(BaseModel):
     @field_validator('lead_minimum_criteria')
     @classmethod
     def validate_lead_minimum_criteria_if_provided(cls, v: Optional[str]) -> Optional[str]:
-        """If provided, ensure field is not empty or just whitespace. Cannot be set to None to remove it."""
+        """If provided as a string, ensure it's not empty or just whitespace. Service layer enforces business rule that prevents removal."""
         if v is not None:  # Only validate if field is being updated (not None)
             return validate_not_empty_string(v)
         return v
@@ -62,6 +62,14 @@ class ProjectResponse(BaseModel):
     
     class Config:
         from_attributes = True
+    
+    @field_validator('date_added', 'last_updated', mode='before')
+    @classmethod
+    def serialize_datetime(cls, v):
+        """Convert datetime to ISO format string"""
+        if hasattr(v, 'isoformat'):
+            return v.isoformat()
+        return v
 
 class QueryListRequest(BaseModel):
     """Schema for query list requests"""
@@ -154,27 +162,49 @@ class EnrichmentUpdate(BaseModel):
     enrichment_description: Optional[str] = None
     goal: Optional[str] = None
     acceptable_evidence: Optional[str] = None
-    result_format: Optional[str] = None
+    result_format: Optional[Literal["True/False", "Text", "Number"]] = None
     result_true_if: Optional[str] = None
     result_false_if: Optional[str] = None
     result_number_value: Optional[str] = None
     result_text_value: Optional[str] = None
     
-    @field_validator('enrichment_name')
+    @field_validator('enrichment_name', 'column_name', 'goal', 'acceptable_evidence')
     @classmethod
-    def validate_not_empty_if_provided(cls, v: Optional[str]) -> Optional[str]:
-        """If provided, ensure field is not empty or just whitespace"""
-        if v is not None:  # Only validate if field is being updated (not None)
-            return validate_not_empty_string(v)
+    def validate_not_empty_if_provided(cls, v: Optional[str], info) -> Optional[str]:
+        """If updating these fields, they cannot be empty or whitespace"""
+        if v is not None:
+            if not v or not v.strip():
+                raise ValueError('Field cannot be empty or whitespace only')
+            # Column name needs additional SQL identifier validation
+            if info.field_name == 'column_name':
+                return validate_column_name(v)
+            return v.strip()
         return v
     
-    @field_validator('column_name')
+    @field_validator('result_true_if', 'result_false_if', 'result_number_value', 'result_text_value')
     @classmethod
-    def validate_column_name_if_provided(cls, v: Optional[str]) -> Optional[str]:
-        """If provided, validate column name is a valid SQL column name"""
-        if v is not None:  # Only validate if field is being updated (not None)
-            return validate_column_name(v)
-        return v
+    def validate_format_fields(cls, v: Optional[str]) -> Optional[str]:
+        """Format-specific fields: allow empty strings for clearing, but strip if provided"""
+        if v is not None and v.strip():
+            return v.strip()
+        return v  # Allow None or empty string for clearing
+    
+    @model_validator(mode='after')
+    def validate_result_format_requirements(self):
+        """Validate conditional requirements based on result_format"""
+        # Only validate format-specific fields if result_format is being set to a specific value
+        if self.result_format == "True/False":
+            if not self.result_true_if or not self.result_true_if.strip():
+                raise ValueError("True/False format requires 'True if' value")
+            if not self.result_false_if or not self.result_false_if.strip():
+                raise ValueError("True/False format requires 'False if' value")
+        elif self.result_format == "Number":
+            if not self.result_number_value or not self.result_number_value.strip():
+                raise ValueError("Number format requires 'Define the Value' field")
+        elif self.result_format == "Text":
+            if not self.result_text_value or not self.result_text_value.strip():
+                raise ValueError("Text format requires 'What do you want returned' field")
+        return self
 
 class EnrichmentResponse(BaseModel):
     """Schema for enrichment API responses"""
@@ -185,7 +215,7 @@ class EnrichmentResponse(BaseModel):
     enrichment_description: Optional[str] = None
     goal: Optional[str] = None
     acceptable_evidence: Optional[str] = None
-    result_format: Optional[str] = None
+    result_format: Optional[Literal["True/False", "Text", "Number"]] = None
     result_true_if: Optional[str] = None
     result_false_if: Optional[str] = None
     result_number_value: Optional[str] = None
@@ -195,13 +225,20 @@ class EnrichmentResponse(BaseModel):
     
     class Config:
         from_attributes = True
+    
+    @field_validator('date_added', 'last_updated', mode='before')
+    @classmethod
+    def serialize_datetime(cls, v):
+        """Convert datetime to ISO format string"""
+        if hasattr(v, 'isoformat'):
+            return v.isoformat()
+        return v
 
 class EnrichLeadsRequest(BaseModel):
     """Schema for enriching leads"""
-    enrichment_id: int
-    column_name: str  # Column name to use for the enrichment results
-    result_format: str
-    leads_data: list[dict]  # List of lead dictionaries with at least a "lead" keyclass QueryResponse(BaseModel):
+    leads_data: list[dict]  # List of lead dictionaries with at least a "lead" key
+
+class QueryResponse(BaseModel):
     """Schema for query response"""
     id: int
     project_id: int
