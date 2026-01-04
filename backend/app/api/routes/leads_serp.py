@@ -1,24 +1,24 @@
 """
 Query endpoints
 """
-import logging
-from fastapi import APIRouter, HTTPException, Response
-import openai
+from fastapi import APIRouter, Response
 
 from ...services.leads_serp_service import leads_serp_service
-from ...exceptions import ExternalScraperError, UrlNotFoundError, DuplicateUrlError, OpenAITokenLimitExceededError, ProjectNotFoundError, InvalidProjectConfigurationError, DatabaseFailureError
-
-logger = logging.getLogger(__name__)
-
-from ...models.schemas import QueryListRequest, QueryGenerationRequest, UrlCreate, UrlUpdate
+from ...models.schemas import (
+    QueryListRequest, 
+    QueryGenerationRequest, 
+    QueryResponse,
+    UrlCreate, 
+    UrlUpdate, 
+    UrlResponse,
+    UrlGenerationResponse,
+    LeadExtractionResponse
+)
 
 router = APIRouter()
 
-@router.post("/projects/{project_id}/queries")
-async def generate_queries(
-    project_id: int,
-    request: QueryGenerationRequest
-) -> list:
+@router.post("/projects/{project_id}/queries", response_model=list[str])
+async def generate_queries(project_id: int, request: QueryGenerationRequest):
     """
     Generate AI-powered search queries for a project based on its description.
     
@@ -26,20 +26,20 @@ async def generate_queries(
         project_id: ID of the project
         request: Request body with num_queries (defaults to 3 if not provided)
     
-    Gets the project id -> service handles fetching description and generating queries
+    Returns list of generated search query strings.
     """
-    query_list = leads_serp_service.generate_search_queries_for_project(project_id, num_queries=request.num_queries)
-    return query_list
+    return leads_serp_service.generate_queries(project_id, num_queries=request.num_queries)
 
-@router.get("/projects/{project_id}/queries")
+@router.get("/projects/{project_id}/queries", response_model=list[QueryResponse])
 async def get_queries(project_id: int):
     """
     Get all queries for a project from the database.
+    
+    Returns list of query objects with metadata.
     """
-    queries = leads_serp_service.get_queries(project_id)
-    return queries
+    return leads_serp_service.get_queries(project_id)
 
-@router.post("/projects/{project_id}/urls")
+@router.post("/projects/{project_id}/urls", response_model=UrlGenerationResponse)
 async def generate_urls(project_id: int, request: QueryListRequest):
     """
     Save queries and generate URLs for a project.
@@ -47,38 +47,43 @@ async def generate_urls(project_id: int, request: QueryListRequest):
     Business workflow:
     1. Save generated queries to serp_queries table
     2. Generate URLs from queries and save them to serp_urls table
+    
+    Returns operation status and statistics.
     """
-    result = await leads_serp_service.save_queries_and_generate_urls(project_id, request.queries)
-    return result
+    return await leads_serp_service.generate_urls(project_id, request.queries)
 
-@router.get("/projects/{project_id}/urls")
+@router.get("/projects/{project_id}/urls", response_model=list[UrlResponse])
 async def get_urls(project_id: int):
     """
-    Get all production URLs for a project.
+    Get all unprocessed production URLs for a project.
+    
+    Returns list of URL objects with metadata.
     """
-    urls = leads_serp_service.get_urls(project_id)
-    return urls
+    return leads_serp_service.get_urls(project_id)
 
-@router.post("/projects/{project_id}/urls/create")
+@router.post("/projects/{project_id}/urls/create", response_model=UrlResponse)
 async def create_url(project_id: int, url_data: UrlCreate):
     """
     Create a single production URL manually.
+    
+    Returns success status and created URL data.
     """
-    result = leads_serp_service.create_url(
+    return leads_serp_service.create_url(
         project_id=project_id,
         link=url_data.link,
         title=url_data.title,
         snippet=url_data.snippet,
         date=url_data.date
     )
-    return result
 
-@router.put("/projects/{project_id}/urls/{url_id}")
+@router.put("/projects/{project_id}/urls/{url_id}", response_model=UrlResponse)
 async def update_url(project_id: int, url_id: int, update: UrlUpdate):
     """
     Update a production URL (title, snippet, date or link).
+    
+    Returns success status and updated URL data.
     """
-    result = leads_serp_service.update_url(
+    return leads_serp_service.update_url(
         project_id=project_id,
         url_id=url_id,
         title=update.title,
@@ -86,27 +91,24 @@ async def update_url(project_id: int, url_id: int, update: UrlUpdate):
         link=update.link,
         date=update.date
     )
-    return result
 
-@router.delete("/projects/{project_id}/urls/{url_id}")
+@router.delete("/projects/{project_id}/urls/{url_id}", status_code=204)
 async def delete_url(project_id: int, url_id: int):
     """
     Delete a production URL.
     """
-    result = leads_serp_service.delete_url(project_id=project_id, url_id=url_id)
-    return result
+    leads_serp_service.delete_url(project_id=project_id, url_id=url_id)
+    return 
 
-@router.post("/projects/{project_id}/leads")
+@router.post("/projects/{project_id}/leads", response_model=LeadExtractionResponse)
 async def generate_leads(project_id: int):
     """
-    For given project_id
-    1. We load up the serp_urls and we ingest it our code will go down each row
-    and if status = unprocessed then we will update that table and extract the leads
-    and save to serp_leads table --> using function extract_and_add_leads_to_table
+    Extract leads from SERP URLs for a project.
+    
+    Processes unprocessed URLs, extracts leads using AI, and saves to database.
+    Returns detailed extraction statistics and results.
     """
-    # Step 1: Save leads to serp_leads and update serp_urls
-    result = await leads_serp_service.extract_and_add_leads_to_table(project_id)
-    return result
+    return await leads_serp_service.generate_leads(project_id)
 
 @router.get("/projects/{project_id}/leads/download")
 async def get_latest_run_results(project_id: int):

@@ -201,4 +201,47 @@ class EnrichLeadsRequest(BaseModel):
     enrichment_id: int
     column_name: str  # Column name to use for the enrichment results
     result_format: str
-    leads_data: list[dict]  # List of lead dictionaries with at least a "lead" key
+    leads_data: list[dict]  # List of lead dictionaries with at least a "lead" keyclass QueryResponse(BaseModel):
+    """Schema for query response"""
+    id: int
+    project_id: int
+    query: str
+    date_added: str
+    
+    class Config:
+        from_attributes = True
+    
+    @field_validator('date_added', mode='before')
+    @classmethod
+    def serialize_datetime(cls, v):
+        """Convert datetime to ISO format string"""
+        if hasattr(v, 'isoformat'):
+            return v.isoformat()
+        return v
+
+class UrlResponse(BaseModel):
+    """Schema for URL response"""
+    id: int
+    project_id: int
+    query: str
+    title: str
+    link: str
+    snippet: str
+    date: Optional[str] = None
+    website_scraped: Optional[str] = None
+    status: str
+    created_at: Optional[str] = None
+
+class UrlGenerationResponse(BaseModel):
+    """Schema for URL generation response"""
+    urls_added: int
+    queries_processed: int
+
+class LeadExtractionResponse(BaseModel):
+    """Schema for lead extraction response from SERP URLs"""
+    urls_processed: int
+    urls_skipped: int
+    urls_failed: int
+    total_urls_attempted: int
+    new_leads_extracted: int
+    extracted_leads: list[dict]  # List of extraction results per URL
