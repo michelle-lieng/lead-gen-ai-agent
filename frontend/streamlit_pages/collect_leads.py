@@ -68,7 +68,7 @@ def init_collect_leads_session_state():
     if 'extraction_results' not in st.session_state:
         st.session_state.extraction_results = {}
     if current_project_id and current_project_id not in st.session_state.extraction_results:
-        st.session_state.extraction_results[current_project_id] = []  # Store results from extraction run
+        st.session_state.extraction_results[current_project_id] = {}  # Store full result dict from backend
 
 # =============================================================================
 # MAIN PAGE - WEB SEARCH TAB
@@ -113,7 +113,7 @@ def show_web_search_tab(project):
                 st.rerun()
             else:
                 # Clear extraction results when adding a new query
-                st.session_state.extraction_results[project_id] = []
+                st.session_state.extraction_results[project_id] = {}
                 # Store success message
                 st.session_state.query_message[project_id] = f'✅ Added query "{new_query.strip()}" to the list.'
                 
@@ -176,7 +176,7 @@ def show_web_search_tab(project):
                                 st.stop()
                     
                     # Clear extraction results when generating new queries
-                    st.session_state.extraction_results[project_id] = []
+                    st.session_state.extraction_results[project_id] = {}
                     
                     # Generate queries
                     with st.spinner(f"🤖 AI is generating {st.session_state.num_queries} targeted search queries..."):
@@ -302,9 +302,8 @@ def show_web_search_tab(project):
                 queries_list = list(st.session_state.generated_queries.get(project_id, {}).values())
                 urls_result = generate_urls(project['id'], queries_list)
                 
-                if urls_result.get('success'):
-                    urls_info = urls_result.get('urls_result', {})
-                    st.success(f"✅ Generated {urls_info.get('urls_added', 0)} URLs from {urls_info.get('queries_processed', 0)} search queries")
+                if urls_result:
+                    st.success(f"✅ Generated {urls_result.get('urls_added', 0)} URLs from {urls_result.get('queries_processed', 0)} search queries")
                     st.rerun()
                 else:
                     st.error(f"❌ Failed to generate URLs")
@@ -455,7 +454,7 @@ def show_web_search_tab(project):
                             snippet=new_row['snippet'] if new_row['snippet'] else None,
                             date=new_row['date'] if new_row.get('date') else None
                         )
-                        if result and result.get('success'):
+                        if result:
                             changes_made = True
                     except Exception as e:
                         errors.append(f"Error creating URL {new_row['link']}: {str(e)}")
@@ -464,7 +463,7 @@ def show_web_search_tab(project):
                 for url_id, updates in edited_rows:
                     try:
                         result = update_url(project['id'], url_id, **updates)
-                        if result and result.get('success'):
+                        if result:
                             changes_made = True
                     except Exception as e:
                         errors.append(f"Error updating URL {url_id}: {str(e)}")
@@ -564,13 +563,13 @@ def show_web_search_tab(project):
         st.button("🤖 Extract Leads", disabled=True)
     else:
         # Get extraction results for current project
-        project_extraction_results = st.session_state.extraction_results.get(project_id, [])
+        project_extraction_result = st.session_state.extraction_results.get(project_id, {})
         
         # Show button - "Re-run Extraction" if results exist, otherwise "Extract Leads"
-        button_text = "🔄 Re-run Extraction" if project_extraction_results else "🤖 Extract Leads"
+        button_text = "🔄 Re-run Extraction" if project_extraction_result else "🤖 Extract Leads"
         if st.button(button_text):
             # Clear previous results and queries when starting new extraction
-            st.session_state.extraction_results[project_id] = []
+            st.session_state.extraction_results[project_id] = {}
             st.session_state.generated_queries[project_id] = {}
             st.session_state.query_counter = 0
             st.session_state.query_message[project_id] = None
@@ -579,10 +578,9 @@ def show_web_search_tab(project):
             with st.spinner("🤖 Extracting leads from URLs (this may take several minutes)..."):
                 leads_result = generate_leads(project['id'])
                 
-                if leads_result.get('success'):
-                    # Store results in session state for this project
-                    extracted_leads = leads_result.get('extracted_leads', [])
-                    st.session_state.extraction_results[project_id] = extracted_leads
+                if leads_result:
+                    # Store full result (including stats from backend) in session state for this project
+                    st.session_state.extraction_results[project_id] = leads_result
                     
                     # Refresh project data to get updated stats
                     st.session_state.selected_project = get_project(project['id'])
@@ -596,35 +594,28 @@ def show_web_search_tab(project):
                     st.error(f"❌ Failed to extract leads")
     
     # Display extraction results if they exist for this project
-    project_extraction_results = st.session_state.extraction_results.get(project_id, [])
-    if project_extraction_results:
+    project_extraction_result = st.session_state.extraction_results.get(project_id, {})
+    if project_extraction_result:
         st.markdown("---")
         st.markdown("## 📊 Extraction Results")
         
-        # Show metrics dashboard
-        leads_result_summary = {
-            'new_leads_extracted': sum(len(result.get('leads', [])) for result in project_extraction_results),
-            'urls_processed': len([r for r in project_extraction_results if r.get('status') == 'processed']),
-            'urls_skipped': len([r for r in project_extraction_results if r.get('status') == 'skip']),
-            'urls_failed': len([r for r in project_extraction_results if r.get('status') == 'failed']),
-            'total_urls': len(project_extraction_results)
-        }
-        
+        # Use stats calculated by backend instead of recalculating
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
-            st.metric("Leads Extracted", leads_result_summary['new_leads_extracted'])
+            st.metric("Leads Extracted", project_extraction_result.get('new_leads_extracted', 0))
         with col2:
-            st.metric("URLs Processed", leads_result_summary['urls_processed'])
+            st.metric("URLs Processed", project_extraction_result.get('urls_processed', 0))
         with col3:
-            st.metric("URLs Skipped", leads_result_summary['urls_skipped'])
+            st.metric("URLs Skipped", project_extraction_result.get('urls_skipped', 0))
         with col4:
-            st.metric("URLs Failed", leads_result_summary['urls_failed'])
+            st.metric("URLs Failed", project_extraction_result.get('urls_failed', 0))
         with col5:
-            st.metric("Total URLs", leads_result_summary['total_urls'])
+            st.metric("Total URLs", project_extraction_result.get('total_urls_attempted', 0))
         
-        # Prepare data for summary table
+        # Prepare data for summary table from extracted_leads
+        extracted_leads_list = project_extraction_result.get('extracted_leads', [])
         results_data = []
-        for result in project_extraction_results:
+        for result in extracted_leads_list:
             leads = result.get('leads', [])
             status = result.get('status', 'unknown')
             # Color code status
@@ -645,60 +636,7 @@ def show_web_search_tab(project):
         
         df = pd.DataFrame(results_data)
         st.dataframe(df, width='stretch', hide_index=True)
-        
-        # Show detailed results in expandable sections
-        # st.markdown("### 📋 Detailed Results")
-        # for i, result in enumerate(project_extraction_results):
-        #     leads = result.get('leads', [])
-        #     status = result.get('status', 'unknown')
-        #     status_display = {
-        #         'processed': '✅ Processed',
-        #         'skip': '⏭️ Skipped',
-        #         'failed': '❌ Failed',
-        #         'unprocessed': '⏳ Unprocessed'
-        #     }.get(status, status)
-            
-        #     with st.expander(f"{status_display} | URL {i+1}: {result['url'][:70]}... ({len(leads)} leads)"):
-        #         col1, col2 = st.columns(2)
-        #         with col1:
-        #             st.markdown(f"**Query:** {result.get('query', 'N/A')}")
-        #             st.markdown(f"**Title:** {result.get('title', 'N/A')}")
-        #             st.markdown(f"**Snippet:** {result.get('snippet', 'N/A')}")
-        #         with col2:
-        #             st.markdown(f"**Leads Found:** {len(leads)}")
-        #             st.markdown(f"**URL:** {result['url']}")
-                
-        #         # Show scraped content if available
-        #         if result.get('website_scraped'):
-        #             st.markdown("**Scraped Website Content:**")
-        #             st.text_area(
-        #                 "Scraped Content",
-        #                 value=result.get('website_scraped', ''),
-        #                 height=300,
-        #                 disabled=False,
-        #                 key=f"scraped_{i}",
-        #                 label_visibility="collapsed",
-        #                 help="Scraped website content"
-        #             )
-        #         elif status == 'failed':
-        #             st.warning("⚠️ Website scraping failed or was not attempted")
-        #         elif status == 'skip':
-        #             st.info("ℹ️ No scraped content (leads extracted from snippet/title only)")
-        #         else:
-        #             st.info("ℹ️ No scraped content available")
-                
-        #         if leads:
-        #             st.markdown("**Extracted Leads:**")
-        #             for lead in leads:
-        #                 st.markdown(f"- {lead}")
-        #         else:
-        #             if status == 'skip':
-        #                 st.info("⏭️ No leads extracted from this URL (skipped)")
-        #             elif status == 'failed':
-        #                 st.error("❌ Failed to extract leads from this URL")
-        #             else:
-        #                 st.info("No leads extracted from this URL")
-    
+
     # Always show download section at the bottom of Web Search tab
     st.markdown("---")
     st.markdown("### 📥 Download Webscraped Leads")
