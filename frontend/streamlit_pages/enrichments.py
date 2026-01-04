@@ -53,11 +53,11 @@ def show_enrichments():
                                 del st.session_state[description_input_key]
                             st.rerun()
                     except Exception as e:
-                        st.error(f"Error creating enrichment: {e}")
-                        if "already exists" in str(e).lower():
+                        # Check error code from backend (DuplicateEnrichmentNameError has code="DUPLICATE_ENRICHMENT_NAME")
+                        if hasattr(e, 'error_code') and e.error_code == "DUPLICATE_ENRICHMENT_NAME":
                             st.error(f"❌ Enrichment name '{enrichment_name}' already exists. Please choose a different name and try again.")
                         else:
-                            st.error(f"❌ Failed to create enrichment: {e}")
+                            st.error(f"❌ Failed to create enrichment: {str(e)}")
     if success_key in st.session_state:
         st.success(st.session_state[success_key])
         # Clear the success message after displaying it
@@ -124,12 +124,13 @@ def show_enrichments():
                                             del st.session_state[column_name_input_key]
                                         st.rerun()
                                 except Exception as e:
-                                    st.error(f"❌ Error updating enrichment: {e}")
-                                    if "already exists" in str(e).lower():
-                                        if "column name" in str(e).lower():
-                                            st.error(f"❌ Column name '{new_column_name}' already exists. Please choose a different column name.")
-                                        else:
-                                            st.error(f"❌ Enrichment name '{new_name}' already exists. Please choose a different name.")
+                                    # Check error codes from backend
+                                    if hasattr(e, 'error_code') and e.error_code == "DUPLICATE_COLUMN_NAME":
+                                        st.error(f"❌ Column name '{new_column_name}' already exists. Please choose a different column name.")
+                                    elif hasattr(e, 'error_code') and e.error_code == "DUPLICATE_ENRICHMENT_NAME":
+                                        st.error(f"❌ Enrichment name '{new_name}' already exists. Please choose a different name.")
+                                    else:
+                                        st.error(f"❌ Error updating enrichment: {str(e)}")
                         if st.button("❌ Cancel", key=f"cancel_edit_{project_id}_{enrichment['id']}", help="Cancel editing", width='stretch'):
                             textarea_key = f"textarea_{project_id}_{enrichment['id']}"
                             name_input_key = f"name_input_{project_id}_{enrichment['id']}"
