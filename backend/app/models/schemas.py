@@ -245,3 +245,9 @@ class LeadExtractionResponse(BaseModel):
     total_urls_attempted: int
     new_leads_extracted: int
     extracted_leads: list[dict]  # List of extraction results per URL
+
+class MergedResultsResponse(BaseModel):
+    """Schema for merged results API response"""
+    data: list[dict]  # List of result rows with dynamic columns
+    columns: list[str]  # List of column names (base columns + enrichment columns)
+    count: int  # Total number of results
