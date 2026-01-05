@@ -558,7 +558,8 @@ In {enrichment_name} return None if you do not find any information at all. Do n
             job_service.mark_job_as_completed(job_id)
             return (enriched_leads, columns)
         except Exception as e:
-        # Handle any unexpected errors in the overall function
+            print("Marking job as failed")
+            # Handle any unexpected errors in the overall function
             logger.exception(
                 f"❌ Unexpected error in enrich_leads for column '{enrichment.column_name}'. "
                 f"Error: {type(e).__name__}: {str(e)}"
