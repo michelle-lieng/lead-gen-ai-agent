@@ -241,8 +241,8 @@ def show_run_enrichment(enrichment):
                     "columns": result.get("columns", leads_cache.get("columns", ["lead"])),
                     "count": result.get("leads_processed", len(leads_data)),
                     "enrichment_name": enrichment_name,
-                    "column_name": saved_column_name,  # Store the column_name that was used at runtime
-                    "result_format": saved_result_format
+                    "column_name": column_name,  # Store the column_name that was used at runtime
+                    "result_format": result_format
                 }
                 
                 leads_processed = result.get("leads_processed", len(leads_data))
