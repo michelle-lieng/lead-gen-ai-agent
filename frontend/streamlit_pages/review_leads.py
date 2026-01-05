@@ -4,6 +4,7 @@ Review leads page
 import streamlit as st
 import pandas as pd
 from api import get_merged_results, fetch_merged_results_zip
+from utils.display_errors import call_api
 
 def show_review_leads():
     """Review leads page"""
@@ -18,7 +19,7 @@ def show_review_leads():
     
     # Fetch merged results
     try:
-        result = get_merged_results(project_id)
+        result = call_api(get_merged_results, project_id)
         
         if result and result.get('data'):
             leads_data = result['data']
@@ -79,17 +80,14 @@ def show_review_leads():
                 st.session_state[download_key] = None
             
             if st.button("📥 Download Merged Results as CSV", width='stretch', type="primary"):
-                try:
-                    with st.spinner("Preparing download..."):
-                        zip_content, filename = fetch_merged_results_zip(project_id)
-                        
-                        if zip_content and filename:
-                            st.session_state[download_key] = (zip_content, filename)
-                            st.rerun()
-                        else:
-                            st.error("❌ Failed to fetch download. Please try again.")
-                except Exception as e:
-                    st.error(f"❌ Error downloading: {str(e)}")
+                with st.spinner("Preparing download..."):
+                    zip_content, filename = call_api(fetch_merged_results_zip, project_id)
+                    
+                    if zip_content and filename:
+                        st.session_state[download_key] = (zip_content, filename)
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to fetch download. Please try again.")
             
             # Show download button if we have the data
             if st.session_state[download_key]:
