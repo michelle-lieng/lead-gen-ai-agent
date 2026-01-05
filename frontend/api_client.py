@@ -4,6 +4,7 @@ API client for communicating with FastAPI backend
 
 import os
 from typing import Optional
+from jinja2.nodes import Node
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -108,7 +109,24 @@ def generate_queries(project_id: int, num_queries: int = 3):
 def generate_urls(project_id: int, queries: list[str]):
     """Generate URLs from search queries and save them"""
     response = _request("POST", f"/api/projects/{project_id}/urls", json_data={"queries": queries})
-    return response.json() if response else None
+    
+    if response is None:
+        return None
+    
+    try:
+        result = response.json()
+    except ValueError:
+        return None
+
+    if response.status_code >= 400:
+        error_message = result.get("detail", result.get("message", f"Server error: {response.status_code}"))
+        return {
+            "success": False,
+            "message": error_message,
+            "detail": error_message
+        }
+
+    return result
 
 def get_urls(project_id: int):
     """Get all production URLs for a project"""
@@ -154,7 +172,23 @@ def delete_url(project_id: int, url_id: int):
 def generate_leads(project_id: int):
     """Extract leads from URLs and save them"""
     response = _request("POST", f"/api/projects/{project_id}/leads")
-    return response.json() if response else None
+    if response is None:
+        return None
+    
+    try:
+        result = response.json()
+    except ValueError:
+        return None
+
+    if response.status_code >= 400:
+        error_message = result.get("detail", result.get("message", f"Server error: {response.status_code}"))
+        return {
+            "success": False,
+            "message": error_message,
+            "detail": error_message
+        }
+
+    return result
 
 def fetch_latest_run_zip(project_id: int):
     """
