@@ -19,7 +19,7 @@ from .database_service import db_service
 from .project_service import project_service
 from .merged_results_service import merged_results_service
 from .job_service import job_service
-from ..exceptions import ProjectNotFoundError, DatabaseFailureError, InvalidProjectConfigurationError, ApiKeyNotConfiguredError, ExternalScraperError, UrlNotFoundError, DuplicateUrlError, OpenAITokenLimitExceededError, JobAlreadyRunningError
+from ..exceptions import DatabaseFailureError, InvalidProjectConfigurationError, ApiKeyNotConfiguredError, ExternalScraperError, UrlNotFoundError, DuplicateUrlError, OpenAITokenLimitExceededError
 
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..utils.lead_utils import normalize_lead_name

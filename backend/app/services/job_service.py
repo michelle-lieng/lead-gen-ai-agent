@@ -68,22 +68,6 @@ class JobService:
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error getting running jobs for project {project_id} and job type {job_type}")
             raise DatabaseFailureError(f"Failed to get running jobs for project {project_id} and job type {job_type}") from e
-
-    def update_job_status(self, job_id: int, status: str) -> Jobs:
-        """Update a job status"""
-        try:
-            with db_service.get_session() as session:
-                job = session.query(Jobs).filter(Jobs.id == job_id).first()
-                if not job:
-                    raise JobNotFoundError(job_id)
-                job.status = status
-                session.commit()
-                session.refresh(job)
-                logger.info(f"✅ Updated job status: {status} for job {job_id}")
-                return job
-        except SQLAlchemyError as e:
-            logger.exception(f"❌ Error updating job status: {status} for job {job_id}")
-            raise DatabaseFailureError(f"Failed to update job status: {status} for job {job_id}") from e
         
     def mark_job_as_completed(self, job_id: int) -> Jobs:
         """Update a job completed at"""

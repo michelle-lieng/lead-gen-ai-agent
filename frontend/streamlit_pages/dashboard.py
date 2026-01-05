@@ -48,9 +48,11 @@ def render_create_project_section():
                     # Store success message in session state before clearing form and rerunning
                     st.session_state.project_create_success = f"✅ Project '{project_name}' created successfully!"
                     
-                    # ✅ Clear form ONLY on success
-                    st.session_state.project_name_form_input = ""
-                    st.session_state.project_description_form_input = ""
+                    # Clear form ONLY on success - delete keys instead of setting to empty string
+                    if "project_name_form_input" in st.session_state:
+                        del st.session_state.project_name_form_input
+                    if "project_description_form_input" in st.session_state:
+                        del st.session_state.project_description_form_input
                     
                     st.rerun()
 

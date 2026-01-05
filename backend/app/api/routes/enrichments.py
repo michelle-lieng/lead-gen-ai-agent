@@ -17,14 +17,12 @@ from ...models.schemas import (
     JobResponse
 )
 from ...exceptions import (
-    DuplicateEnrichmentNameError,
     EnrichmentNotFoundError, 
-    DatabaseFailureError,
     ProjectNotFoundError
 )
 from ...services.project_service import project_service
 from ...models.schemas import (EnrichmentCreate, EnrichmentUpdate, EnrichmentResponse, EnrichLeadsRequest)
-from ...exceptions import EnrichmentNotFoundError, ProjectNotFoundError
+from ...exceptions import EnrichmentNotFoundError, ProjectNotFoundError, NoLeadsToEnrichError
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -104,6 +102,10 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
     if not enrichment:
         raise EnrichmentNotFoundError(enrichment_id)
     
+    # Validate that leads_data is not empty
+    if not request.leads_data or len(request.leads_data) == 0:
+        raise NoLeadsToEnrichError()
+    
     # Check if there is a running job
     running_job = job_service.check_running_job(project_id, "enrich_leads", enrichment_id)
     
@@ -156,13 +158,17 @@ async def test_enrich_leads(project_id: int, enrichment_id: int, request: Enrich
     enrichment = enrichment_service.get_enrichment(enrichment_id)
     if not enrichment:
         raise EnrichmentNotFoundError(enrichment_id)
+    
+    # Validate that leads_data is not empty
+    if not request.leads_data or len(request.leads_data) == 0:
+        raise NoLeadsToEnrichError()
 
     # Check if there is a running job
     running_job = job_service.check_running_job(project_id, "enrich_leads", enrichment_id)
     
     # Create job
     job = job_service.create_job(project_id, "enrich_leads", enrichment_id)
-    
+
     # Process leads enrichment using enrichment's configured values
     enriched_leads, columns = await enrichment_execution_service.enrich_leads(
         enrichment=enrichment,

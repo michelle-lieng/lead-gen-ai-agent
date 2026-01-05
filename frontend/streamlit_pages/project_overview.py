@@ -2,14 +2,15 @@
 Project overview page
 """
 import streamlit as st
-from api import update_project, delete_project, get_project
+from api import get_project
+from utils.display_errors import call_api
 
 def show_project_overview():
     """Project overview page"""
     # Always fetch fresh project data when page loads
     selected_project = st.session_state.selected_project
     if selected_project:
-        project = get_project(selected_project['id'])
+        project = call_api(get_project, selected_project['id'])
         if project:
             # Update session state with fresh data
             st.session_state.selected_project = project
@@ -42,7 +43,7 @@ def show_project_overview():
     
     # Quick actions
     st.markdown("### 🚀 Quick Actions")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         if st.button("🎯 Start Lead Collection", width='stretch'):
@@ -58,35 +59,3 @@ def show_project_overview():
         if st.button("📋 Review All Leads", width='stretch'):
             st.session_state.current_page = "review_leads"
             st.rerun()
-    
-    with col4:
-        if st.button("🗑️ Delete Project", width='stretch', type="secondary"):
-            delete_key = f"show_delete_confirm_{project['id']}"
-            st.session_state[delete_key] = True
-            st.rerun()
-    
-    # Check if delete confirmation is active
-    delete_key = f"show_delete_confirm_{project['id']}"
-    if st.session_state.get(delete_key, False):
-        # Show confirmation UI
-        st.markdown("---")
-        st.warning("⚠️ Are you sure you want to delete this project? This action cannot be undone.")
-        confirm_col1, confirm_col2 = st.columns(2)
-        with confirm_col1:
-            if st.button("✅ Yes, Delete", key="confirm_delete", width='stretch', type="primary"):
-                with st.spinner("Deleting project..."):
-                    success = delete_project(project['id'])
-                    if success:
-                        st.success(f"✅ Project '{project['project_name']}' deleted successfully!")
-                        # Clean up state
-                        if delete_key in st.session_state:
-                            del st.session_state[delete_key]
-                        st.session_state.selected_project = None
-                        st.session_state.current_page = "dashboard"
-                        st.rerun()
-        with confirm_col2:
-            if st.button("❌ Cancel", key="cancel_delete", width='stretch'):
-                # Reset confirmation state
-                if delete_key in st.session_state:
-                    del st.session_state[delete_key]
-                st.rerun()

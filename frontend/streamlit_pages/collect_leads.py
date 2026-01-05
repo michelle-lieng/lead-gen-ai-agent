@@ -29,7 +29,7 @@ def _fetch_and_store_zip_data(project_id: int):
 def show_collect_leads():
     """Lead collection page"""
     project = st.session_state.selected_project
-    st.markdown(f"# Lead Collection Tools: {project['project_name']}")
+    st.markdown(f"# Lead Collection Tools - {project['project_name']}")
         
     # Lead collection methods - 3 ways to collect leads
     tab1, tab2 = st.tabs(["🌐 AI Web Search", "📁 Upload Dataset"])

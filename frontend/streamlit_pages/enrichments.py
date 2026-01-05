@@ -3,6 +3,7 @@ Project overview page
 """
 import streamlit as st
 from api import get_project, update_project, create_enrichment, get_enrichments, update_enrichment, delete_enrichment
+from utils.display_errors import call_api
 
 def show_enrichments():
     """Enrichment page"""
@@ -17,7 +18,7 @@ def show_enrichments():
     st.session_state.setdefault(name_input_key, "")
     st.session_state.setdefault(description_input_key, "")
     
-    st.markdown("# 📋 Enrichment")
+    st.markdown(f"# 📋 Enrichment - {selected_project['project_name']}")
     st.markdown("---")
     
     st.subheader("🔍 Create New Enrichment")
@@ -41,23 +42,16 @@ def show_enrichments():
                 st.error("Please enter an enrichment name")
             else:
                 with st.spinner("Creating enrichment..."):
-                    try:
-                        result = create_enrichment(project_id, enrichment_name, enrichment_description)
-                        if result:
-                            #Store success message in session state before clearing form and rerunning
-                            st.session_state[success_key] = f"✅ Enrichment '{enrichment_name}' created successfully!"
-                            # Clear form fields after successful creation by deleting the session state keys
-                            if name_input_key in st.session_state:
-                                del st.session_state[name_input_key]
-                            if description_input_key in st.session_state:
-                                del st.session_state[description_input_key]
-                            st.rerun()
-                    except Exception as e:
-                        # Check error code from backend (DuplicateEnrichmentNameError has code="DUPLICATE_ENRICHMENT_NAME")
-                        if hasattr(e, 'error_code') and e.error_code == "DUPLICATE_ENRICHMENT_NAME":
-                            st.error(f"❌ Enrichment name '{enrichment_name}' already exists. Please choose a different name and try again.")
-                        else:
-                            st.error(f"❌ Failed to create enrichment: {str(e)}")
+                    result = call_api(create_enrichment, project_id, enrichment_name, enrichment_description)
+                    if result:
+                        #Store success message in session state before clearing form and rerunning
+                        st.session_state[success_key] = f"✅ Enrichment '{enrichment_name}' created successfully!"
+                        # Clear form fields after successful creation by deleting the session state keys
+                        if name_input_key in st.session_state:
+                            del st.session_state[name_input_key]
+                        if description_input_key in st.session_state:
+                            del st.session_state[description_input_key]
+                        st.rerun()
     if success_key in st.session_state:
         st.success(st.session_state[success_key])
         # Clear the success message after displaying it
@@ -69,7 +63,7 @@ def show_enrichments():
     st.subheader("📋 Your Enrichments")
     
     with st.spinner("Loading enrichments..."):
-        enrichments = get_enrichments(project_id)
+        enrichments = call_api(get_enrichments, project_id) or []
 
     if not enrichments:
         st.info("No enrichments yet. Create your first enrichment above!")
@@ -109,28 +103,19 @@ def show_enrichments():
                             new_name = st.session_state.get(name_input_key, enrichment.get('enrichment_name', ''))
                             new_column_name = st.session_state.get(column_name_input_key, enrichment.get('column_name', ''))
                             with st.spinner("Updating enrichment..."):
-                                try:
-                                    result = update_enrichment(enrichment['id'], enrichment_name=new_name, column_name=new_column_name, enrichment_description=new_description)
-                                    if result:
-                                        st.success(f"✅ Enrichment updated successfully!")
-                                        # Reset edit mode and clean up session state
-                                        if edit_key in st.session_state:
-                                            del st.session_state[edit_key]
-                                        if textarea_key in st.session_state:
-                                            del st.session_state[textarea_key]
-                                        if name_input_key in st.session_state:
-                                            del st.session_state[name_input_key]
-                                        if column_name_input_key in st.session_state:
-                                            del st.session_state[column_name_input_key]
-                                        st.rerun()
-                                except Exception as e:
-                                    # Check error codes from backend
-                                    if hasattr(e, 'error_code') and e.error_code == "DUPLICATE_COLUMN_NAME":
-                                        st.error(f"❌ Column name '{new_column_name}' already exists. Please choose a different column name.")
-                                    elif hasattr(e, 'error_code') and e.error_code == "DUPLICATE_ENRICHMENT_NAME":
-                                        st.error(f"❌ Enrichment name '{new_name}' already exists. Please choose a different name.")
-                                    else:
-                                        st.error(f"❌ Error updating enrichment: {str(e)}")
+                                result = call_api(update_enrichment, enrichment['id'], enrichment_name=new_name, column_name=new_column_name, enrichment_description=new_description)
+                                if result:
+                                    st.success(f"✅ Enrichment updated successfully!")
+                                    # Reset edit mode and clean up session state
+                                    if edit_key in st.session_state:
+                                        del st.session_state[edit_key]
+                                    if textarea_key in st.session_state:
+                                        del st.session_state[textarea_key]
+                                    if name_input_key in st.session_state:
+                                        del st.session_state[name_input_key]
+                                    if column_name_input_key in st.session_state:
+                                        del st.session_state[column_name_input_key]
+                                    st.rerun()
                         if st.button("❌ Cancel", key=f"cancel_edit_{project_id}_{enrichment['id']}", help="Cancel editing", width='stretch'):
                             textarea_key = f"textarea_{project_id}_{enrichment['id']}"
                             name_input_key = f"name_input_{project_id}_{enrichment['id']}"
@@ -157,7 +142,7 @@ def show_enrichments():
                         # Show confirm button instead
                         if st.button("✅", key=f"confirm_delete_{project_id}_{enrichment['id']}", help="Confirm deletion", width='stretch'):
                             with st.spinner("Deleting enrichment..."):
-                                success = delete_enrichment(enrichment['id'])
+                                success = call_api(delete_enrichment, enrichment['id'])
                                 if success:
                                     st.success(f"✅ Enrichment '{enrichment['enrichment_name']}' deleted successfully!")
                                     # Reset confirmation state

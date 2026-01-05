@@ -1,7 +1,7 @@
 """
 Pydantic models for API request/response validation
 """
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, field_validator
 from typing import Optional, Literal
 
 def validate_not_empty_string(v: str) -> str:
@@ -162,49 +162,19 @@ class EnrichmentUpdate(BaseModel):
     enrichment_description: Optional[str] = None
     goal: Optional[str] = None
     acceptable_evidence: Optional[str] = None
-    result_format: Optional[Literal["True/False", "Text", "Number"]] = None
+    result_format: Optional[str] = None
     result_true_if: Optional[str] = None
     result_false_if: Optional[str] = None
     result_number_value: Optional[str] = None
     result_text_value: Optional[str] = None
     
-    @field_validator('enrichment_name', 'column_name', 'goal', 'acceptable_evidence')
+    @field_validator('column_name')
     @classmethod
-    def validate_not_empty_if_provided(cls, v: Optional[str], info) -> Optional[str]:
-        """If updating these fields, they cannot be empty or whitespace"""
-        if v is not None:
-            if not v or not v.strip():
-                raise ValueError('Field cannot be empty or whitespace only')
-            # Column name needs additional SQL identifier validation
-            if info.field_name == 'column_name':
-                return validate_column_name(v)
-            return v.strip()
-        return v
-    
-    @field_validator('result_true_if', 'result_false_if', 'result_number_value', 'result_text_value')
-    @classmethod
-    def validate_format_fields(cls, v: Optional[str]) -> Optional[str]:
-        """Format-specific fields: allow empty strings for clearing, but strip if provided"""
+    def validate_column_name_format(cls, v: Optional[str]) -> Optional[str]:
+        """Validate column name is a valid SQL identifier if provided"""
         if v is not None and v.strip():
-            return v.strip()
-        return v  # Allow None or empty string for clearing
-    
-    @model_validator(mode='after')
-    def validate_result_format_requirements(self):
-        """Validate conditional requirements based on result_format"""
-        # Only validate format-specific fields if result_format is being set to a specific value
-        if self.result_format == "True/False":
-            if not self.result_true_if or not self.result_true_if.strip():
-                raise ValueError("True/False format requires 'True if' value")
-            if not self.result_false_if or not self.result_false_if.strip():
-                raise ValueError("True/False format requires 'False if' value")
-        elif self.result_format == "Number":
-            if not self.result_number_value or not self.result_number_value.strip():
-                raise ValueError("Number format requires 'Define the Value' field")
-        elif self.result_format == "Text":
-            if not self.result_text_value or not self.result_text_value.strip():
-                raise ValueError("Text format requires 'What do you want returned' field")
-        return self
+            return validate_column_name(v)
+        return v
 
 class EnrichmentResponse(BaseModel):
     """Schema for enrichment API responses"""
@@ -236,10 +206,17 @@ class EnrichmentResponse(BaseModel):
 
 class EnrichLeadsRequest(BaseModel):
     """Schema for enriching leads"""
-    enrichment_id: int
-    column_name: str  # Column name to use for the enrichment results
-    result_format: str
-    leads_data: list[dict]  # List of lead dictionaries with at least a "lead" key
+    leads_data: Optional[list[dict]] = None  # List of lead dictionaries with at least a "lead" key
+    
+    @field_validator('leads_data', mode='before')
+    @classmethod
+    def validate_leads_data(cls, v):
+        """Convert None to empty list, ensure it's a list"""
+        if v is None:
+            return []
+        if not isinstance(v, list):
+            raise ValueError('leads_data must be a list')
+        return v
 
 class JobResponse(BaseModel):
     """Schema for job API responses"""
@@ -253,7 +230,6 @@ class JobResponse(BaseModel):
     
     class Config:
         from_attributes = True
-    leads_data: list[dict]  # List of lead dictionaries with at least a "lead" key
 
 class QueryResponse(BaseModel):
     """Schema for query response"""

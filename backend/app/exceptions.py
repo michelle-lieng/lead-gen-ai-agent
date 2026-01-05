@@ -186,13 +186,45 @@ class EnrichmentNotFoundError(EnrichmentError):
     
     def __init__(self, enrichment_id: int):
         message = f"Enrichment with ID {enrichment_id} not found"
+        super().__init__(message, meta={"enrichment_id": enrichment_id})
+
+class EmptyEnrichmentFieldError(EnrichmentError):
+    """Raised when trying to update an enrichment field with empty/whitespace value"""
+    status_code = 400
+    code = "EMPTY_ENRICHMENT_FIELD"
+    
+    def __init__(self, field_names: list[str]):
+        field_names_str = "', '".join(field_names)
+        if len(field_names) == 1:
+            message = f"Field '{field_names_str}' cannot be empty or whitespace only"
+        else:
+            message = f"The following fields cannot be empty or whitespace only: '{field_names_str}'"
+        super().__init__(message, meta={"field_names": field_names, "field_names_str": field_names_str})
+
+class IncompleteEnrichmentConfigError(EnrichmentError):
+    """Raised when enrichment configuration is incomplete based on result_format"""
+    status_code = 400
+    code = "INCOMPLETE_ENRICHMENT_CONFIG"
+    
+    def __init__(self, result_format: str, missing_fields: list[str]):
+        fields_str = "', '".join(missing_fields)
+        message = f"Result format '{result_format}' requires the following fields to be filled: '{fields_str}'"
+        super().__init__(message, meta={"result_format": result_format, "missing_fields": missing_fields, "fields_str": fields_str})
+
+class NoLeadsToEnrichError(EnrichmentError):
+    """Raised when trying to run enrichment with no leads"""
+    status_code = 400
+    code = "NO_LEADS_TO_ENRICH"
+    
+    def __init__(self):
+        message = "Cannot run enrichment: no leads provided. Please add leads before running enrichment."
         super().__init__(message)
 
 # =========================
 # Job domain errors
 # =========================
 
-class JobError(Exception):
+class JobError(AppError):
     """Base exception for job-related errors"""
     def __init__(self, message: str):
         super().__init__(message)
