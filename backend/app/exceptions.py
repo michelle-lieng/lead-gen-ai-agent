@@ -1,12 +1,21 @@
 """
 Custom exceptions for the application
 """
+from typing import Any, Dict, Optional
+
+class AppError(Exception):
+    status_code: int = 400
+    code: str = "APP_ERROR"
+
+    def __init__(self, message: str, *, meta: Optional[Dict[str, Any]] = None):
+        super().__init__(message)
+        self.meta = meta or {}
 
 # =========================
 # Project domain errors
 # =========================
 
-class ProjectError(Exception):
+class ProjectError(AppError):
     """Base exception for project-related errors"""
     status_code = 400
     code = "PROJECT_ERROR"
@@ -41,7 +50,7 @@ class InvalidProjectConfigurationError(ProjectError):
 # Dataset / file validation errors
 # =========================
 
-class InvalidFileError(Exception):
+class InvalidFileError(AppError):
     """Raised when file validation fails (e.g., empty file, invalid format)"""
     status_code = 400
     code = "INVALID_FILE"
@@ -49,7 +58,7 @@ class InvalidFileError(Exception):
     def __init__(self, message: str = "Invalid file"):
         super().__init__(message)
 
-class InvalidEnrichmentColumnError(Exception):
+class InvalidEnrichmentColumnError(AppError):
     """Raised when enrichment column validation fails (e.g., missing columns, invalid format)"""
     status_code = 400
     code = "INVALID_ENRICHMENT_COLUMN"
@@ -57,7 +66,7 @@ class InvalidEnrichmentColumnError(Exception):
     def __init__(self, message: str = "Invalid enrichment column"):
         super().__init__(message)
 
-class ProjectDatasetNotFoundError(Exception):
+class ProjectDatasetNotFoundError(AppError):
     """Raised when a ProjectDataset is not found"""
     status_code = 404
     code = "PROJECT_DATASET_NOT_FOUND"
@@ -70,7 +79,7 @@ class ProjectDatasetNotFoundError(Exception):
 # URL domain errors
 # =========================
 
-class UrlError(Exception):
+class UrlError(AppError):
     """Base exception for URL-related errors"""
     status_code = 400
     code = "URL_ERROR"
@@ -100,7 +109,7 @@ class DuplicateUrlError(UrlError):
 # Infrastructure / system errors
 # =========================
 
-class DatabaseFailureError(Exception):
+class DatabaseFailureError(AppError):
     """Raised when a database operation fails"""
     status_code = 500
     code = "DATABASE_FAILURE"
@@ -108,7 +117,7 @@ class DatabaseFailureError(Exception):
     def __init__(self, message: str = "Database operation failed"):
         super().__init__(message)
 
-class ApiKeyNotConfiguredError(Exception):
+class ApiKeyNotConfiguredError(AppError):
     """Raised when a required API key is not configured"""
     status_code = 500
     code = "API_KEY_NOT_CONFIGURED"
@@ -120,7 +129,7 @@ class ApiKeyNotConfiguredError(Exception):
 # External API / scraper errors
 # =========================
 
-class ExternalScraperError(Exception):
+class ExternalScraperError(AppError):
     """Raised when an external scraper API fails (e.g., Jina SERP, Jina URL scraper)"""
     status_code = 502
     code = "EXTERNAL_SCRAPER_ERROR"
@@ -128,7 +137,7 @@ class ExternalScraperError(Exception):
     def __init__(self, message: str = "External scraper API failed"):
         super().__init__(message)
 
-class OpenAITokenLimitExceededError(Exception):
+class OpenAITokenLimitExceededError(AppError):
     """Raised when OpenAI request exceeds token limit even after truncation attempts"""
     status_code = 413
     code = "OPENAI_TOKEN_LIMIT_EXCEEDED"
@@ -140,7 +149,7 @@ class OpenAITokenLimitExceededError(Exception):
 # Enrichment domain errors
 # =========================
 
-class EnrichmentError(Exception):
+class EnrichmentError(AppError):
     """Base exception for enrichment-related errors"""
     status_code = 400
     code = "ENRICHMENT_ERROR"
@@ -181,7 +190,7 @@ class EnrichmentExecutionError(EnrichmentError):
     code = "ENRICHMENT_EXECUTION_ERROR"
     
     def __init__(self, company_name: str, reason: str):
-        message = f"Failed to enrich '{company_name}': {reason}"
-        super().__init__(message)
-        self.company_name = company_name
-        self.reason = reason
+        super().__init__(
+            f"Failed to enrich '{company_name}': {reason}",
+            meta={"company_name": company_name, "reason": reason},
+        )
