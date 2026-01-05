@@ -3,7 +3,7 @@ Review enrichment page
 """
 import streamlit as st
 import pandas as pd
-from api_client import get_enrichment, enrich_leads, get_merged_results
+from api import get_enrichment, enrich_leads, get_merged_results
 
 def show_review_enrichment():
     """Review enrichment page"""
@@ -162,26 +162,20 @@ def show_run_on_all_leads():
                     return
                 
                 leads_data = merged_results["data"]
-                # Filter to only include lead column
-                filtered_leads = []
-                for row in leads_data:
-                    filtered_row = {"lead": row.get("lead", "")}
-                    filtered_leads.append(filtered_row)
-                
-                result = enrich_leads(project_id, enrichment_id, filtered_leads, column_name, result_format)
-                if result and result.get('success'):
+                result = enrich_leads(project_id, enrichment_id, leads_data)
+                if result:
                     # Store enriched results in review-specific session state, keyed by project_id and enrichment_id
                     results_key = f"{project_id}_{enrichment_id}"
                     enrichment_name = selected_enrichment.get("enrichment_name", "")
                     st.session_state.review_enriched_results[results_key] = {
-                        "data": result.get("enriched_leads", filtered_leads),
+                        "data": result.get("enriched_leads"),
                         "columns": result.get("columns", ["lead"]),
-                        "count": result.get("leads_processed", len(filtered_leads)),
+                        "count": result.get("leads_processed"),
                         "enrichment_name": enrichment_name,
                         "column_name": column_name,
                         "result_format": result_format
                     }
-                    st.success(f"✅ Enrichment '{enrichment_name}' completed successfully on {result.get('leads_processed', len(filtered_leads))} lead(s). Results have been automatically saved to merged leads.")
+                    st.success(f"✅ Enrichment '{enrichment_name}' completed successfully on {result.get('leads_processed')} lead(s). Results have been automatically saved to merged leads.")
                     st.rerun()
                 else:
                     st.error(f"❌ Failed to run enrichment: {result.get('message', 'Unknown error') if result else 'No response from server'}")

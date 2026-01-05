@@ -2,7 +2,7 @@
 Test enrichment page - edit enrichment configuration
 """
 import streamlit as st
-from api_client import get_enrichment, update_enrichment, get_merged_results, test_enrich_leads
+from api import get_enrichment, update_enrichment, get_merged_results, test_enrich_leads
 
 def show_test_enrichment():
     """Test enrichment page - edit enrichment configuration"""
@@ -93,7 +93,7 @@ def show_test_enrichment():
         st.success(st.session_state[save_changes_key])
     
     if has_changes:
-        if st.button("💾 Save All Changes", key=f"save_all_changes_{enrichment_id}", type="primary", use_container_width=True):
+        if st.button("💾 Save All Changes", key=f"save_all_changes_{enrichment_id}", type="primary", width='stretch'):
             save_all_enrichment_changes(enrichment)
     
     st.divider()
@@ -254,7 +254,7 @@ def show_run_enrichment(enrichment):
                 with st.spinner("Running enrichment on test leads..."):
                     try:
                         leads_data = leads_cache.get("data", [])
-                        result = test_enrich_leads(project_id, enrichment_id, leads_data, saved_column_name, saved_result_format)
+                        result = test_enrich_leads(project_id, enrichment_id, leads_data)
                         if result and result.get("success"):
                             # Store enriched results in test-specific session state, keyed by project_id and enrichment_id
                             results_key = f"{project_id}_{enrichment_id}"
@@ -565,8 +565,10 @@ def save_all_enrichment_changes(enrichment):
     with st.spinner("💾 Saving all changes..."):
         try:
             result = update_enrichment(enrichment_id, **payload)
-            if result and result.get("success"):
-                # Store message in session state so it persists across rerun
+            if result:
+                # Show immediate success message
+                st.success("✅ All changes saved successfully!")
+                # Also store message in session state so it persists across rerun
                 save_changes_key = f"save_all_changes_message_{enrichment_id}"
                 st.session_state[save_changes_key] = "✅ All changes saved successfully!"
                 updated = get_enrichment(enrichment_id)
@@ -574,6 +576,6 @@ def save_all_enrichment_changes(enrichment):
                     st.session_state.selected_enrichment = updated
                 st.rerun()
             else:
-                st.error(f"❌ Failed to save: {result.get('message', 'Unknown error') if result else 'No response from server'}")
+                st.error("❌ Failed to save enrichment changes: No response from server")
         except Exception as e:
             st.error(f"❌ Error saving changes: {str(e)}")

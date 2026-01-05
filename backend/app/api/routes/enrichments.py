@@ -25,31 +25,13 @@ from ...exceptions import (
     ProjectNotFoundError
 )
 from ...services.project_service import project_service
-
+from ...models.schemas import (EnrichmentCreate, EnrichmentUpdate, EnrichmentResponse, EnrichLeadsRequest)
+from ...exceptions import EnrichmentNotFoundError, ProjectNotFoundError
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-def _enrichment_to_dict(enrichment) -> dict:
-    """Convert enrichment model to dictionary with defaults"""
-    return {
-        "id": enrichment.id,
-        "project_id": enrichment.project_id,
-        "enrichment_name": enrichment.enrichment_name,
-        "column_name": enrichment.column_name,
-        "enrichment_description": enrichment.enrichment_description or "",
-        "goal": enrichment.goal or "",
-        "acceptable_evidence": enrichment.acceptable_evidence or "",
-        "result_format": enrichment.result_format or "",
-        "result_true_if": enrichment.result_true_if or "",
-        "result_false_if": enrichment.result_false_if or "",
-        "result_number_value": enrichment.result_number_value or "",
-        "result_text_value": enrichment.result_text_value or "",
-        "date_added": enrichment.date_added.isoformat() if enrichment.date_added else "",
-        "last_updated": enrichment.last_updated.isoformat() if enrichment.last_updated else ""
-    }
-
-@router.post("/projects/{project_id}/enrichments/", response_model=dict)
+@router.post("/projects/{project_id}/enrichments/", response_model=EnrichmentResponse)
 async def create_enrichment(project_id: int, request: EnrichmentCreate):
     """
     Create a new enrichment configuration for a project.
@@ -58,121 +40,51 @@ async def create_enrichment(project_id: int, request: EnrichmentCreate):
         project_id: ID of the project
         request: Enrichment creation request with enrichment_name and optional description
     """
-    try:
-        # Verify project exists
-        project = project_service.get_project(project_id)
-        if not project:
-            raise ProjectNotFoundError(project_id)
-        
-        enrichment = enrichment_service.create_enrichment(
-            project_id=project_id,
-            enrichment_name=request.enrichment_name,
-            column_name=request.column_name,
-            enrichment_description=request.enrichment_description
-        )
-        return {"success": True, "enrichment": _enrichment_to_dict(enrichment)}
-    except ProjectNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except (DuplicateEnrichmentNameError, DuplicateColumnNameError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except DatabaseFailureError as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    except Exception as e:
-        logger.exception(f"❌ Unexpected error creating enrichment: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+    # Verify project exists
+    project = project_service.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundError(project_id)
+    
+    return enrichment_service.create_enrichment(
+        project_id=project_id,
+        enrichment_name=request.enrichment_name,
+        enrichment_description=request.enrichment_description
+    )
 
-@router.get("/projects/{project_id}/enrichments/", response_model=List[dict])
+@router.get("/projects/{project_id}/enrichments/", response_model=List[EnrichmentResponse])
 async def get_enrichments(project_id: int):
     """
     Get all enrichment configurations for a project.
     """
-    try:
-        # Verify project exists
-        project = project_service.get_project(project_id)
-        if not project:
-            raise ProjectNotFoundError(project_id)
-        
-        enrichments = enrichment_service.get_enrichments(project_id)
-        return [_enrichment_to_dict(e) for e in enrichments]
-    except ProjectNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except DatabaseFailureError as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    except Exception as e:
-        logger.exception(f"❌ Unexpected error getting enrichments: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+    # Verify project exists
+    project = project_service.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundError(project_id)
+    
+    return enrichment_service.get_enrichments(project_id)
 
-@router.get("/enrichments/{enrichment_id}", response_model=dict)
+@router.get("/enrichments/{enrichment_id}", response_model=EnrichmentResponse)
 async def get_enrichment(enrichment_id: int):
     """
     Get a specific enrichment configuration by ID.
     """
-    try:
-        enrichment = enrichment_service.get_enrichment(enrichment_id)
-        return _enrichment_to_dict(enrichment)
-    except EnrichmentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except DatabaseFailureError as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    except Exception as e:
-        logger.exception(f"❌ Unexpected error getting enrichment {enrichment_id}: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+    return enrichment_service.get_enrichment(enrichment_id)
 
-@router.put("/enrichments/{enrichment_id}", response_model=dict)
+@router.put("/enrichments/{enrichment_id}", response_model=EnrichmentResponse)
 async def update_enrichment(enrichment_id: int, request: EnrichmentUpdate):
     """
     Update an enrichment - all fields are optional, only provided fields will be updated.
     """
-    try:
-        kwargs = {}
-        if request.enrichment_name is not None:
-            kwargs["enrichment_name"] = request.enrichment_name
-        if request.column_name is not None:
-            kwargs["column_name"] = request.column_name
-        if request.enrichment_description is not None:
-            kwargs["enrichment_description"] = request.enrichment_description
-        if request.goal is not None:
-            kwargs["goal"] = request.goal
-        if request.acceptable_evidence is not None:
-            kwargs["acceptable_evidence"] = request.acceptable_evidence
-        if request.result_format is not None:
-            kwargs["result_format"] = request.result_format
-        if request.result_true_if is not None:
-            kwargs["result_true_if"] = request.result_true_if
-        if request.result_false_if is not None:
-            kwargs["result_false_if"] = request.result_false_if
-        if request.result_number_value is not None:
-            kwargs["result_number_value"] = request.result_number_value
-        if request.result_text_value is not None:
-            kwargs["result_text_value"] = request.result_text_value
-        
-        enrichment = enrichment_service.update_enrichment(enrichment_id, **kwargs)
-        return {"success": True, "enrichment": _enrichment_to_dict(enrichment)}
-    except (DuplicateEnrichmentNameError, DuplicateColumnNameError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except EnrichmentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except DatabaseFailureError as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    except Exception as e:
-        logger.exception(f"❌ Unexpected error updating enrichment {enrichment_id}: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+    update_data = request.dict(exclude_unset=True)
+    return enrichment_service.update_enrichment(enrichment_id, **update_data)
 
-@router.delete("/enrichments/{enrichment_id}")
+@router.delete("/enrichments/{enrichment_id}", status_code=204)
 async def delete_enrichment(enrichment_id: int):
     """
     Delete an enrichment configuration.
     """
-    try:
-        enrichment_service.delete_enrichment(enrichment_id)
-        return {"success": True}
-    except EnrichmentNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except DatabaseFailureError as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
-    except Exception as e:
-        logger.exception(f"❌ Unexpected error deleting enrichment {enrichment_id}: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+    enrichment_service.delete_enrichment(enrichment_id)
+    return
 
 @router.post("/projects/{project_id}/enrichments/{enrichment_id}/enrich-leads", response_model=dict)
 async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeadsRequest):
@@ -182,7 +94,7 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
     Args:
         project_id: ID of the project
         enrichment_id: ID of the enrichment configuration to use
-        request: Request containing enrichment_id, enrichment_name, result_format, and leads_data
+        request: Request containing leads_data
     """
     try:
         # Verify project exists
@@ -374,11 +286,12 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
 async def test_enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeadsRequest):
     """
     Run test enrichment on a list of leads using the enrichment configuration.
+    Does not save results to merged_results table.
     
     Args:
         project_id: ID of the project
         enrichment_id: ID of the enrichment configuration to use
-        request: Request containing enrichment_id, enrichment_name, result_format, and leads_data
+        request: Request containing leads_data
     """
     try:
         # Verify project exists

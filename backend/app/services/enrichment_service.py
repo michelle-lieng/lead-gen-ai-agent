@@ -1,25 +1,20 @@
 """
 Enrichment service for managing enrichment operations
 """
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-from sqlalchemy import or_
-from typing import List, Optional
+from sqlalchemy.exc import SQLAlchemyError
+from typing import Optional
 import logging
 
-from ..models.tables import Enrichment
 from .database_service import db_service
-from ..exceptions import DuplicateEnrichmentNameError, DuplicateColumnNameError, EnrichmentNotFoundError, DatabaseFailureError
+
+from ..models.tables import Enrichment
+from ..exceptions import DuplicateEnrichmentNameError, DuplicateEnrichmentColumnNameError, EnrichmentNotFoundError, DatabaseFailureError
 
 logger = logging.getLogger(__name__)
 
 class EnrichmentService:
     """Service for enrichment-related database operations"""
-
-    def create_enrichment(self, 
-        project_id: int,
-        enrichment_name: str,
-        column_name: Optional[str] = None,
-        enrichment_description: Optional[str] = None) -> Enrichment:
+    def create_enrichment(self, project_id: int, enrichment_name: str, enrichment_description: Optional[str] = None) -> Enrichment:
         """Create a new enrichment for a project"""
         try:
             with db_service.get_session() as session:
@@ -31,41 +26,21 @@ class EnrichmentService:
                 if existing_enrichment:
                     raise DuplicateEnrichmentNameError(enrichment_name)
                 
-                # Check if column name already exists for this project (only if provided)
-                if column_name:
-                    existing_column = session.query(Enrichment).filter(
-                        Enrichment.project_id == project_id,
-                        Enrichment.column_name == column_name
-                    ).first()
-                    if existing_column:
-                        raise DuplicateColumnNameError(column_name)
-                
                 enrichment = Enrichment(
                     project_id=project_id,
                     enrichment_name=enrichment_name,
-                    column_name=column_name,
                     enrichment_description=enrichment_description
                 )
                 session.add(enrichment)
                 session.commit()
                 session.refresh(enrichment)
-                if column_name:
-                    logger.info(f"✅ Created enrichment: {enrichment_name} (column: {column_name}) for project {project_id}")
-                else:
-                    logger.info(f"✅ Created enrichment: {enrichment_name} (column name to be set later) for project {project_id}")
+                logger.info(f"✅ Created enrichment: {enrichment_name} for project {project_id}")
                 return enrichment
-        except IntegrityError as e:
-            # Handle unique constraint violation
-            if "uq_enrichments_project_name" in str(e.orig):
-                raise DuplicateEnrichmentNameError(enrichment_name)
-            elif "uq_enrichments_project_column" in str(e.orig):
-                raise DuplicateColumnNameError(column_name)
-            raise
         except SQLAlchemyError as e:
             logger.exception("❌ Error creating enrichment")
             raise DatabaseFailureError("Failed to create enrichment") from e
     
-    def get_enrichments(self, project_id: int) -> List[Enrichment]:
+    def get_enrichments(self, project_id: int) -> list[Enrichment]:
         """Get all enrichments for a project"""
         try:
             with db_service.get_session() as session:
@@ -76,7 +51,7 @@ class EnrichmentService:
             logger.exception("❌ Error getting enrichments")
             raise DatabaseFailureError("Failed to retrieve enrichments") from e
     
-    def get_enrichment(self, enrichment_id: int) -> Optional[Enrichment]:
+    def get_enrichment(self, enrichment_id: int) -> Enrichment:
         """Get specific enrichment by ID"""
         try:
             with db_service.get_session() as session:
@@ -88,7 +63,7 @@ class EnrichmentService:
             logger.exception(f"❌ Error getting enrichment {enrichment_id}")
             raise DatabaseFailureError(f"Failed to retrieve enrichment {enrichment_id}") from e
     
-    def update_enrichment(self, enrichment_id: int, **kwargs) -> Optional[Enrichment]:
+    def update_enrichment(self, enrichment_id: int, **kwargs) -> Enrichment:
         """Update enrichment fields"""
         try:
             with db_service.get_session() as session:
@@ -120,7 +95,7 @@ class EnrichmentService:
                             Enrichment.id != enrichment_id
                         ).first()
                         if existing_column:
-                            raise DuplicateColumnNameError(new_column_name)
+                            raise DuplicateEnrichmentColumnNameError(new_column_name)
                 
                 for key, value in kwargs.items():
                     if hasattr(enrichment, key):
@@ -130,12 +105,6 @@ class EnrichmentService:
                 session.refresh(enrichment)
                 logger.info(f"✅ Updated enrichment {enrichment_id}")
                 return enrichment
-        except IntegrityError as e:
-            # Handle unique constraint violation
-            if "uq_enrichments_project_name" in str(e.orig):
-                if 'enrichment_name' in kwargs:
-                    raise DuplicateEnrichmentNameError(kwargs['enrichment_name'])
-            raise
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error updating enrichment {enrichment_id}")
             raise DatabaseFailureError(f"Failed to update enrichment {enrichment_id}") from e

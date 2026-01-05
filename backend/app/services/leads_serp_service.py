@@ -52,7 +52,7 @@ class LeadsSerpService:
         self.url_scraper_semaphore = asyncio.Semaphore(15)    # For jina_url_scraper (increased from 10, Jina Reader API: 200 RPM)
         self.llm_semaphore = asyncio.Semaphore(3)             # For Runner.run (OpenAI API, reduced from 12 due to TPM limits: 30K TPM)
 
-    def generate_search_queries_for_project(self, project_id: int, num_queries: int = 3) -> list[str]:
+    def generate_queries(self, project_id: int, num_queries: int = 3) -> list[str]:
         """
         Generate AI-powered search queries for a project by project_id.
         Fetches the project query_search_target internally.
@@ -98,18 +98,44 @@ class LeadsSerpService:
         
         return cleaned_queries
 
-    def _add_queries_to_table(self, project_id: int, queries: list[str]) -> bool:
+    async def _process_query(self, query: str, project_id: int) -> list[dict]:
+        """Process a single query with semaphore protection for API calls"""
+        async with self.serp_scraper_semaphore:
+            serp_object = await jina_serp_scraper(query)  # Protected by serp_scraper_semaphore
+            query_urls = []
+            for serp_result in serp_object:
+                link = serp_result.get('url')
+                if link:
+                    query_urls.append({
+                        'project_id': project_id,
+                        'query': query,
+                        'title': serp_result.get('title'),
+                        'link': link,
+                        'snippet': serp_result.get('description'),
+                        'date': serp_result.get('date')  # Optional date field
+                    })
+            return query_urls
+
+    async def generate_urls(self, project_id: int, queries: list[str]) -> dict:
         """
-        Save generated search queries to the database for a specific project.
+        Orchestrates saving queries and generating URLs in one operation.
+        This is the main business workflow that should be used by API routes.
         
         Args:
-            project_id (int): ID of the project these queries belong to
-            queries (list[str]): List of search queries to save
+            project_id (int): ID of the project
+            queries (list[str]): List of search queries to save and process
         
         Returns:
-            bool: shows if successful or not
+            dict: Unified response containing:
+                - queries_processed: bool indicating if queries were saved
+                - urls_added: dict with URLs operation results
+        
+        Raises:
+            ProjectNotFoundError: If project does not exist
+            DatabaseFailureError: If database operation fails
         """
         try:
+            ############# Step 1: Save queries to database
             total_queries = 0
             with db_service.get_session() as session:
                 for query in queries:
@@ -125,52 +151,20 @@ class LeadsSerpService:
                 session.commit()
                 
                 logger.info(f"Uploaded {total_queries} queries to serp_queries table")
-                return True
-        except SQLAlchemyError as e:
-            logger.exception(f"❌ Error saving queries to database")
-            raise DatabaseFailureError("Failed to save queries to database") from e
 
-    async def _process_query(self, query: str, project_id: int) -> list[dict]:
-        """Process a single query with semaphore protection for API calls"""
-        async with self.serp_scraper_semaphore:
-            serp_object = await jina_serp_scraper(query)  # Protected by serp_scraper_semaphore
-            # ExternalScraperError will propagate to caller (caught in _generate_and_add_urls_to_table)
-            query_urls = []
-            for serp_result in serp_object:
-                link = serp_result.get('url')
-                if link:
-                    query_urls.append({
-                        'project_id': project_id,
-                        'query': query,
-                        'title': serp_result.get('title'),
-                        'link': link,
-                        'snippet': serp_result.get('description'),
-                        'date': serp_result.get('date')  # Optional date field
-                    })
-            return query_urls
-
-    async def _generate_and_add_urls_to_table(self, project_id: int, queries: list[str]) -> dict:
-        """
-        1. first generate the urls using jina_serp_scraper
-        2. then save urls to serp_urls table
-        
-        Returns:
-            dict: Contains success status, URLs added, and statistics
-        """
-        try:
-            with db_service.get_session() as session:
+            ################ STEP 2: Generate URLs
                 # Process all queries in parallel using asyncio
                 # ExternalScraperError from _process_query will propagate to caller
                 tasks = [self._process_query(query, project_id) for query in queries]
                 results = await asyncio.gather(*tasks)
                 
-                # STEP 1: Get existing URLs for this project to avoid duplicates
+                # STEP 2.1: Get existing URLs for this project to avoid duplicates
                 existing_urls = session.query(SerpUrl.link).filter(
                     SerpUrl.project_id == project_id
                 ).all()
                 existing_links = {url.link for url in existing_urls}
                 
-                # STEP 2: Collect all generated urls first using jina_serp_scraper
+                # STEP 2.2: Collect all generated urls first using jina_serp_scraper
                 all_urls = []
                 seen_links = set()  # Track unique links to avoid duplicates within this batch
 
@@ -200,48 +194,15 @@ class LeadsSerpService:
                     logger.info(f"ℹ️ No new URLs to add (all were duplicates for project {project_id})")
             
             return {
-                "success": True,
                 "urls_added": len(all_urls),
-                "queries_processed": len(queries),
-                "message": f"Successfully added {len(all_urls)} URLs from {len(queries)} search queries"
+                "queries_processed": len(queries)
             }
+                
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error generating and saving URLs to database")
-            raise DatabaseFailureError("Failed to generate and save URLs to database") from e
-
-    async def save_queries_and_generate_urls(self, project_id: int, queries: list[str]) -> dict:
-        """
-        Orchestrates saving queries and generating URLs in one operation.
-        This is the main business workflow that should be used by API routes.
+            logger.exception(f"❌ Error saving queries to database")
+            raise DatabaseFailureError("Failed to save queries to database") from e
         
-        Args:
-            project_id (int): ID of the project
-            queries (list[str]): List of search queries to save and process
-        
-        Returns:
-            dict: Unified response containing:
-                - success: bool indicating overall success
-                - queries_saved: bool indicating if queries were saved
-                - urls_result: dict with URLs operation results
-                - message: str with summary message
-        
-        Raises:
-            ProjectNotFoundError: If project does not exist
-            DatabaseFailureError: If database operation fails
-        """
-        # Step 1: Save queries to database
-        queries_saved = self._add_queries_to_table(project_id, queries)
-        
-        # Step 2: Generate URLs from queries and save to database
-        urls_result = await self._generate_and_add_urls_to_table(project_id, queries)
-        
-        # Combine results into unified response
-        return {
-            "success": queries_saved and urls_result.get("success", False),
-            "queries_saved": queries_saved,
-            "urls_result": urls_result,
-            "message": f"Saved {len(queries)} queries and {urls_result.get('urls_added', 0)} URLs"
-        }
+        return await self._generate_and_add_urls_to_table(project_id, queries)
 
     def get_queries(self, project_id: int) -> list[dict]:
         """
@@ -327,7 +288,7 @@ class LeadsSerpService:
             date (str, optional): Date from SERP result (e.g., "Oct 9, 2025")
             
         Returns:
-            dict: Contains success status, message, and created URL data
+            dict: Updated URL data
             
         Raises:
             DuplicateUrlError: If URL already exists in this project
@@ -363,18 +324,14 @@ class LeadsSerpService:
                 logger.info(f"Created URL {new_url.id} for project {project_id}")
                 
                 return {
-                    "success": True,
-                    "message": "URL created successfully",
-                    "url": {
-                        "id": new_url.id,
-                        "project_id": new_url.project_id,
-                        "query": new_url.query,
-                        "title": new_url.title,
-                        "link": new_url.link,
-                        "snippet": new_url.snippet,
-                        "date": new_url.date,
-                        "status": new_url.status
-                    }
+                    "id": new_url.id,
+                    "project_id": new_url.project_id,
+                    "query": new_url.query,
+                    "title": new_url.title,
+                    "link": new_url.link,
+                    "snippet": new_url.snippet,
+                    "date": new_url.date,
+                    "status": new_url.status
                 }
         except SQLAlchemyError as e:
             logger.exception(f"Error creating URL for project {project_id}")
@@ -393,7 +350,7 @@ class LeadsSerpService:
             date (str, optional): New date from SERP result (e.g., "Oct 9, 2025")
             
         Returns:
-            dict: Contains success status, message, and updated URL data
+            dict: Updated URL data
             
         Raises:
             UrlNotFoundError: If URL not found
@@ -434,34 +391,27 @@ class LeadsSerpService:
                 logger.info(f"Updated URL {url_id} for project {project_id}")
                 
                 return {
-                    "success": True,
-                    "message": "URL updated successfully",
-                    "url": {
-                        "id": url.id,
-                        "project_id": url.project_id,
-                        "query": url.query,
-                        "title": url.title,
-                        "link": url.link,
-                        "snippet": url.snippet,
-                        "date": url.date,
-                        "status": url.status
-                    }
+                    "id": url.id,
+                    "project_id": url.project_id,
+                    "query": url.query,
+                    "title": url.title,
+                    "link": url.link,
+                    "snippet": url.snippet,
+                    "date": url.date,
+                    "status": url.status
                 }
         except SQLAlchemyError as e:
             logger.exception(f"Error updating URL {url_id} for project {project_id}")
             raise DatabaseFailureError("Failed to update URL") from e
 
-    def delete_url(self, project_id: int, url_id: int) -> dict:
+    def delete_url(self, project_id: int, url_id: int) -> None:
         """
         Delete a production URL.
         
         Args:
             project_id (int): ID of the project
             url_id (int): ID of the URL to delete
-            
-        Returns:
-            dict: Contains success status and message
-            
+                        
         Raises:
             UrlNotFoundError: If URL not found
             DatabaseFailureError: If database operation fails
@@ -480,11 +430,6 @@ class LeadsSerpService:
                 session.commit()
                 
                 logger.info(f"Deleted URL {url_id} for project {project_id}")
-                
-                return {
-                    "success": True,
-                    "message": "URL deleted successfully"
-                }
         except SQLAlchemyError as e:
             logger.exception(f"Error deleting URL {url_id} for project {project_id}")
             raise DatabaseFailureError("Failed to delete URL") from e
@@ -701,7 +646,7 @@ class LeadsSerpService:
                 'error': str(e)
             }
 
-    async def extract_and_add_leads_to_table(self, project_id: int) -> dict:
+    async def generate_leads(self, project_id: int) -> dict:
         """
         Process unprocessed URLs from serp_urls table:
         1. Get all URLs with status="unprocessed" for the project
@@ -738,14 +683,12 @@ class LeadsSerpService:
                 if not unprocessed_urls:
                     logger.info(f"No unprocessed URLs found for project {project_id}")
                     return {
-                        "success": True,
                         "urls_processed": 0,
                         "urls_skipped": 0,
                         "urls_failed": 0,
                         "total_urls_attempted": 0,
                         "new_leads_extracted": 0,
-                        "extracted_leads": [],
-                        "message": "No unprocessed URLs found to extract leads from"
+                        "extracted_leads": []
                     }
                 
                 logger.info(f"Processing {len(unprocessed_urls)} unprocessed URLs for project {project_id}")
@@ -869,21 +812,18 @@ class LeadsSerpService:
                 logger.info(f"✅ Lead aggregation completed: {aggregation_result.get('message', '')}")
                 
                 # Merge aggregated leads into merged_results table
-                merge_result = merged_results_service.merge_serp_leads(project_id)
-                logger.info(f"✅ SERP leads merged: {merge_result.get('message', '')}")
+                merged_results_service.merge_serp_leads(project_id)
                 
                 # Update project counts (including leads_collected from merged_results) after merge
                 project_service.update_project_counts_from_db(project_id)
                                 
                 return {
-                    "success": True,
                     "urls_processed": processed_count,
                     "urls_skipped": skipped_count,
                     "urls_failed": failed_count,
                     "total_urls_attempted": len(unprocessed_urls),
                     "new_leads_extracted": new_leads_count,
-                    "extracted_leads": all_extracted_leads,  # Return detailed results for each URL
-                    "message": f"Processed {processed_count} URLs, extracted {new_leads_count} new leads ({skipped_count} skipped, {failed_count} failed)"
+                    "extracted_leads": all_extracted_leads  # Return detailed results for each URL
                 }
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error extracting leads from URLs")

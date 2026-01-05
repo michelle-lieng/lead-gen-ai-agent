@@ -2,13 +2,21 @@
 FastAPI application entry point
 """
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .api.routes import projects, leads_serp, leads_dataset, merged_results, enrichments
 from .services.database_service import db_service
+from . import exceptions
 
 logger = logging.getLogger(__name__)
+
+# =========================
+# App
+# =========================
 
 # Create FastAPI app
 app = FastAPI(
@@ -16,6 +24,10 @@ app = FastAPI(
     description="API for managing lead generation projects",
     version="1.0.0"
 )
+
+# =========================
+# Middleware
+# =========================
 
 # Add CORS middleware for frontend communication
 app.add_middleware(
@@ -25,6 +37,62 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# =========================
+# Exception handlers
+# =========================
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """
+    FastAPI validation errors (request body/query/path schema issues).
+    NOTE: Avoid echoing the full request body in responses (possible sensitive data).
+    """
+    logger.info("Validation error on %s: %s", request.url, exc.errors())
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()},
+    )
+
+@app.exception_handler(HTTPException)
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """
+    FastAPI/Starlette HTTP exceptions (explicitly raised with a status code).
+    """
+    logger.info("HTTP %s on %s: %s", exc.status_code, request.url, exc.detail)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=getattr(exc, "headers", None),
+    )
+
+@app.exception_handler(exceptions.AppError)
+async def app_error_handler(request: Request, exc: exceptions.AppError):
+    logger.warning("AppError %s on %s: %s", exc.code, request.url, str(exc))
+    payload = {"detail": str(exc), "code": exc.code}
+    if getattr(exc, "meta", None):
+        payload["meta"] = exc.meta
+    return JSONResponse(status_code=exc.status_code, content=payload)
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    """
+    Last-resort fallback for unexpected exceptions.
+    Logs full traceback, returns generic error to client.
+    """
+    logger.error("UNEXPECTED ERROR on %s: %r", request.url, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "An unexpected error occurred",
+            "code": "UNEXPECTED_INTERNAL_ERROR",
+        },
+    )
+
+# =========================
+# Routes / startup
+# =========================
 
 # Initialize database on startup
 @app.on_event("startup")

@@ -3,7 +3,7 @@ Review leads page
 """
 import streamlit as st
 import pandas as pd
-from api_client import get_merged_results, fetch_merged_results_zip
+from api import get_merged_results, fetch_merged_results_zip
 
 def show_review_leads():
     """Review leads page"""
