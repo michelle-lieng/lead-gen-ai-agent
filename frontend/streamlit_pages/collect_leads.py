@@ -229,7 +229,7 @@ def show_web_search_tab(project):
             # Display only query and date_added columns
             display_df = queries_df[['query', 'date_added']].copy()
             display_df.columns = ['Query', 'Date Added']
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
+            st.dataframe(display_df, width='stretch', hide_index=True)
         else:
             st.info("No queries have been run yet for this project.")
     except Exception as e:

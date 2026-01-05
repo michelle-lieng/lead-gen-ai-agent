@@ -93,7 +93,7 @@ def show_test_enrichment():
         st.success(st.session_state[save_changes_key])
     
     if has_changes:
-        if st.button("💾 Save All Changes", key=f"save_all_changes_{enrichment_id}", type="primary", use_container_width=True):
+        if st.button("💾 Save All Changes", key=f"save_all_changes_{enrichment_id}", type="primary", width='stretch'):
             save_all_enrichment_changes(enrichment)
     
     st.divider()
