@@ -2,6 +2,7 @@
 Dashboard page - main project overview and creation
 """
 import streamlit as st
+from utils.display_errors import call_api
 from api import get_projects, create_project, delete_project, update_project
 # ============================================================================
 # STATE HELPERS - Only the essentials
@@ -37,34 +38,27 @@ def render_create_project_section():
         
         submitted = st.form_submit_button("Create Project", type="primary")
         
-        if submitted:
-            if not project_name:
-                st.error("Please enter a project name")
-            else:
-                with st.spinner("Creating project..."):
-                    try:
-                        result = create_project(project_name, description)
-                        if result:
-                            # Store success message in session state before clearing form and rerunning
-                            st.session_state.project_create_success = f"✅ Project '{project_name}' created successfully!"
-                            # Clear form fields after successful creation by deleting the session state keys
-                            if "project_name_form_input" in st.session_state:
-                                del st.session_state.project_name_form_input
-                            if "project_description_form_input" in st.session_state:
-                                del st.session_state.project_description_form_input
-                            st.rerun()
-                    except Exception as e:
-                        # Check error code from backend (DuplicateProjectNameError has code="DUPLICATE_PROJECT_NAME")
-                        if hasattr(e, 'error_code') and e.error_code == "DUPLICATE_PROJECT_NAME":
-                            st.error(f"❌ Project name '{project_name}' already exists. Please choose a different name and try again.")
-                        else:
-                            st.error(f"❌ Failed to create project: {str(e)}")
-    
+    if submitted:
+        if not project_name or not project_name.strip():
+            st.error("Please enter a project name")
+        else:
+            with st.spinner("Creating project..."):
+                result = call_api(create_project, project_name.strip(), description)
+                if result:
+                    # Store success message in session state before clearing form and rerunning
+                    st.session_state.project_create_success = f"✅ Project '{project_name}' created successfully!"
+                    
+                    # ✅ Clear form ONLY on success
+                    st.session_state.project_name_form_input = ""
+                    st.session_state.project_description_form_input = ""
+                    
+                    st.rerun()
+
     # Display success message if it exists in session state
     if "project_create_success" in st.session_state:
         st.success(st.session_state.project_create_success)
         # Clear the success message after displaying it
-        del st.session_state.project_create_success
+        st.session_state.pop("project_create_success", None)
 
 def render_project_card(project: dict):
     # Main project info
@@ -94,14 +88,17 @@ def render_project_card(project: dict):
             st.session_state.selected_project = project
             st.session_state.current_page = "project_overview"
             st.rerun()
+
+    textarea_key = f"textarea_{project['id']}"
+    project_name_key = f"project_name_{project['id']}"
+    delete_key = f"delete_confirm_{project['id']}"
+    edit_key = f"edit_mode_{project['id']}"
     
     with col6:
         edit_key = f"edit_mode_{project['id']}"
         if st.session_state.get(edit_key, False):
             # In edit mode - show save/cancel buttons
             if st.button("💾 Save", key=f"save_{project['id']}", help="Save changes", width='stretch'):
-                textarea_key = f"textarea_{project['id']}"
-                project_name_key = f"project_name_{project['id']}"
                 new_description = st.session_state.get(textarea_key, project.get('description', ''))
                 new_project_name = st.session_state.get(project_name_key, project.get('project_name', ''))
                 
@@ -110,33 +107,20 @@ def render_project_card(project: dict):
                     st.error("❌ Project name cannot be empty")
                 else:
                     with st.spinner("Updating project..."):
-                        try:
-                            result = update_project(project['id'], project_name=new_project_name.strip(), description=new_description)
-                            if result:
-                                st.success(f"✅ Project updated successfully!")
-                                # Reset edit mode and clean up session state
-                                if edit_key in st.session_state:
-                                    del st.session_state[edit_key]
-                                if textarea_key in st.session_state:
-                                    del st.session_state[textarea_key]
-                                if project_name_key in st.session_state:
-                                    del st.session_state[project_name_key]
-                                st.rerun()
-                        except Exception as e:
-                            # Check error code from backend (DuplicateProjectNameError has code="DUPLICATE_PROJECT_NAME")
-                            if hasattr(e, 'error_code') and e.error_code == "DUPLICATE_PROJECT_NAME":
-                                st.error(f"❌ Project name '{new_project_name}' already exists. Please choose a different name.")
-                            else:
-                                st.error(f"❌ Failed to update project: {str(e)}")
+                        result = call_api(update_project, project['id'], project_name=new_project_name.strip(), description=new_description)
+                        if result:
+                            st.success(f"✅ Project updated successfully!")
+                            # Reset edit mode and clean up session state
+                            st.session_state.pop(textarea_key, None)
+                            st.session_state.pop(project_name_key, None)
+                            st.session_state.pop(edit_key, None)
+
+                            st.rerun()
             if st.button("❌ Cancel", key=f"cancel_edit_{project['id']}", help="Cancel editing", width='stretch'):
-                textarea_key = f"textarea_{project['id']}"
-                project_name_key = f"project_name_{project['id']}"
-                if edit_key in st.session_state:
-                    del st.session_state[edit_key]
-                if textarea_key in st.session_state:
-                    del st.session_state[textarea_key]
-                if project_name_key in st.session_state:
-                    del st.session_state[project_name_key]
+                st.session_state.pop(textarea_key, None)
+                st.session_state.pop(project_name_key, None)
+                st.session_state.pop(edit_key, None)
+
                 st.rerun()
         else:
             # Not in edit mode - show edit button
@@ -155,8 +139,7 @@ def render_project_card(project: dict):
                     if success:
                         st.success(f"✅ Project '{project['project_name']}' deleted successfully!")
                         # Reset confirmation state
-                        if delete_key in st.session_state:
-                            del st.session_state[delete_key]
+                        st.session_state.pop(delete_key, None)
                         # Clear selected project if it was the deleted one
                         if st.session_state.selected_project and st.session_state.selected_project['id'] == project['id']:
                             st.session_state.selected_project = None
@@ -164,8 +147,7 @@ def render_project_card(project: dict):
                         st.rerun()
             # Cancel button
             if st.button("❌", key=f"cancel_delete_{project['id']}", help="Cancel deletion", width='stretch'):
-                if delete_key in st.session_state:
-                    del st.session_state[delete_key]
+                st.session_state.pop(delete_key, None)
                 st.rerun()
         else:
             # Initial delete button
