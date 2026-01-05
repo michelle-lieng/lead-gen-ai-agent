@@ -18,7 +18,7 @@ from .projects import (
     create_project,
     get_project,
     update_project,
-    delete_project
+    delete_project,
 )
 
 from .leads_serp import (
@@ -30,17 +30,12 @@ from .leads_serp import (
     update_url,
     delete_url,
     generate_leads,
-    fetch_latest_run_zip
+    fetch_latest_run_zip,
 )
 
-from .leads_dataset import (
-    upload_dataset
-)
+from .leads_dataset import upload_dataset
 
-from .merged_results import (
-    get_merged_results,
-    fetch_merged_results_zip
-)
+from .merged_results import get_merged_results, fetch_merged_results_zip
 
 from .enrichments import (
     create_enrichment,
@@ -49,39 +44,42 @@ from .enrichments import (
     update_enrichment,
     delete_enrichment,
     enrich_leads,
-    test_enrich_leads
+    test_enrich_leads,
 )
+
+from .jobs import get_job_status
 
 # Export all for convenience
 __all__ = [
     # Projects
-    'get_projects',
-    'create_project',
-    'get_project',
-    'update_project',
-    'delete_project',
+    "get_projects",
+    "create_project",
+    "get_project",
+    "update_project",
+    "delete_project",
     # SERP Leads
-    'generate_queries',
-    'get_queries',
-    'generate_urls',
-    'get_urls',
-    'create_url',
-    'update_url',
-    'delete_url',
-    'generate_leads',
-    'fetch_latest_run_zip',
+    "generate_queries",
+    "get_queries",
+    "generate_urls",
+    "get_urls",
+    "create_url",
+    "update_url",
+    "delete_url",
+    "generate_leads",
+    "fetch_latest_run_zip",
     # Dataset
-    'upload_dataset',
+    "upload_dataset",
     # Merged Results
-    'get_merged_results',
-    'fetch_merged_results_zip',
+    "get_merged_results",
+    "fetch_merged_results_zip",
     # Enrichments
-    'create_enrichment',
-    'get_enrichments',
-    'get_enrichment',
-    'update_enrichment',
-    'delete_enrichment',
-    'enrich_leads',
-    'test_enrich_leads',
+    "create_enrichment",
+    "get_enrichments",
+    "get_enrichment",
+    "update_enrichment",
+    "delete_enrichment",
+    "enrich_leads",
+    "test_enrich_leads",
+    # Jobs
+    "get_job_status",
 ]
-

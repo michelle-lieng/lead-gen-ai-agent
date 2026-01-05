@@ -1,6 +1,7 @@
 """
 FastAPI application entry point
 """
+
 import logging
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
@@ -8,7 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .api.routes import projects, leads_serp, leads_dataset, merged_results, enrichments
+from .api.routes import (
+    projects,
+    leads_serp,
+    leads_dataset,
+    merged_results,
+    enrichments,
+    jobs,
+)
 from .services.database_service import db_service
 from . import exceptions
 
@@ -22,7 +30,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="AI Lead Generator API",
     description="API for managing lead generation projects",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # =========================
@@ -42,6 +50,7 @@ app.add_middleware(
 # Exception handlers
 # =========================
 
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """
@@ -53,6 +62,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={"detail": exc.errors()},
     )
+
 
 @app.exception_handler(HTTPException)
 @app.exception_handler(StarletteHTTPException)
@@ -67,6 +77,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         headers=getattr(exc, "headers", None),
     )
 
+
 @app.exception_handler(exceptions.AppError)
 async def app_error_handler(request: Request, exc: exceptions.AppError):
     logger.warning("AppError %s on %s: %s", exc.code, request.url, str(exc))
@@ -74,6 +85,7 @@ async def app_error_handler(request: Request, exc: exceptions.AppError):
     if getattr(exc, "meta", None):
         payload["meta"] = exc.meta
     return JSONResponse(status_code=exc.status_code, content=payload)
+
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
@@ -90,9 +102,11 @@ async def generic_exception_handler(request: Request, exc: Exception):
         },
     )
 
+
 # =========================
 # Routes / startup
 # =========================
+
 
 # Initialize database on startup
 @app.on_event("startup")
@@ -102,12 +116,15 @@ async def startup_event():
     db_service.create_tables()
     logger.info("✅ Database initialized successfully")
 
+
 ########## DEFAULT ENDPOINTS
+
 
 @app.get("/")
 async def root():
     """Root endpoint"""
     return {"message": "AI Lead Generator API", "status": "running"}
+
 
 @app.get("/api/health")
 async def health_check():
@@ -116,6 +133,7 @@ async def health_check():
     return {
         "status": "healthy" if db_connected else "unhealthy",
     }
+
 
 ############ PROJECT ENDPOINTS
 
@@ -138,3 +156,6 @@ app.include_router(merged_results.router, prefix="/api", tags=["merged-results"]
 
 app.include_router(enrichments.router, prefix="/api", tags=["enrichments"])
 
+########## JOB ENDPOINTS
+
+app.include_router(jobs.router, prefix="/api", tags=["jobs"])

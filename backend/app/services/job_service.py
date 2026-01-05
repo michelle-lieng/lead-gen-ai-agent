@@ -89,6 +89,31 @@ class JobService:
                 f"Failed to get running jobs for project {project_id} and job type {job_type}"
             ) from e
 
+    def get_latest_job(
+        self, project_id: int, job_type: str, job_type_id: Optional[int] = None
+    ) -> Optional[Jobs]:
+        """Get the most recent job for a project and job type (regardless of status)"""
+        try:
+            with db_service.get_session() as session:
+                job = (
+                    session.query(Jobs)
+                    .filter(
+                        Jobs.project_id == project_id,
+                        Jobs.job_type == job_type,
+                        Jobs.job_type_id == job_type_id,
+                    )
+                    .order_by(Jobs.id.desc())
+                    .first()
+                )
+                return job
+        except SQLAlchemyError as e:
+            logger.exception(
+                f"❌ Error getting latest job for project {project_id} and job type {job_type}"
+            )
+            raise DatabaseFailureError(
+                f"Failed to get latest job for project {project_id} and job type {job_type}"
+            ) from e
+
     def mark_job_as_completed(self, job_id: int) -> Jobs:
         """Update a job completed at"""
         try:
