@@ -1,6 +1,7 @@
 """
 Job service for managing job operations
 """
+
 from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
 import logging
@@ -12,29 +13,32 @@ from ..exceptions import DatabaseFailureError, JobNotFoundError, JobAlreadyRunni
 
 logger = logging.getLogger(__name__)
 
+
 class JobService:
     """Service for job-related database operations"""
 
-    def create_job(self, 
-        project_id: int, 
-        job_type: str, 
-        job_type_id: Optional[int] = None) -> Jobs:
+    def create_job(
+        self, project_id: int, job_type: str, job_type_id: Optional[int] = None
+    ) -> Jobs:
         """Create a new job"""
         try:
             with db_service.get_session() as session:
                 job = Jobs(
-                    project_id=project_id,
-                    job_type=job_type,
-                    job_type_id=job_type_id)
+                    project_id=project_id, job_type=job_type, job_type_id=job_type_id
+                )
                 session.add(job)
                 session.commit()
                 session.refresh(job)
                 logger.info(f"✅ Created job: {job_type} for project {project_id}")
                 return job
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error creating job: {job_type} for project {project_id}")
-            raise DatabaseFailureError(f"Failed to create job: {job_type} for project {project_id}") from e
-        
+            logger.exception(
+                f"❌ Error creating job: {job_type} for project {project_id}"
+            )
+            raise DatabaseFailureError(
+                f"Failed to create job: {job_type} for project {project_id}"
+            ) from e
+
     def get_jobs(self, project_id: int) -> List[Jobs]:
         """Get all jobs for a project"""
         try:
@@ -43,7 +47,9 @@ class JobService:
                 return jobs
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error getting jobs for project {project_id}")
-            raise DatabaseFailureError(f"Failed to get jobs for project {project_id}") from e
+            raise DatabaseFailureError(
+                f"Failed to get jobs for project {project_id}"
+            ) from e
 
     def get_job(self, job_id: int) -> Jobs:
         """Get a job by ID"""
@@ -56,19 +62,33 @@ class JobService:
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error getting job {job_id}")
             raise DatabaseFailureError(f"Failed to get job {job_id}") from e
-        
-    def check_running_job(self, project_id: int, job_type: str, job_type_id: Optional[int] = None) -> Jobs:
+
+    def check_running_job(
+        self, project_id: int, job_type: str, job_type_id: Optional[int] = None
+    ):
         """Get all running jobs for a project and job type"""
         try:
             with db_service.get_session() as session:
-                job = session.query(Jobs).filter(Jobs.project_id == project_id, Jobs.job_type == job_type, Jobs.job_type_id == job_type_id, Jobs.status == "running").first()
+                job = (
+                    session.query(Jobs)
+                    .filter(
+                        Jobs.project_id == project_id,
+                        Jobs.job_type == job_type,
+                        Jobs.job_type_id == job_type_id,
+                        Jobs.status == "running",
+                    )
+                    .first()
+                )
                 if job:
                     raise JobAlreadyRunningError(job.id)
-                return None
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error getting running jobs for project {project_id} and job type {job_type}")
-            raise DatabaseFailureError(f"Failed to get running jobs for project {project_id} and job type {job_type}") from e
-        
+            logger.exception(
+                f"❌ Error getting running jobs for project {project_id} and job type {job_type}"
+            )
+            raise DatabaseFailureError(
+                f"Failed to get running jobs for project {project_id} and job type {job_type}"
+            ) from e
+
     def mark_job_as_completed(self, job_id: int) -> Jobs:
         """Update a job completed at"""
         try:
@@ -84,8 +104,10 @@ class JobService:
                 return job
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error updating job completed : for job {job_id}")
-            raise DatabaseFailureError(f"Failed to update job completed: for job {job_id}") from e
-        
+            raise DatabaseFailureError(
+                f"Failed to update job completed: for job {job_id}"
+            ) from e
+
     def mark_job_as_failed(self, job_id: int, error_message: str) -> Jobs:
         """Mark a job as failed"""
         try:
@@ -98,10 +120,17 @@ class JobService:
                 job.completed_at = datetime.now()
                 session.commit()
                 session.refresh(job)
-                logger.info(f"✅ Marked job as failed: {error_message} for job {job_id}")
+                logger.info(
+                    f"✅ Marked job as failed: {error_message} for job {job_id}"
+                )
                 return job
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error marking job as failed: {error_message} for job {job_id}")
-            raise DatabaseFailureError(f"Failed to mark job as failed: {error_message} for job {job_id}") from e
+            logger.exception(
+                f"❌ Error marking job as failed: {error_message} for job {job_id}"
+            )
+            raise DatabaseFailureError(
+                f"Failed to mark job as failed: {error_message} for job {job_id}"
+            ) from e
+
 
 job_service = JobService()
