@@ -219,3 +219,23 @@ class NoLeadsToEnrichError(EnrichmentError):
     def __init__(self):
         message = "Cannot run enrichment: no leads provided. Please add leads before running enrichment."
         super().__init__(message)
+
+# =========================
+# Job domain errors
+# =========================
+
+class JobError(AppError):
+    """Base exception for job-related errors"""
+    def __init__(self, message: str):
+        super().__init__(message)
+
+class JobNotFoundError(JobError):
+    """Raised when a job is not found"""
+    def __init__(self, job_id: int):
+        message = f"Job with ID {job_id} not found"
+
+class JobAlreadyRunningError(JobError):
+    """Raised when a job is already running"""
+    def __init__(self, job_id: int):
+        message = f"Job with ID {job_id} is already running"
+        super().__init__(message)

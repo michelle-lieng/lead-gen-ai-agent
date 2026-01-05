@@ -1,7 +1,7 @@
 """
 Pydantic models for API request/response validation
 """
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, field_validator
 from typing import Optional, Literal
 
 def validate_not_empty_string(v: str) -> str:
@@ -217,6 +217,19 @@ class EnrichLeadsRequest(BaseModel):
         if not isinstance(v, list):
             raise ValueError('leads_data must be a list')
         return v
+
+class JobResponse(BaseModel):
+    """Schema for job API responses"""
+    id: int
+    project_id: int
+    job_type: str
+    job_id: Optional[int] = None
+    status: str
+    completed_at: Optional[str] = None
+    error_message: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
 
 class QueryResponse(BaseModel):
     """Schema for query response"""

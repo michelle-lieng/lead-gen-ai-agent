@@ -3,22 +3,19 @@ Dataset upload and management service
 """
 import logging
 import pandas as pd
-import csv
-import re
 import json
-from io import BytesIO, StringIO
-from datetime import datetime
+from io import BytesIO
 from sqlalchemy.exc import SQLAlchemyError
 
 from .database_service import db_service
 from .project_service import project_service
+from .job_service import job_service
 from ..models.tables import ProjectDataset, Dataset, Project
 from .merged_results_service import merged_results_service
 from ..utils.lead_utils import normalize_lead_name, sanitize_value
 from ..exceptions import ProjectNotFoundError, DatabaseFailureError, InvalidFileError, InvalidEnrichmentColumnError
 
 logger = logging.getLogger(__name__)
-
 
 class LeadsDatasetService:
     """Service for managing dataset uploads and processing"""
@@ -137,16 +134,32 @@ class LeadsDatasetService:
             
         Returns:
             dict: Success status and statistics
+        
+        Raises:
+            JobAlreadyRunningError: If a job is already running
+            ProjectNotFoundError: If project does not exist
+            InvalidFileError: If file is empty or invalid
+            InvalidEnrichmentColumnError: If enrichment column list is invalid
+            DatabaseFailureError: If database operation fails
+            ValueError: If enrichment column list is invalid
         """
         try:
+            # Check if there is a running job
+            running_job = job_service.check_running_job(project_id, "leads_dataset")
+            
+            # Create job
+            job = job_service.create_job(project_id, "leads_dataset")
+            
             # Parse JSON-encoded enrichment_column_list string into list
             enrichment_column_list_parsed = []
             if enrichment_column_list and enrichment_column_list.strip():
                 try:
                     enrichment_column_list_parsed = json.loads(enrichment_column_list)
                     if not isinstance(enrichment_column_list_parsed, list):
+                        job_service.mark_job_as_failed(job.id, f"enrichment_column_list must be a JSON array, got: {type(enrichment_column_list_parsed).__name__}")
                         raise ValueError(f"enrichment_column_list must be a JSON array, got: {type(enrichment_column_list_parsed).__name__}")
                 except json.JSONDecodeError as e:
+                    job_service.mark_job_as_failed(job.id, f"Invalid JSON format for enrichment_column_list. Error: {str(e)}. Received: {repr(enrichment_column_list)}")
                     raise ValueError(f"Invalid JSON format for enrichment_column_list. Error: {str(e)}. Received: {repr(enrichment_column_list)}")
             # If enrichment_column_list is empty string or '[]', enrichment_column_list_parsed will be []
             
@@ -155,6 +168,7 @@ class LeadsDatasetService:
             
             # Validate filename and determine file type
             if not file.filename:
+                job_service.mark_job_as_failed(job.id, "File must have a filename")
                 raise InvalidFileError("File must have a filename")
             
             filename_lower = file.filename.lower()
@@ -162,16 +176,19 @@ class LeadsDatasetService:
             is_excel = filename_lower.endswith(('.xlsx', '.xls'))
             
             if not (is_csv or is_excel):
+                job_service.mark_job_as_failed(job.id, "File must be a CSV (.csv) or Excel (.xlsx, .xls) file")
                 raise InvalidFileError("File must be a CSV (.csv) or Excel (.xlsx, .xls) file")
             
             # Validate file is not empty
             if not file_content:
+                job_service.mark_job_as_failed(job.id, "File is empty")
                 raise InvalidFileError("File is empty")
             
             with db_service.get_session() as session:
                 # Validate project exists
                 project = session.query(Project).filter(Project.id == project_id).first()
                 if not project:
+                    job_service.mark_job_as_failed(job.id, f"Project with ID {project_id} not found")
                     raise ProjectNotFoundError(project_id)
                 
                 # ============================================================
@@ -197,6 +214,7 @@ class LeadsDatasetService:
                 
                 # Validate lead_column exists in the file
                 if lead_column not in df.columns:
+                    job_service.mark_job_as_failed(job.id, f"Lead column '{lead_column}' not found in file. Available columns: {', '.join(df.columns)}")
                     raise ValueError(f"Lead column '{lead_column}' not found in file. Available columns: {', '.join(df.columns)}")
                 
                 # ============================================================
@@ -258,10 +276,12 @@ class LeadsDatasetService:
                 if enrichment_column_exists:
                     # User selected enrichment columns from file - verify they all exist
                     if len(enrichment_column_list_parsed) == 0:
+                        job_service.mark_job_as_failed(job.id, "enrichment_column_list cannot be empty when enrichment_column_exists is True")
                         raise InvalidEnrichmentColumnError("enrichment_column_list cannot be empty when enrichment_column_exists is True")
                     
                     missing_columns = [col for col in enrichment_column_list_parsed if col not in df.columns]
                     if missing_columns:
+                        job_service.mark_job_as_failed(job.id, f"Enrichment column(s) not found in file: {', '.join(missing_columns)}. Available columns: {', '.join(df.columns)}")
                         raise InvalidEnrichmentColumnError(
                             f"Enrichment column(s) not found in file: {', '.join(missing_columns)}. "
                             f"Available columns: {', '.join(df.columns)}"
@@ -367,6 +387,9 @@ class LeadsDatasetService:
                     if merge_message:
                         success_message += f". {merge_message}"
                 
+                # Update job status to completed
+                job_service.mark_job_as_completed(job.id)
+                
                 return {
                     "success": True,
                     "message": success_message,
@@ -376,6 +399,7 @@ class LeadsDatasetService:
                 
         except SQLAlchemyError as e:
             logger.exception("❌ Database error uploading dataset")
+            job_service.mark_job_as_failed(job.id, str(e))
             raise DatabaseFailureError("Failed to upload dataset") from e
 
 # Global service instance

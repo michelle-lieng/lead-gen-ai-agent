@@ -18,7 +18,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from .database_service import db_service
 from .project_service import project_service
 from .merged_results_service import merged_results_service
-from ..exceptions import ProjectNotFoundError, DatabaseFailureError, InvalidProjectConfigurationError, ApiKeyNotConfiguredError, ExternalScraperError, UrlNotFoundError, DuplicateUrlError, OpenAITokenLimitExceededError
+from .job_service import job_service
+from ..exceptions import DatabaseFailureError, InvalidProjectConfigurationError, ApiKeyNotConfiguredError, ExternalScraperError, UrlNotFoundError, DuplicateUrlError, OpenAITokenLimitExceededError
 
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..utils.lead_utils import normalize_lead_name
@@ -133,8 +134,15 @@ class LeadsSerpService:
         Raises:
             ProjectNotFoundError: If project does not exist
             DatabaseFailureError: If database operation fails
+            JobAlreadyRunningError: If a job is already running
         """
         try:
+            # check if there is a running job
+            running_job = job_service.check_running_job(project_id, "generate_urls")
+            
+            # create job
+            job = job_service.create_job(project_id, "generate_urls")
+            
             ############# Step 1: Save queries to database
             total_queries = 0
             with db_service.get_session() as session:
@@ -193,6 +201,9 @@ class LeadsSerpService:
                 else:
                     logger.info(f"ℹ️ No new URLs to add (all were duplicates for project {project_id})")
             
+            # Update job status to completed
+            job_service.mark_job_as_completed(job.id)
+            
             return {
                 "urls_added": len(all_urls),
                 "queries_processed": len(queries)
@@ -200,6 +211,7 @@ class LeadsSerpService:
                 
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error saving queries to database")
+            job_service.mark_job_as_failed(job.id, str(e))
             raise DatabaseFailureError("Failed to save queries to database") from e
         
         return await self._generate_and_add_urls_to_table(project_id, queries)
@@ -662,6 +674,7 @@ class LeadsSerpService:
             ProjectNotFoundError: If project does not exist
             InvalidProjectConfigurationError: If lead_minimum_criteria is not set
             DatabaseFailureError: If database operation fails
+            JobAlreadyRunningError: If a job is already running
         """
         try:
             with db_service.get_session() as session:
@@ -674,6 +687,12 @@ class LeadsSerpService:
                 
                 logger.info(f"Using lead minimum criteria for project {project_id}: {lead_minimum_criteria}")
                 
+                # Check if there is a running job
+                running_job = job_service.check_running_job(project_id, "generate_leads")
+                
+                # Create job
+                job = job_service.create_job(project_id, "generate_leads")
+                
                 # Step 1: Get all unprocessed URLs for this project (only unprocessed, not failed)
                 unprocessed_urls = session.query(SerpUrl).filter(
                     SerpUrl.project_id == project_id,
@@ -682,6 +701,8 @@ class LeadsSerpService:
                 
                 if not unprocessed_urls:
                     logger.info(f"No unprocessed URLs found for project {project_id}")
+                    # Update job status to completed
+                    job_service.mark_job_as_completed(job.id)
                     return {
                         "urls_processed": 0,
                         "urls_skipped": 0,
@@ -816,7 +837,10 @@ class LeadsSerpService:
                 
                 # Update project counts (including leads_collected from merged_results) after merge
                 project_service.update_project_counts_from_db(project_id)
-                                
+                
+                # Update job status to completed
+                job_service.mark_job_as_completed(job.id)
+                
                 return {
                     "urls_processed": processed_count,
                     "urls_skipped": skipped_count,
@@ -827,6 +851,7 @@ class LeadsSerpService:
                 }
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error extracting leads from URLs")
+            job_service.mark_job_as_failed(job.id, str(e))
             raise DatabaseFailureError("Failed to extract leads from URLs") from e
     
     def _transform_leads_to_aggregated(self, project_id: int) -> dict:

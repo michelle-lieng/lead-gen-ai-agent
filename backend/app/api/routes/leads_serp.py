@@ -1,6 +1,16 @@
 """
 Query endpoints
 """
+import logging
+from fastapi import APIRouter, Response
+import openai
+
+from ...services.leads_serp_service import leads_serp_service
+from ...services.job_service import job_service
+
+logger = logging.getLogger(__name__)
+
+from ...models.schemas import QueryListRequest, QueryGenerationRequest, UrlCreate, UrlUpdate
 from fastapi import APIRouter, Response
 
 from ...services.leads_serp_service import leads_serp_service

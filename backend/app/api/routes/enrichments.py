@@ -2,12 +2,24 @@
 Enrichment endpoints
 """
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from typing import List
 
 from ...services.enrichment_execution_service import enrichment_execution_service
 from ...services.enrichment_service import enrichment_service
 from ...services.merged_results_service import merged_results_service
+from ...services.job_service import job_service
+from ...models.schemas import (
+    EnrichmentCreate, 
+    EnrichmentUpdate, 
+    EnrichmentResponse,
+    EnrichLeadsRequest,
+    JobResponse
+)
+from ...exceptions import (
+    EnrichmentNotFoundError, 
+    ProjectNotFoundError
+)
 from ...services.project_service import project_service
 from ...models.schemas import (EnrichmentCreate, EnrichmentUpdate, EnrichmentResponse, EnrichLeadsRequest)
 from ...exceptions import EnrichmentNotFoundError, ProjectNotFoundError, NoLeadsToEnrichError
@@ -94,6 +106,12 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
     if not request.leads_data or len(request.leads_data) == 0:
         raise NoLeadsToEnrichError()
     
+    # Check if there is a running job
+    running_job = job_service.check_running_job(project_id, "enrich_leads", enrichment_id)
+    
+    # Create job
+    job = job_service.create_job(project_id, "enrich_leads", enrichment_id)
+    
     # Process leads enrichment using enrichment's configured values
     enriched_leads, columns = await enrichment_execution_service.enrich_leads(
         enrichment=enrichment,
@@ -107,6 +125,8 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
         enriched_leads=enriched_leads
     )
     
+    job_service.mark_job_as_completed(job.id)
+
     return {
         "success": True,
         "message": f"Enrichment '{enrichment.enrichment_name}' completed on {len(enriched_leads)} lead(s). Results saved to merged leads.",
@@ -116,6 +136,7 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
         "enriched_leads": enriched_leads,
         "columns": columns
     }
+
 
 @router.post("/projects/{project_id}/enrichments/{enrichment_id}/test-enrich-leads", response_model=dict)
 async def test_enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeadsRequest):
@@ -137,10 +158,16 @@ async def test_enrich_leads(project_id: int, enrichment_id: int, request: Enrich
     enrichment = enrichment_service.get_enrichment(enrichment_id)
     if not enrichment:
         raise EnrichmentNotFoundError(enrichment_id)
-
+    
     # Validate that leads_data is not empty
     if not request.leads_data or len(request.leads_data) == 0:
         raise NoLeadsToEnrichError()
+
+    # Check if there is a running job
+    running_job = job_service.check_running_job(project_id, "enrich_leads", enrichment_id)
+    
+    # Create job
+    job = job_service.create_job(project_id, "enrich_leads", enrichment_id)
 
     # Process leads enrichment using enrichment's configured values
     enriched_leads, columns = await enrichment_execution_service.enrich_leads(
@@ -148,6 +175,8 @@ async def test_enrich_leads(project_id: int, enrichment_id: int, request: Enrich
         leads_data=request.leads_data
     )
     
+    job_service.mark_job_as_completed(job.id)
+
     # Return results without saving (test mode)
     return {
         "success": True,
