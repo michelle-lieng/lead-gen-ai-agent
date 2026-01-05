@@ -202,7 +202,7 @@ def show_dashboard():
     st.subheader("📁 Your Projects")
     
     with st.spinner("Loading projects..."):
-        projects = get_projects()
+        projects = call_api(get_projects)
     
     if not projects:
         st.info("No projects yet. Create your first project above!")

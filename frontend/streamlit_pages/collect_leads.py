@@ -3,6 +3,7 @@ Lead collection page
 """
 import streamlit as st
 import pandas as pd
+from utils.display_errors import call_api
 from api import update_project, generate_queries, get_queries, generate_urls, get_urls, create_url, update_url, delete_url, generate_leads, fetch_latest_run_zip, get_project, upload_dataset
 
 # =============================================================================
@@ -11,11 +12,13 @@ from api import update_project, generate_queries, get_queries, generate_urls, ge
 
 def _fetch_and_store_zip_data(project_id: int):
     """Fetch ZIP file from API and store in session state"""
-    zip_content, filename = fetch_latest_run_zip(project_id)
-    if zip_content and filename:
-        st.session_state["csv_data_all"] = zip_content
-        st.session_state["csv_filename_all"] = filename
-        return True
+    result = call_api(fetch_latest_run_zip, project_id)
+    if result:
+        zip_content, filename = result
+        if zip_content and filename:
+            st.session_state["csv_data_all"] = zip_content
+            st.session_state["csv_filename_all"] = filename
+            return True
     return False
 
 
@@ -102,25 +105,29 @@ def show_web_search_tab(project):
     with st.form("add_query_form", clear_on_submit=True):
         new_query = st.text_input("Add custom query", placeholder="Enter your own search query...", key="new_query_input")
         submitted = st.form_submit_button("➕ Add Query")
-        if submitted and new_query and new_query.strip():
-            # Check if query already exists for this project (case-insensitive)
-            existing_queries = {q.lower().strip() for q in st.session_state.generated_queries.get(project_id, {}).values()}
-            normalized_new_query = new_query.strip().lower()
-            
-            if normalized_new_query in existing_queries:
-                # Store message in session state so it persists after rerun
-                st.session_state.query_message[project_id] = f'⚠️ The query "{new_query.strip()}" is already present in the list.'
-                st.rerun()
+        
+        if submitted:
+            if not new_query or not new_query.strip():
+                st.error("❌ Please provide a query")
             else:
-                # Clear extraction results when adding a new query
-                st.session_state.extraction_results[project_id] = {}
-                # Store success message
-                st.session_state.query_message[project_id] = f'✅ Added query "{new_query.strip()}" to the list.'
+                # Check if query already exists for this project (case-insensitive)
+                existing_queries = {q.lower().strip() for q in st.session_state.generated_queries.get(project_id, {}).values()}
+                normalized_new_query = new_query.strip().lower()
                 
-                query_id = f"q{st.session_state.query_counter}"
-                st.session_state.query_counter += 1
-                st.session_state.generated_queries[project_id][query_id] = new_query.strip()
-                st.rerun()
+                if normalized_new_query in existing_queries:
+                    # Store message in session state so it persists after rerun
+                    st.session_state.query_message[project_id] = f'⚠️ The query "{new_query.strip()}" is already present in the list.'
+                    st.rerun()
+                else:
+                    # Clear extraction results when adding a new query
+                    st.session_state.extraction_results[project_id] = {}
+                    # Store success message
+                    st.session_state.query_message[project_id] = f'✅ Added query "{new_query.strip()}" to the list.'
+                    
+                    query_id = f"q{st.session_state.query_counter}"
+                    st.session_state.query_counter += 1
+                    st.session_state.generated_queries[project_id][query_id] = new_query.strip()
+                    st.rerun()
     
     # Optional feature: Generate AI queries (collapsible/expandable)
     with st.expander("🤖 Generate AI queries (Optional)", expanded=False):
@@ -168,7 +175,7 @@ def show_web_search_tab(project):
                     # Save query_search_target if it has changed
                     if updated_target.strip() != current_target:
                         with st.spinner("Saving Query Search Target..."):
-                            result = update_project(project['id'], query_search_target=updated_target.strip())
+                            result = call_api(update_project, project['id'], query_search_target=updated_target.strip())
                             if result:
                                 st.session_state.selected_project = result
                             else:
@@ -183,7 +190,7 @@ def show_web_search_tab(project):
                         # Clear previous message when generating new queries
                         st.session_state.query_message[project_id] = None
                         
-                        generated_queries = generate_queries(project['id'], num_queries=st.session_state.num_queries)
+                        generated_queries = call_api(generate_queries, project['id'], num_queries=st.session_state.num_queries)
                         if generated_queries:
                             # Get existing queries for this project (case-insensitive comparison)
                             existing_queries = {q.lower().strip() for q in st.session_state.generated_queries.get(project_id, {}).values()}
@@ -218,22 +225,19 @@ def show_web_search_tab(project):
     
     # Display all queries from database (always visible)
     st.markdown("**Previously run queries:**")
-    try:
-        db_queries = get_queries(project['id'])
-        if db_queries and len(db_queries) > 0:
-            # Create DataFrame for display
-            queries_df = pd.DataFrame(db_queries)
-            # Format date_added column for better readability
-            if 'date_added' in queries_df.columns:
-                queries_df['date_added'] = pd.to_datetime(queries_df['date_added']).dt.strftime('%Y-%m-%d %H:%M:%S')
-            # Display only query and date_added columns
-            display_df = queries_df[['query', 'date_added']].copy()
-            display_df.columns = ['Query', 'Date Added']
-            st.dataframe(display_df, width='stretch', hide_index=True)
-        else:
-            st.info("No queries have been run yet for this project.")
-    except Exception as e:
-        st.warning(f"Could not load queries from database: {str(e)}")
+    db_queries = call_api(get_queries, project['id'])
+    if db_queries and len(db_queries) > 0:
+        # Create DataFrame for display
+        queries_df = pd.DataFrame(db_queries)
+        # Format date_added column for better readability
+        if 'date_added' in queries_df.columns:
+            queries_df['date_added'] = pd.to_datetime(queries_df['date_added']).dt.strftime('%Y-%m-%d %H:%M:%S')
+        # Display only query and date_added columns
+        display_df = queries_df[['query', 'date_added']].copy()
+        display_df.columns = ['Query', 'Date Added']
+        st.dataframe(display_df, width='stretch', hide_index=True)
+    else:
+        st.info("No queries have been run yet for this project.")
     
     # Display query messages if they exist (persists after rerun)
     if project_query_message:
@@ -300,7 +304,7 @@ def show_web_search_tab(project):
             with st.spinner("🔍 Generating URLs from queries..."):
                 # Convert dict to list for API call (use queries for this project)
                 queries_list = list(st.session_state.generated_queries.get(project_id, {}).values())
-                urls_result = generate_urls(project['id'], queries_list)
+                urls_result = call_api(generate_urls, project['id'], queries_list)
                 
                 if urls_result:
                     st.success(f"✅ Generated {urls_result.get('urls_added', 0)} URLs from {urls_result.get('queries_processed', 0)} search queries")
@@ -309,10 +313,8 @@ def show_web_search_tab(project):
                     st.error(f"❌ Failed to generate URLs")
     
     # Fetch and display URLs from backend
-    try:
-        urls = get_urls(project['id'])
-    except Exception as e:
-        st.error(f"❌ Error fetching URLs: {str(e)}")
+    urls = call_api(get_urls, project['id'])
+    if not urls:
         urls = []
     
     # Display URLs table if they exist
@@ -442,48 +444,35 @@ def show_web_search_tab(project):
             if st.button("💾 Save Table"):
                 # Process all changes
                 changes_made = False
-                errors = []
                 
                 # Create new rows
                 for new_row in new_rows:
-                    try:
-                        result = create_url(
-                            project['id'],
-                            link=new_row['link'],
-                            title=new_row['title'] if new_row['title'] else None,
-                            snippet=new_row['snippet'] if new_row['snippet'] else None,
-                            date=new_row['date'] if new_row.get('date') else None
-                        )
-                        if result:
-                            changes_made = True
-                    except Exception as e:
-                        errors.append(f"Error creating URL {new_row['link']}: {str(e)}")
+                    result = call_api(
+                        create_url,
+                        project['id'],
+                        link=new_row['link'],
+                        title=new_row['title'] if new_row['title'] else None,
+                        snippet=new_row['snippet'] if new_row['snippet'] else None,
+                        date=new_row['date'] if new_row.get('date') else None
+                    )
+                    if result:
+                        changes_made = True
                 
                 # Update existing rows
                 for url_id, updates in edited_rows:
-                    try:
-                        result = update_url(project['id'], url_id, **updates)
-                        if result:
-                            changes_made = True
-                    except Exception as e:
-                        errors.append(f"Error updating URL {url_id}: {str(e)}")
+                    result = call_api(update_url, project['id'], url_id, **updates)
+                    if result:
+                        changes_made = True
                 
                 # Delete removed rows
                 for url_id in deleted_ids:
-                    try:
-                        # Ensure url_id is a Python int
-                        url_id_int = int(url_id)
-                        result = delete_url(project['id'], url_id_int)
-                        if result and result.get('success'):
-                            changes_made = True
-                    except Exception as e:
-                        errors.append(f"Error deleting URL {url_id} (project {project['id']}): {str(e)}")
+                    # Ensure url_id is a Python int
+                    url_id_int = int(url_id)
+                    result = call_api(delete_url, project['id'], url_id_int)
+                    if result and result.get('success'):
+                        changes_made = True
                 
                 # Show results
-                if errors:
-                    for error in errors:
-                        st.error(f"❌ {error}")
-                
                 if changes_made:
                     summary = []
                     if new_rows:
@@ -533,7 +522,7 @@ def show_web_search_tab(project):
                 # Save lead_minimum_criteria if it has changed
                 if bare_minimum_criteria.strip() != current_criteria:
                     with st.spinner("Saving Bare Minimum Lead Criteria..."):
-                        result = update_project(project['id'], lead_minimum_criteria=bare_minimum_criteria.strip())
+                        result = call_api(update_project, project['id'], lead_minimum_criteria=bare_minimum_criteria.strip())
                         if result:
                             st.session_state.selected_project = result
                             current_criteria = result.get('lead_minimum_criteria', '')
@@ -576,22 +565,22 @@ def show_web_search_tab(project):
             st.session_state.criteria_message[project_id] = None
             
             with st.spinner("🤖 Extracting leads from URLs (this may take several minutes)..."):
-                leads_result = generate_leads(project['id'])
+                leads_result = call_api(generate_leads, project['id'])
                 
                 if leads_result:
                     # Store full result (including stats from backend) in session state for this project
                     st.session_state.extraction_results[project_id] = leads_result
                     
                     # Refresh project data to get updated stats
-                    st.session_state.selected_project = get_project(project['id'])
+                    updated_project = call_api(get_project, project['id'])
+                    if updated_project:
+                        st.session_state.selected_project = updated_project
                     
                     # Automatically fetch ZIP file after successful extraction
                     with st.spinner("📥 Preparing download..."):
                         _fetch_and_store_zip_data(project['id'])
                     
                     st.rerun()
-                else:
-                    st.error(f"❌ Failed to extract leads")
     
     # Display extraction results if they exist for this project
     project_extraction_result = st.session_state.extraction_results.get(project_id, {})
@@ -930,52 +919,41 @@ def show_upload_dataset_tab(project):
                     st.error("❌ Please select at least one enrichment column")
                 else:
                     with st.spinner("📤 Uploading dataset..."):
-                        try:
-                            # Prepare enrichment columns data
-                            if add_enrichment_from_dataset:
-                                # Multiple enrichment columns from CSV - join with comma
-                                enrichment_column_data = enrichment_columns
-                                enrichment_column_exists = True
-                            else:
-                                # Single enrichment column - backend will generate {dataset_name}_exists
-                                enrichment_column_data = None
-                                enrichment_column_exists = False
+                        # Prepare enrichment columns data
+                        if add_enrichment_from_dataset:
+                            # Multiple enrichment columns from CSV - join with comma
+                            enrichment_column_data = enrichment_columns
+                            enrichment_column_exists = True
+                        else:
+                            # Single enrichment column - backend will generate {dataset_name}_exists
+                            enrichment_column_data = None
+                            enrichment_column_exists = False
+                        
+                        result = call_api(
+                            upload_dataset,
+                            project_id=project['id'],
+                            dataset_name=dataset_name.strip(),
+                            lead_column=lead_column,
+                            enrichment_column_list=enrichment_column_data,
+                            enrichment_column_exists=enrichment_column_exists,
+                            file=uploaded_file
+                        )
+                        
+                        if result and result.get('success'):
+                            # Store success message in session state to persist
+                            success_message = f"✅ {result.get('message', 'Dataset uploaded successfully')}"
+                            st.session_state[upload_success_key] = success_message
+                                                            
+                            # Clear form-related session state after successful upload
+                            if checkbox_key in st.session_state:
+                                del st.session_state[checkbox_key]
+                            if enrichment_columns_key in st.session_state:
+                                del st.session_state[enrichment_columns_key]
                             
-                            result = upload_dataset(
-                                project_id=project['id'],
-                                dataset_name=dataset_name.strip(),
-                                lead_column=lead_column,
-                                enrichment_column_list=enrichment_column_data,
-                                enrichment_column_exists=enrichment_column_exists,
-                                file=uploaded_file
-                            )
-                            
-                            if result and result.get('success'):
-                                # Store success message in session state to persist
-                                success_message = f"✅ {result.get('message', 'Dataset uploaded successfully')}"
-                                st.session_state[upload_success_key] = success_message
-                                                                
-                                # Clear form-related session state after successful upload
-                                if checkbox_key in st.session_state:
-                                    del st.session_state[checkbox_key]
-                                if enrichment_columns_key in st.session_state:
-                                    del st.session_state[enrichment_columns_key]
-                                
-                                # Refresh project data in session state to show updated stats
-                                updated_project = get_project(project['id'])
-                                if updated_project:
-                                    st.session_state.selected_project = get_project(project['id'])
-                            else:
-                                # Try to get error details from response
-                                error_msg = "❌ Failed to upload dataset. Please try again."
-                                if result and isinstance(result, dict):
-                                    if 'detail' in result:
-                                        error_msg = f"❌ {result['detail']}"
-                                    elif 'message' in result:
-                                        error_msg = f"❌ {result['message']}"
-                                st.error(error_msg)
-                        except Exception as e:
-                            st.error(f"❌ Error uploading dataset: {str(e)}")
+                            # Refresh project data in session state to show updated stats
+                            updated_project = call_api(get_project, project['id'])
+                            if updated_project:
+                                st.session_state.selected_project = updated_project
         except Exception as e:
             file_type = "Excel" if is_excel else "CSV"
             st.error(f"❌ Error reading {file_type} file: {str(e)}")
