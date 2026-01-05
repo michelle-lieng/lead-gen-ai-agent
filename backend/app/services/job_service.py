@@ -8,7 +8,7 @@ from datetime import datetime
 
 from ..models.tables import Jobs
 from .database_service import db_service
-from ..exceptions import DatabaseFailureError, JobNotFoundError
+from ..exceptions import DatabaseFailureError, JobNotFoundError, JobAlreadyRunningError
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +61,10 @@ class JobService:
         """Get all running jobs for a project and job type"""
         try:
             with db_service.get_session() as session:
-                jobs = session.query(Jobs).filter(Jobs.project_id == project_id, Jobs.job_type == job_type, Jobs.job_type_id == job_type_id, Jobs.status == "running").all()
-                return jobs
+                job = session.query(Jobs).filter(Jobs.project_id == project_id, Jobs.job_type == job_type, Jobs.job_type_id == job_type_id, Jobs.status == "running").first()
+                if job:
+                    raise JobAlreadyRunningError(job.id)
+                return None
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error getting running jobs for project {project_id} and job type {job_type}")
             raise DatabaseFailureError(f"Failed to get running jobs for project {project_id} and job type {job_type}") from e

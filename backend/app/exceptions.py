@@ -201,3 +201,9 @@ class JobNotFoundError(JobError):
     """Raised when a job is not found"""
     def __init__(self, job_id: int):
         message = f"Job with ID {job_id} not found"
+
+class JobAlreadyRunningError(JobError):
+    """Raised when a job is already running"""
+    def __init__(self, job_id: int):
+        message = f"Job with ID {job_id} is already running"
+        super().__init__(message)

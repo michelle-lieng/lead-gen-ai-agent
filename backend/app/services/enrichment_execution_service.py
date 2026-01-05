@@ -15,7 +15,7 @@ from ..models.tables import Enrichment
 # Import existing Jina functions from utils
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..config import settings
-from ..exceptions import ApiKeyNotConfiguredError, OpenAITokenLimitExceededError
+from ..exceptions import ApiKeyNotConfiguredError, OpenAITokenLimitExceededError, ExternalScraperError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
