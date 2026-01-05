@@ -4,15 +4,18 @@ Enrichment endpoints
 import logging
 from fastapi import APIRouter, HTTPException
 from typing import List
+from datetime import datetime
 
 from ...services.enrichment_execution_service import enrichment_execution_service
 from ...services.enrichment_service import enrichment_service
 from ...services.merged_results_service import merged_results_service
+from ...services.job_service import job_service
 from ...models.schemas import (
     EnrichmentCreate, 
     EnrichmentUpdate, 
     EnrichmentResponse,
-    EnrichLeadsRequest
+    EnrichLeadsRequest,
+    JobResponse
 )
 from ...exceptions import (
     DuplicateEnrichmentNameError,
@@ -192,6 +195,13 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
         if not enrichment:
             raise EnrichmentNotFoundError(enrichment_id)
         
+        running_job = job_service.check_running_job(project_id, "enrichments", enrichment_id)
+        if running_job:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Enrichment is already running for project {project_id}"
+            )
+        
         # Validate column_name matches
         if enrichment.column_name != request.column_name:
             raise HTTPException(
@@ -261,6 +271,9 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
         is_false_prompt = enrichment.result_false_if or ""
         int_prompt = enrichment.result_number_value or ""
         
+        # Create job
+        job = job_service.create_job(project_id, "enrichments", enrichment_id)
+        
         # Process each lead
         enriched_leads = []
         for lead_row in request.leads_data:
@@ -325,6 +338,9 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
             column_name=request.column_name,
             enriched_leads=enriched_leads
         )
+        # Update job status to completed
+        job_service.update_job_status(job.id, "completed")
+        job_service.update_job_completed_at(job.id, datetime.now())
         logger.info(f"✅ Automatically saved enrichment results to merged_results: {save_result.get('message', '')}")
         return {
             "success": True,
@@ -347,6 +363,9 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
         raise
     except Exception as e:
         logger.exception(f"❌ Unexpected error enriching leads: {e}")
+        job_service.update_job_error_message(job.id, str(e))
+        job_service.update_job_status(job.id, "failed")
+        job_service.update_job_completed_at(job.id, datetime.now())
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/projects/{project_id}/enrichments/{enrichment_id}/test-enrich-leads", response_model=dict)
