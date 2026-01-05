@@ -18,7 +18,7 @@ def show_enrichments():
     st.session_state.setdefault(name_input_key, "")
     st.session_state.setdefault(description_input_key, "")
     
-    st.markdown("# 📋 Enrichment")
+    st.markdown(f"# 📋 Enrichment - {selected_project['project_name']}")
     st.markdown("---")
     
     st.subheader("🔍 Create New Enrichment")
