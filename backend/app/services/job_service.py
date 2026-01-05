@@ -2,7 +2,6 @@
 Job service for managing job operations
 """
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import or_
 from typing import List, Optional
 import logging
 
