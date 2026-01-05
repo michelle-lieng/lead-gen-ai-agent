@@ -506,11 +506,6 @@ class MergedResultsService:
                 # Filter to only include columns that actually exist in the database
                 column_names = [col for col in all_column_names if col in existing_column_names]
                 
-                # Log if any expected columns are missing
-                missing_columns = [col for col in all_column_names if col not in existing_column_names]
-                if missing_columns:
-                    logger.warning(f"⚠️ Expected columns not found in merged_results table: {missing_columns}")
-                
                 # Get all merged results for this project using raw SQL
                 columns_str = ", ".join([f'"{col}"' for col in column_names])
                 
