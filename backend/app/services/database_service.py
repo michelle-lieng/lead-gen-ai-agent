@@ -1,6 +1,7 @@
 """
 Database service using SQLAlchemy
 """
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -10,7 +11,9 @@ from ..config import settings
 from ..models.tables import Base
 
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 class DatabaseService:
     def __init__(self):
@@ -24,19 +27,21 @@ class DatabaseService:
         self.engine = create_engine(self.connection_string)
         # this is the factory for creating new sessions
         # this attachs the get_sessions with the connection pool
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
-        
+        self.SessionLocal = sessionmaker(
+            autocommit=False, autoflush=False, bind=self.engine
+        )
+
     def get_session(self) -> Session:
         """Get database session - this creates new session
         (using our factory in the init and connecting to our connection pool)
-        
+
         Note to self: When we make changes in session they are not saved yet
         only stagged. It is only when we go session.commit() that the changes
         are saved. We can do session.rollback() to cancel staged changes.
-        Session.close() then ends the conversation. 
-        
-        We don't actually use it in the code below because we use the with self.getsession() 
-        which will automatically close it after the code runs. We need to close our sessions 
+        Session.close() then ends the conversation.
+
+        We don't actually use it in the code below because we use the with self.getsession()
+        which will automatically close it after the code runs. We need to close our sessions
         otherwise they take up RAM.
 
         # 5 connections in the pool (by engine)
@@ -55,9 +60,9 @@ class DatabaseService:
         session6 = SessionLocal()  # Waits! No connections available
         """
         return self.SessionLocal()
-    
+
     def check_database_connection(self) -> bool:
-        """Test database connection. 
+        """Test database connection.
         We need a true/false return here because it is a check!"""
         try:
             with self.get_session() as session:
@@ -66,7 +71,7 @@ class DatabaseService:
         except SQLAlchemyError:
             logger.exception("❌ Database connection failed")
             return False
-    
+
     def create_tables(self) -> None:
         """Create all tables ONLY if they don't exist. Fail fast if error"""
         try:
@@ -74,6 +79,7 @@ class DatabaseService:
         except SQLAlchemyError as e:
             logger.exception(f"❌ SQLAlchemy error creating tables: {e}")
             raise DatabaseFailureError("Database initialization failed") from e
+
 
 # Global database service instance
 db_service = DatabaseService()
