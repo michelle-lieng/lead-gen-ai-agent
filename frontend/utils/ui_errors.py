@@ -10,24 +10,19 @@ FRIENDLY_TEMPLATES: dict[str, str] = {
     "DUPLICATE_PROJECT_NAME": "❌ Project name '{project_name}' already exists. Please choose a different name and try again.",
     "PROJECT_NOT_FOUND": "That project can’t be found. It may have been deleted—try refreshing.",
     "INVALID_PROJECT_CONFIGURATION": "This project’s configuration is invalid. Please review the settings.",
-
     # Dataset / files
     "INVALID_FILE": "That file looks invalid (empty, wrong type, or corrupted). Please upload a valid file.",
     "INVALID_ENRICHMENT_COLUMN": "Your enrichment column selection is invalid. Please check the required columns.",
     "PROJECT_DATASET_NOT_FOUND": "That dataset can’t be found. It may have been removed—try refreshing.",
-
     # URLs
     "URL_NOT_FOUND": "That URL entry can’t be found. It may have been deleted—try refreshing.",
     "DUPLICATE_URL": "That URL is already in this project.",
-
     # Infrastructure
     "DATABASE_FAILURE": "Database error. Please try again. If it keeps happening, the server may be down.",
     "API_KEY_NOT_CONFIGURED": "Server configuration issue: an API key is missing. Please contact the admin.",
-
     # External APIs
     "EXTERNAL_SCRAPER_ERROR": "Scraper service is having issues right now. Please try again in a moment.",
     "OPENAI_TOKEN_LIMIT_EXCEEDED": "This request is too large for the AI to process. Try fewer URLs or smaller content.",
-
     # Enrichment
     "DUPLICATE_ENRICHMENT_NAME": "That enrichment name already exists. Please choose a different name.",
     "DUPLICATE_COLUMN_NAME": "That column name already exists. Please choose a different column name.",
@@ -35,7 +30,9 @@ FRIENDLY_TEMPLATES: dict[str, str] = {
     "EMPTY_ENRICHMENT_FIELD": "The following fields cannot be empty or whitespace only: '{field_names_str}'. Please fill in all required fields.",
     "INCOMPLETE_ENRICHMENT_CONFIG": "Result format '{result_format}' requires the following fields to be filled: '{fields_str}'",
     "NO_LEADS_TO_ENRICH": "Cannot run enrichment: no leads provided. Please add leads before running enrichment.",
-
+    # Jobs
+    "JOB_NOT_FOUND": "That job can't be found. It may have been deleted—try refreshing.",
+    "JOB_ALREADY_RUNNING": "🔄 Still running enrichment on all leads...please wait.",
     # Generic / server fallback
     "UNEXPECTED_INTERNAL_ERROR": "Something went wrong on the server. Please try again.",
 }
@@ -55,9 +52,12 @@ STATUS_FALLBACK_MESSAGES: dict[int, str] = {
     504: "Request timed out. Please try again.",
 }
 
+
 def show_network_error(e: NetworkError | None = None):
     # You can also log e somewhere if you want
-    st.error("❌ Can't reach the backend. Check BACKEND_URL, server status, or your network/VPC.")
+    st.error(
+        "❌ Can't reach the backend. Check BACKEND_URL, server status, or your network/VPC."
+    )
 
 
 def show_validation_errors(detail: list):
@@ -70,8 +70,9 @@ def show_validation_errors(detail: list):
         loc = " → ".join(str(x) for x in item.get("loc", []))
         msg = item.get("msg", "Invalid value")
         error_lines.append(f"- **{loc}**: {msg}")
-    
+
     st.error("\n".join(error_lines))
+
 
 def friendly_message(e: ApiError) -> str:
     """
@@ -93,6 +94,7 @@ def friendly_message(e: ApiError) -> str:
         # Missing meta placeholders: return template as-is
         return template
 
+
 def show_api_error(e: ApiError, *, show_debug: bool = False):
     """
     Central place to render API errors in Streamlit.
@@ -110,16 +112,20 @@ def show_api_error(e: ApiError, *, show_debug: bool = False):
         st.error(friendly_message(e))
     else:
         # 3) Status fallback
-        fallback = STATUS_FALLBACK_MESSAGES.get(e.status_code, "Request failed. Please try again.")
+        fallback = STATUS_FALLBACK_MESSAGES.get(
+            e.status_code, "Request failed. Please try again."
+        )
         st.error(f"❌ {fallback}")
 
     # 4) Optional debug block (nice during dev)
     if show_debug:
         with st.expander("Debug details"):
-            st.write({
-                "status_code": e.status_code,
-                "code": e.code,
-                "detail": e.detail,
-                "meta": e.meta,
-                "url": e.url,
-            })
+            st.write(
+                {
+                    "status_code": e.status_code,
+                    "code": e.code,
+                    "detail": e.detail,
+                    "meta": e.meta,
+                    "url": e.url,
+                }
+            )
