@@ -170,8 +170,8 @@ class Jobs(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete='CASCADE'), nullable=False)  # Foreign key to Project.id
-    job_type = Column(String(255), nullable=False)  # Type of job (e.g., "leads_serp", "leads_dataset", "merged_results", "enrichments")
-    job_type_id = Column(String(255), nullable=True)  # enrichment_id if enrichments else null
+    job_type = Column(String(255), nullable=False)  # Type of job (e.g., "leads_serp", "leads_dataset", "merged_results", "enrichments", "test_enrichments")
+    job_type_id = Column(String(255), nullable=True)  # enrichment_id if enrichments pr test_enrichments else null
     status = Column(String(50), default="running")  # Status of the job (e.g., "running", "completed", "failed")
     completed_at = Column(DateTime, nullable=True)  # When the job was completed
     error_message = Column(Text, nullable=True)  # Error message if the job failed
