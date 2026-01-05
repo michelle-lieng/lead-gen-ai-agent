@@ -83,36 +83,39 @@ class JobService:
             logger.exception(f"❌ Error updating job status: {status} for job {job_id}")
             raise DatabaseFailureError(f"Failed to update job status: {status} for job {job_id}") from e
         
-    def update_job_completed_at(self, job_id: int, completed_at: datetime) -> Jobs:
+    def mark_job_as_completed(self, job_id: int) -> Jobs:
         """Update a job completed at"""
         try:
             with db_service.get_session() as session:
                 job = session.query(Jobs).filter(Jobs.id == job_id).first()
                 if not job:
                     raise JobNotFoundError(job_id)
-                job.completed_at = completed_at
+                job.status = "completed"
+                job.completed_at = datetime.now()
                 session.commit()
                 session.refresh(job)
-                logger.info(f"✅ Updated job completed at: {completed_at} for job {job_id}")
+                logger.info(f"✅ Updated job to completed: for job {job_id}")
                 return job
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error updating job completed at: {completed_at} for job {job_id}")
-            raise DatabaseFailureError(f"Failed to update job completed at: {completed_at} for job {job_id}") from e
+            logger.exception(f"❌ Error updating job completed : for job {job_id}")
+            raise DatabaseFailureError(f"Failed to update job completed: for job {job_id}") from e
         
-    def update_job_error_message(self, job_id: int, error_message: str) -> Jobs:
-        """Update a job error message"""
+    def mark_job_as_failed(self, job_id: int, error_message: str) -> Jobs:
+        """Mark a job as failed"""
         try:
             with db_service.get_session() as session:
                 job = session.query(Jobs).filter(Jobs.id == job_id).first()
                 if not job:
                     raise JobNotFoundError(job_id)
+                job.status = "failed"
                 job.error_message = error_message
+                job.completed_at = datetime.now()
                 session.commit()
                 session.refresh(job)
-                logger.info(f"✅ Updated job error message: {error_message} for job {job_id}")
+                logger.info(f"✅ Marked job as failed: {error_message} for job {job_id}")
                 return job
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error updating job error message: {error_message} for job {job_id}")
-            raise DatabaseFailureError(f"Failed to update job error message: {error_message} for job {job_id}") from e
+            logger.exception(f"❌ Error marking job as failed: {error_message} for job {job_id}")
+            raise DatabaseFailureError(f"Failed to mark job as failed: {error_message} for job {job_id}") from e
 
 job_service = JobService()

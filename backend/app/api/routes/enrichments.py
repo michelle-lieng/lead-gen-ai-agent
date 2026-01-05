@@ -339,8 +339,7 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
             enriched_leads=enriched_leads
         )
         # Update job status to completed
-        job_service.update_job_status(job.id, "completed")
-        job_service.update_job_completed_at(job.id, datetime.now())
+        job_service.mark_job_as_completed(job.id)
         logger.info(f"✅ Automatically saved enrichment results to merged_results: {save_result.get('message', '')}")
         return {
             "success": True,
@@ -358,23 +357,17 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
         raise HTTPException(status_code=404, detail=str(e))
     except DatabaseFailureError as e:
         if 'job' in locals():
-            job_service.update_job_error_message(job.id, str(e))
-            job_service.update_job_status(job.id, "failed")
-            job_service.update_job_completed_at(job.id, datetime.now())
+            job_service.mark_job_as_failed(job.id, str(e))
         raise HTTPException(status_code=500, detail="Internal server error")
     except HTTPException:
         if 'job' in locals():
-            job_service.update_job_error_message(job.id, str(e))
-            job_service.update_job_status(job.id, "failed")
-            job_service.update_job_completed_at(job.id, datetime.now())
+            job_service.mark_job_as_failed(job.id, str(e))
         # Re-raise HTTP exceptions
         raise
     except Exception as e:
         logger.exception(f"❌ Unexpected error enriching leads: {e}")
         if 'job' in locals():
-            job_service.update_job_error_message(job.id, str(e))
-            job_service.update_job_status(job.id, "failed")
-            job_service.update_job_completed_at(job.id, datetime.now())
+            job_service.mark_job_as_failed(job.id, str(e))
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/projects/{project_id}/enrichments/{enrichment_id}/test-enrich-leads", response_model=dict)
@@ -536,8 +529,7 @@ async def test_enrich_leads(project_id: int, enrichment_id: int, request: Enrich
             columns.append(f"{request.column_name}_evidence")
         
         # Update job status to completed
-        job_service.update_job_status(job.id, "completed")
-        job_service.update_job_completed_at(job.id, datetime.now())
+        job_service.mark_job_as_completed(job.id)
         # Automatically save enrichment results to merged_results table
         return {
             "success": True,
@@ -555,21 +547,15 @@ async def test_enrich_leads(project_id: int, enrichment_id: int, request: Enrich
         raise HTTPException(status_code=404, detail=str(e))
     except DatabaseFailureError as e:
         if 'job' in locals():
-            job_service.update_job_error_message(job.id, str(e))
-            job_service.update_job_status(job.id, "failed")
-            job_service.update_job_completed_at(job.id, datetime.now())
+            job_service.mark_job_as_failed(job.id, str(e))
         raise HTTPException(status_code=500, detail="Internal server error")
     except HTTPException:
         if 'job' in locals():
-            job_service.update_job_error_message(job.id, str(e))
-            job_service.update_job_status(job.id, "failed")
-            job_service.update_job_completed_at(job.id, datetime.now())
+            job_service.mark_job_as_failed(job.id, str(e))
         # Re-raise HTTP exceptions
         raise
     except Exception as e:
         logger.exception(f"❌ Unexpected error enriching leads: {e}")
         if 'job' in locals():
-            job_service.update_job_error_message(job.id, str(e))
-            job_service.update_job_status(job.id, "failed")
-            job_service.update_job_completed_at(job.id, datetime.now())
+            job_service.mark_job_as_failed(job.id, str(e))
         raise HTTPException(status_code=500, detail="Internal server error")
