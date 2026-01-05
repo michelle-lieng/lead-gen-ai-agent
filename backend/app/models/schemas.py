@@ -202,3 +202,16 @@ class EnrichLeadsRequest(BaseModel):
     column_name: str  # Column name to use for the enrichment results
     result_format: str
     leads_data: list[dict]  # List of lead dictionaries with at least a "lead" key
+
+class JobResponse(BaseModel):
+    """Schema for job API responses"""
+    id: int
+    project_id: int
+    job_type: str
+    job_id: Optional[int] = None
+    status: str
+    completed_at: Optional[str] = None
+    error_message: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
