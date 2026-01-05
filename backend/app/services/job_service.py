@@ -114,3 +114,5 @@ class JobService:
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error updating job error message: {error_message} for job {job_id}")
             raise DatabaseFailureError(f"Failed to update job error message: {error_message} for job {job_id}") from e
+
+job_service = JobService()
