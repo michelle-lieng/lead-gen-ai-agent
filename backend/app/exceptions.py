@@ -116,3 +116,17 @@ class EnrichmentNotFoundError(EnrichmentError):
     def __init__(self, enrichment_id: int):
         message = f"Enrichment with ID {enrichment_id} not found"
         super().__init__(message)
+
+# =========================
+# Job domain errors
+# =========================
+
+class JobError(Exception):
+    """Base exception for job-related errors"""
+    def __init__(self, message: str):
+        super().__init__(message)
+
+class JobNotFoundError(JobError):
+    """Raised when a job is not found"""
+    def __init__(self, job_id: int):
+        message = f"Job with ID {job_id} not found"
