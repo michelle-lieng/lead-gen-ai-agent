@@ -47,8 +47,7 @@ def _request(method: str, path: str, json_data=None, stream=False, files=None, f
                 method, url, json=json_data, timeout=TIMEOUT, stream=stream
             )
         
-        if response.status_code >= 200 and response.status_code < 300:
-            return response
+        return response
         # Return response even on error so we can access error details
         return response
     except Exception:
@@ -357,12 +356,46 @@ def test_enrich_leads(project_id: int, enrichment_id: int, leads_data: list, col
             "project_id": project_id
         }
     
-    response = _request("POST", f"/api/projects/{project_id}/enrichments/{enrichment_id}/test-enrich-leads", json_data={
-        "enrichment_id": enrichment_id,
-        "column_name": column_name,
-        "result_format": result_format,
-        "leads_data": leads_data
-    })
-    if response:
-        return response.json()
-    return None
+    try:
+        response = _request("POST", f"/api/projects/{project_id}/enrichments/{enrichment_id}/test-enrich-leads", json_data={
+            "enrichment_id": enrichment_id,
+            "column_name": column_name,
+            "result_format": result_format,
+            "leads_data": leads_data
+        })
+        
+        if response is None:
+            return {
+                "success": False,
+                "message": "No response from server - connection error or timeout"
+            }
+        
+        # Try to parse JSON response
+        try:
+            result = response.json()
+        except ValueError:
+            # Response is not JSON - might be HTML error page or plain text
+            return {
+                "success": False,
+                "message": f"Server error: {response.status_code} - {response.text[:200]}"
+            }
+        
+        # Handle error status codes (400, 500, etc.)
+        if response.status_code >= 400:
+            # FastAPI returns {"detail": "..."} for HTTPException errors
+            error_message = result.get("detail", result.get("message", f"Server error: {response.status_code}"))
+            return {
+                "success": False,
+                "message": error_message,
+                "detail": error_message
+            }
+        
+        # Success response
+        return result
+        
+    except Exception as e:
+        # Catch any unexpected errors
+        return {
+            "success": False,
+            "message": f"Error making request: {str(e)}"
+        }
