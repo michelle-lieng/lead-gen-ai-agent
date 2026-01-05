@@ -31,7 +31,10 @@ FRIENDLY_TEMPLATES: dict[str, str] = {
     # Enrichment
     "DUPLICATE_ENRICHMENT_NAME": "That enrichment name already exists. Please choose a different name.",
     "DUPLICATE_COLUMN_NAME": "That column name already exists. Please choose a different column name.",
-    "ENRICHMENT_NOT_FOUND": "That enrichment can’t be found. It may have been deleted—try refreshing.",
+    "ENRICHMENT_NOT_FOUND": "That enrichment can't be found. It may have been deleted—try refreshing.",
+    "EMPTY_ENRICHMENT_FIELD": "The following fields cannot be empty or whitespace only: '{field_names_str}'. Please fill in all required fields.",
+    "INCOMPLETE_ENRICHMENT_CONFIG": "Result format '{result_format}' requires the following fields to be filled: '{fields_str}'",
+    "NO_LEADS_TO_ENRICH": "Cannot run enrichment: no leads provided. Please add leads before running enrichment.",
 
     # Generic / server fallback
     "UNEXPECTED_INTERNAL_ERROR": "Something went wrong on the server. Please try again.",
@@ -62,11 +65,13 @@ def show_validation_errors(detail: list):
     FastAPI 422 detail format:
       [{"loc": [...], "msg": "...", "type": "..."}]
     """
-    st.error("❌ Please fix the highlighted input errors:")
+    error_lines = ["❌ Please fix the highlighted input errors:"]
     for item in detail:
         loc = " → ".join(str(x) for x in item.get("loc", []))
         msg = item.get("msg", "Invalid value")
-        st.write(f"- **{loc}**: {msg}")
+        error_lines.append(f"- **{loc}**: {msg}")
+    
+    st.error("\n".join(error_lines))
 
 def friendly_message(e: ApiError) -> str:
     """
