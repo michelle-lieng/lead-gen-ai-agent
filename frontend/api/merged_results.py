@@ -9,7 +9,7 @@ from .base import _request
 def get_merged_results(project_id: int):
     """Get merged results table as JSON for displaying in frontend"""
     response = _request("GET", f"/api/projects/{project_id}/results")
-    return response.json() if response else None
+    return response.json()
 
 
 def fetch_merged_results_zip(project_id: int):

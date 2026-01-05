@@ -13,7 +13,7 @@ def create_enrichment(project_id: int, enrichment_name: str, enrichment_descript
         "enrichment_name": enrichment_name,
         "enrichment_description": enrichment_description
     })
-    return response.json() if response else None
+    return response.json()
 
 
 def get_enrichments(project_id: int):
@@ -25,7 +25,7 @@ def get_enrichments(project_id: int):
 def get_enrichment(enrichment_id: int):
     """Get a specific enrichment by ID from the API"""
     response = _request("GET", f"/api/enrichments/{enrichment_id}")
-    return response.json() if response else None
+    return response.json()
 
 
 def update_enrichment(enrichment_id: int, **kwargs):
@@ -33,15 +33,13 @@ def update_enrichment(enrichment_id: int, **kwargs):
     data = {k: v for k, v in kwargs.items() if v is not None}
     
     response = _request("PUT", f"/api/enrichments/{enrichment_id}", json_data=data)
-    return response.json() if response else None
+    return response.json()
 
 
 def delete_enrichment(enrichment_id: int):
     """Delete an enrichment via API"""
     response = _request("DELETE", f"/api/enrichments/{enrichment_id}")
-    if response:
-        return {"success": True}
-    return None
+    return {"success": True}
 
 
 def enrich_leads(project_id: int, enrichment_id: int, leads_data: list):
@@ -55,7 +53,7 @@ def enrich_leads(project_id: int, enrichment_id: int, leads_data: list):
     response = _request("POST", f"/api/projects/{project_id}/enrichments/{enrichment_id}/enrich-leads", json_data={
         "leads_data": leads_data
     })
-    return response.json() if response else None
+    return response.json()
 
 
 def test_enrich_leads(project_id: int, enrichment_id: int, leads_data: list):
@@ -63,5 +61,5 @@ def test_enrich_leads(project_id: int, enrichment_id: int, leads_data: list):
     response = _request("POST", f"/api/projects/{project_id}/enrichments/{enrichment_id}/test-enrich-leads", json_data={
         "leads_data": leads_data
     })
-    return response.json() if response else None
+    return response.json()
 

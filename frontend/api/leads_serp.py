@@ -15,7 +15,7 @@ def generate_queries(project_id: int, num_queries: int = 3):
         num_queries: Number of queries to generate (1-20, default: 3)
     """
     response = _request("POST", f"/api/projects/{project_id}/queries", json_data={"num_queries": num_queries})
-    return response.json() if response else None
+    return response.json()
 
 
 def get_queries(project_id: int):
@@ -26,13 +26,13 @@ def get_queries(project_id: int):
         project_id: ID of the project
     """
     response = _request("GET", f"/api/projects/{project_id}/queries")
-    return response.json() if response else None
+    return response.json()
 
 
 def generate_urls(project_id: int, queries: list[str]):
     """Generate URLs from search queries and save them"""
     response = _request("POST", f"/api/projects/{project_id}/urls", json_data={"queries": queries})
-    return response.json() if response else None
+    return response.json()
 
 
 def get_urls(project_id: int):
@@ -55,7 +55,7 @@ def create_url(project_id: int, link: str, title: str = None, snippet: str = Non
     # Note: query is automatically set to "Manual Entry" in the backend
     
     response = _request("POST", f"/api/projects/{project_id}/urls/create", json_data=data)
-    return response.json() if response else None
+    return response.json()
 
 
 def update_url(project_id: int, url_id: int, title: str = None, snippet: str = None, link: str = None, date: str = None):
@@ -71,21 +71,18 @@ def update_url(project_id: int, url_id: int, title: str = None, snippet: str = N
         data["date"] = date
     
     response = _request("PUT", f"/api/projects/{project_id}/urls/{url_id}", json_data=data)
-    return response.json() if response else None
+    return response.json()
 
 
 def delete_url(project_id: int, url_id: int):
     """Delete a production URL (backend returns 204 No Content)"""
     response = _request("DELETE", f"/api/projects/{project_id}/urls/{url_id}")
-    if response:
-        return {"success": True}
-    return None
-
+    return {"success": True}
 
 def generate_leads(project_id: int):
     """Extract leads from URLs and save them"""
     response = _request("POST", f"/api/projects/{project_id}/leads")
-    return response.json() if response else None
+    return response.json()
 
 
 def fetch_latest_run_zip(project_id: int):
