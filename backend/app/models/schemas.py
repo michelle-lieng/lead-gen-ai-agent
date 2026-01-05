@@ -236,7 +236,17 @@ class EnrichmentResponse(BaseModel):
 
 class EnrichLeadsRequest(BaseModel):
     """Schema for enriching leads"""
-    leads_data: list[dict]  # List of lead dictionaries with at least a "lead" key
+    leads_data: Optional[list[dict]] = None  # List of lead dictionaries with at least a "lead" key
+    
+    @field_validator('leads_data', mode='before')
+    @classmethod
+    def validate_leads_data(cls, v):
+        """Convert None to empty list, ensure it's a list"""
+        if v is None:
+            return []
+        if not isinstance(v, list):
+            raise ValueError('leads_data must be a list')
+        return v
 
 class QueryResponse(BaseModel):
     """Schema for query response"""

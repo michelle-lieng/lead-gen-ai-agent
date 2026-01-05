@@ -10,7 +10,7 @@ from ...services.enrichment_service import enrichment_service
 from ...services.merged_results_service import merged_results_service
 from ...services.project_service import project_service
 from ...models.schemas import (EnrichmentCreate, EnrichmentUpdate, EnrichmentResponse, EnrichLeadsRequest)
-from ...exceptions import EnrichmentNotFoundError, ProjectNotFoundError
+from ...exceptions import EnrichmentNotFoundError, ProjectNotFoundError, NoLeadsToEnrichError
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -90,6 +90,10 @@ async def enrich_leads(project_id: int, enrichment_id: int, request: EnrichLeads
     if not enrichment:
         raise EnrichmentNotFoundError(enrichment_id)
     
+    # Validate that leads_data is not empty
+    if not request.leads_data or len(request.leads_data) == 0:
+        raise NoLeadsToEnrichError()
+    
     # Process leads enrichment using enrichment's configured values
     enriched_leads, columns = await enrichment_execution_service.enrich_leads(
         enrichment=enrichment,
@@ -133,6 +137,10 @@ async def test_enrich_leads(project_id: int, enrichment_id: int, request: Enrich
     enrichment = enrichment_service.get_enrichment(enrichment_id)
     if not enrichment:
         raise EnrichmentNotFoundError(enrichment_id)
+
+    # Validate that leads_data is not empty
+    if not request.leads_data or len(request.leads_data) == 0:
+        raise NoLeadsToEnrichError()
 
     # Process leads enrichment using enrichment's configured values
     enriched_leads, columns = await enrichment_execution_service.enrich_leads(
