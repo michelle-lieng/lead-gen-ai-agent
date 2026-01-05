@@ -20,8 +20,8 @@ class ProjectError(AppError):
     status_code = 400
     code = "PROJECT_ERROR"
 
-    def __init__(self, message: str):
-        super().__init__(message)
+    def __init__(self, message: str, *, meta: Optional[Dict[str, Any]] = None):
+        super().__init__(message, meta=meta)
 
 class DuplicateProjectNameError(ProjectError):
     """Raised when trying to create/update a project with a name that already exists"""
@@ -29,8 +29,10 @@ class DuplicateProjectNameError(ProjectError):
     code = "DUPLICATE_PROJECT_NAME"
 
     def __init__(self, project_name: str):
-        message = f"Project name '{project_name}' already exists"
-        super().__init__(message)
+        super().__init__(
+            f"Project name '{project_name}' already exists",
+            meta={"project_name": project_name},
+        )
 
 class ProjectNotFoundError(ProjectError):
     """Raised when a project is not found"""
@@ -38,8 +40,10 @@ class ProjectNotFoundError(ProjectError):
     code = "PROJECT_NOT_FOUND"
     
     def __init__(self, project_id: int):
-        message = f"Project with ID {project_id} not found"
-        super().__init__(message)
+        super().__init__(
+            f"Project with ID {project_id} not found",
+            meta={"project_id": project_id},
+        )
 
 class InvalidProjectConfigurationError(ProjectError):
     """Raised when project configuration is invalid"""
@@ -55,16 +59,16 @@ class InvalidFileError(AppError):
     status_code = 400
     code = "INVALID_FILE"
     
-    def __init__(self, message: str = "Invalid file"):
-        super().__init__(message)
+    def __init__(self, message: str = "Invalid file", *, meta: Optional[Dict[str, Any]] = None):
+        super().__init__(message, meta=meta)
 
 class InvalidEnrichmentColumnError(AppError):
     """Raised when enrichment column validation fails (e.g., missing columns, invalid format)"""
     status_code = 400
     code = "INVALID_ENRICHMENT_COLUMN"
     
-    def __init__(self, message: str = "Invalid enrichment column"):
-        super().__init__(message)
+    def __init__(self, message: str = "Invalid enrichment column", *, meta: Optional[Dict[str, Any]] = None):
+        super().__init__(message, meta=meta)
 
 class ProjectDatasetNotFoundError(AppError):
     """Raised when a ProjectDataset is not found"""
@@ -73,7 +77,7 @@ class ProjectDatasetNotFoundError(AppError):
     
     def __init__(self, project_dataset_id: int):
         message = f"ProjectDataset with ID {project_dataset_id} not found"
-        super().__init__(message)
+        super().__init__(message, meta={"project_dataset_id": project_dataset_id})
 
 # =========================
 # URL domain errors
@@ -84,8 +88,8 @@ class UrlError(AppError):
     status_code = 400
     code = "URL_ERROR"
     
-    def __init__(self, message: str):
-        super().__init__(message)
+    def __init__(self, message: str, *, meta: Optional[Dict[str, Any]] = None):
+        super().__init__(message, meta=meta)
 
 class UrlNotFoundError(UrlError):
     """Raised when a URL is not found"""
@@ -94,7 +98,7 @@ class UrlNotFoundError(UrlError):
     
     def __init__(self, url_id: int, project_id: int):
         message = f"URL with ID {url_id} not found for project {project_id}"
-        super().__init__(message)
+        super().__init__(message, meta={"url_id": url_id, "project_id": project_id})
 
 class DuplicateUrlError(UrlError):
     """Raised when trying to create/update a URL that already exists in the project"""
@@ -103,7 +107,7 @@ class DuplicateUrlError(UrlError):
     
     def __init__(self, link: str, project_id: int):
         message = f"URL already exists in this project: {link}"
-        super().__init__(message)
+        super().__init__(message, meta={"link": link, "project_id": project_id})
 
 # =========================
 # Infrastructure / system errors
@@ -114,16 +118,16 @@ class DatabaseFailureError(AppError):
     status_code = 500
     code = "DATABASE_FAILURE"
     
-    def __init__(self, message: str = "Database operation failed"):
-        super().__init__(message)
+    def __init__(self, message: str = "Database operation failed", *, meta: Optional[Dict[str, Any]] = None):
+        super().__init__(message, meta=meta)
 
 class ApiKeyNotConfiguredError(AppError):
     """Raised when a required API key is not configured"""
     status_code = 500
     code = "API_KEY_NOT_CONFIGURED"
     
-    def __init__(self, message: str = "Required API key is not configured"):
-        super().__init__(message)
+    def __init__(self, message: str = "Required API key is not configured", *, meta: Optional[Dict[str, Any]] = None):
+        super().__init__(message, meta=meta)
 
 # =========================
 # External API / scraper errors
@@ -134,16 +138,16 @@ class ExternalScraperError(AppError):
     status_code = 502
     code = "EXTERNAL_SCRAPER_ERROR"
     
-    def __init__(self, message: str = "External scraper API failed"):
-        super().__init__(message)
+    def __init__(self, message: str = "External scraper API failed", *, meta: Optional[Dict[str, Any]] = None):
+        super().__init__(message, meta=meta)
 
 class OpenAITokenLimitExceededError(AppError):
     """Raised when OpenAI request exceeds token limit even after truncation attempts"""
     status_code = 413
     code = "OPENAI_TOKEN_LIMIT_EXCEEDED"
     
-    def __init__(self, message: str = "OpenAI token limit exceeded"):
-        super().__init__(message)
+    def __init__(self, message: str = "OpenAI token limit exceeded", *, meta: Optional[Dict[str, Any]] = None):
+        super().__init__(message, meta=meta)
 
 # =========================
 # Enrichment domain errors
@@ -154,8 +158,8 @@ class EnrichmentError(AppError):
     status_code = 400
     code = "ENRICHMENT_ERROR"
     
-    def __init__(self, message: str):
-        super().__init__(message)
+    def __init__(self, message: str, *, meta: Optional[Dict[str, Any]] = None):
+        super().__init__(message, meta=meta)
 
 class DuplicateEnrichmentNameError(EnrichmentError):
     """Raised when trying to create an enrichment with a name that already exists"""
@@ -164,7 +168,7 @@ class DuplicateEnrichmentNameError(EnrichmentError):
     
     def __init__(self, enrichment_name: str):
         message = f"Enrichment name '{enrichment_name}' already exists"
-        super().__init__(message)
+        super().__init__(message, meta={"enrichment_name": enrichment_name})
 
 class DuplicateEnrichmentColumnNameError(EnrichmentError):
     """Raised when trying to create an enrichment with a column name that already exists"""
@@ -173,7 +177,7 @@ class DuplicateEnrichmentColumnNameError(EnrichmentError):
     
     def __init__(self, column_name: str):
         message = f"Column name '{column_name}' already exists"
-        super().__init__(message)
+        super().__init__(message, meta={"column_name": column_name})
 
 class EnrichmentNotFoundError(EnrichmentError):
     """Raised when an enrichment is not found"""
@@ -182,15 +186,4 @@ class EnrichmentNotFoundError(EnrichmentError):
     
     def __init__(self, enrichment_id: int):
         message = f"Enrichment with ID {enrichment_id} not found"
-        super().__init__(message)
-
-class EnrichmentExecutionError(EnrichmentError):
-    """Raised when enrichment execution fails for a specific lead"""
-    status_code = 500
-    code = "ENRICHMENT_EXECUTION_ERROR"
-    
-    def __init__(self, company_name: str, reason: str):
-        super().__init__(
-            f"Failed to enrich '{company_name}': {reason}",
-            meta={"company_name": company_name, "reason": reason},
-        )
+        super().__init__(message, meta={"enrichment_id": enrichment_id})
