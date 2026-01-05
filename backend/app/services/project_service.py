@@ -15,9 +15,29 @@ logger = logging.getLogger(__name__)
 class ProjectService:
     """Service for project-related database operations"""
 
-    def create_project(self, 
-        project_name: str,
-        description: Optional[str] = None) -> Project:
+    def _count_project_stats(self, session, project_id: int) -> tuple[int, int, int]:
+        """
+        Helper method to count URLs, leads, and datasets for a project.
+        
+        Returns:
+            tuple: (urls_count, leads_count, datasets_count)
+        """
+        urls_count = session.query(SerpUrl).filter(
+            SerpUrl.project_id == project_id,
+            or_(SerpUrl.status == "processed", SerpUrl.status == "skip")
+        ).count()
+        
+        leads_count = session.query(MergedResult).filter(
+            MergedResult.project_id == project_id
+        ).count()
+        
+        datasets_count = session.query(ProjectDataset).filter(
+            ProjectDataset.project_id == project_id
+        ).count()
+        
+        return urls_count, leads_count, datasets_count
+
+    def create_project(self, project_name: str, description: Optional[str] = None) -> Project:
         """Create a new project"""
         try:
             # this line returns a SQL Alchemy Session object --> have the query(), filter(), first() methods
@@ -30,14 +50,16 @@ class ProjectService:
                 project = Project(
                     project_name=project_name,
                     description=description)
+
                 session.add(project)
                 session.commit() #save data to database
                 session.refresh(project) # updates python object with database values to return 
+                
                 logger.info(f"✅ Created project: {project_name}")
                 return project
         except SQLAlchemyError as e:
-            logger.exception("❌ Error creating project")
-            raise DatabaseFailureError("Failed to create project") from e
+            logger.exception(f"❌ Database error while creating project '{project_name}': {type(e).__name__} - {str(e)}")
+            raise DatabaseFailureError("Unable to create project. Please try again.") from e
     
     def get_projects(self) -> List[Project]:
         """Get all projects, refreshing counts from database before returning"""
@@ -48,10 +70,10 @@ class ProjectService:
             with db_service.get_session() as session:
                 return session.query(Project).order_by(Project.date_added.desc()).all()
         except SQLAlchemyError as e:
-            logger.exception("❌ Error getting projects")
-            raise DatabaseFailureError("Failed to retrieve projects") from e
+            logger.exception(f"❌ Database error while retrieving all projects: {type(e).__name__} - {str(e)}")
+            raise DatabaseFailureError("Unable to retrieve projects. Please try again.") from e
     
-    def get_project(self, project_id: int) -> Optional[Project]:
+    def get_project(self, project_id: int) -> Project:
         """Get specific project by ID, refreshing counts from database before returning"""
         try:
             # Refresh project counts first to ensure accuracy
@@ -63,10 +85,10 @@ class ProjectService:
                     raise ProjectNotFoundError(project_id)
                 return project
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error getting project {project_id}")
-            raise DatabaseFailureError(f"Failed to retrieve project {project_id}") from e
+            logger.exception(f"❌ Database error while retrieving project {project_id}: {type(e).__name__} - {str(e)}")
+            raise DatabaseFailureError("Unable to retrieve project. Please try again.") from e
     
-    def update_project(self, project_id: int, **kwargs) -> Optional[Project]:
+    def update_project(self, project_id: int, **kwargs) -> Project:
         """Update project fields"""
         try:
             with db_service.get_session() as session:
@@ -101,8 +123,8 @@ class ProjectService:
                 logger.info(f"✅ Updated project {project_id}")
                 return project
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error updating project {project_id}")
-            raise DatabaseFailureError(f"Failed to update project {project_id}") from e
+            logger.exception(f"❌ Database error while updating project {project_id} with fields {list(kwargs.keys())}: {type(e).__name__} - {str(e)}")
+            raise DatabaseFailureError("Unable to update project. Please try again.") from e
     
     def delete_project(self, project_id: int) -> None:
         """Delete project by ID, including all related records (cascade deletes automatically)"""
@@ -125,8 +147,8 @@ class ProjectService:
                 
                 logger.info(f"✅ Deleted project {project_id} and {leads_count} leads, {urls_count} URLs, {queries_count} queries, {datasets_count} datasets (cascade delete)")
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error deleting project {project_id}")
-            raise DatabaseFailureError(f"Failed to delete project {project_id}") from e
+            logger.exception(f"❌ Database error while deleting project {project_id}: {type(e).__name__} - {str(e)}")
+            raise DatabaseFailureError("Unable to delete project. Please try again.") from e
     
     def update_project_counts_from_db(self, project_id: Optional[int] = None) -> None:
         """
@@ -148,21 +170,8 @@ class ProjectService:
                     if not project:
                         raise ProjectNotFoundError(project_id)
                     
-                    # Count only processed or skipped URLs for this project
-                    urls_count = session.query(SerpUrl).filter(
-                        SerpUrl.project_id == project_id,
-                        or_(SerpUrl.status == "processed", SerpUrl.status == "skip")
-                    ).count()
-                    
-                    # Count leads from merged_results table (total unique leads)
-                    leads_count = session.query(MergedResult).filter(
-                        MergedResult.project_id == project_id
-                    ).count()
-                    
-                    # Count datasets for this project
-                    datasets_count = session.query(ProjectDataset).filter(
-                        ProjectDataset.project_id == project_id
-                    ).count()
+                    # Get counts using helper method
+                    urls_count, leads_count, datasets_count = self._count_project_stats(session, project_id)
                     
                     # Update project counts
                     project.urls_processed = urls_count
@@ -174,100 +183,23 @@ class ProjectService:
                 else:
                     # Update all projects
                     projects = session.query(Project).all()
-                    updated_count = 0
                     
                     for project in projects:
-                        # Count processed or skipped URLs for this project
-                        urls_count = session.query(SerpUrl).filter(
-                            SerpUrl.project_id == project.id,
-                            or_(SerpUrl.status == "processed", SerpUrl.status == "skip")
-                        ).count()
-                        
-                        # Count leads from merged_results table (total unique leads)
-                        leads_count = session.query(MergedResult).filter(
-                            MergedResult.project_id == project.id
-                        ).count()
-                        
-                        # Count datasets for this project
-                        datasets_count = session.query(ProjectDataset).filter(
-                            ProjectDataset.project_id == project.id
-                        ).count()
+                        # Get counts using helper method
+                        urls_count, leads_count, datasets_count = self._count_project_stats(session, project.id)
                         
                         # Update project counts
                         project.urls_processed = urls_count
                         project.leads_collected = leads_count
                         project.datasets_added = datasets_count
-                        updated_count += 1
                     
                     session.commit()
-                    logger.info(f"✅ Updated counts for {updated_count} project(s)")
+                    logger.info(f"✅ Updated counts for {len(projects)} project(s)")
                 
         except SQLAlchemyError as e:
-            logger.exception(f"❌ Error updating project counts for {project_id if project_id else 'all projects'}")
-            raise DatabaseFailureError("Failed to update project counts") from e
+            logger.exception(f"❌ Database error while updating project counts for {project_id if project_id else 'all projects'}: {type(e).__name__} - {str(e)}")
+            raise DatabaseFailureError("Unable to update project statistics. Please try again.") from e
 
 # Global project service instance
 project_service = ProjectService()
-
-# Testing section
-if __name__ == "__main__":
-    """
-    Quick testing of project service functions
-    Run with: python -m app.services.project_service
-    """
-    import sys
-    import os
-    
-    # Add the backend directory to Python path
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    
-    print("🧪 Testing Project Service...")
-    
-    try:
-        # Test 1: Create a project
-        print("\n1️⃣ Testing create_project...")
-        test_project = project_service.create_project(
-            project_name="Test Project",
-            description="This is a test project")
-        print(f"✅ Created project: {test_project.project_name} (ID: {test_project.id})")
-        
-        # Test 2: Get all projects
-        print("\n2️⃣ Testing get_projects...")
-        projects = project_service.get_projects()
-        print(f"✅ Found {len(projects)} projects")
-        # ge
-        print(projects[0].description)
-        
-        # Test 3: Get specific project
-        print("\n3️⃣ Testing get_project...")
-        specific_project = project_service.get_project(test_project.id)
-        if specific_project:
-            print(f"✅ Retrieved project: {specific_project.project_name}")
-        else:
-            print("❌ Project not found")
-        
-        # Test 4: Update project
-        print("\n4️⃣ Testing update_project...")
-        updated_project = project_service.update_project(
-            test_project.id,
-            description="Updated description"
-        )
-        if updated_project:
-            print(f"✅ Updated project: {updated_project.project_name}")
-        else:
-            print("❌ Update failed")
-        
-        # Test 5: Delete project
-        print("\n5️⃣ Testing delete_project...")
-        deleted = project_service.delete_project(test_project.id)
-        if deleted:
-            print("✅ Project deleted successfully")
-        else:
-            print("❌ Delete failed")
-        
-        print("\n🎉 All tests completed!")
-        
-    except Exception as e:
-        print(f"❌ Test failed: {e}")
-        import traceback
-        traceback.print_exc()
+project_service = ProjectService()

@@ -2,7 +2,10 @@
 Test enrichment page - edit enrichment configuration
 """
 import streamlit as st
-from api_client import get_enrichment, update_enrichment, get_merged_results, test_enrich_leads
+from api import get_enrichment, update_enrichment, get_merged_results, test_enrich_leads
+from utils.display_errors import call_api
+import pandas as pd
+
 
 def show_test_enrichment():
     """Test enrichment page - edit enrichment configuration"""
@@ -14,7 +17,7 @@ def show_test_enrichment():
         return
     
     if selected_enrichment:
-        enrichment = get_enrichment(selected_enrichment['id'])
+        enrichment = call_api(get_enrichment, selected_enrichment['id'])
         if enrichment:
             st.session_state.selected_enrichment = enrichment
         else:
@@ -93,7 +96,7 @@ def show_test_enrichment():
         st.success(st.session_state[save_changes_key])
     
     if has_changes:
-        if st.button("💾 Save All Changes", key=f"save_all_changes_{enrichment_id}", type="primary", use_container_width=True):
+        if st.button("💾 Save All Changes", key=f"save_all_changes_{enrichment_id}", type="primary", width='stretch'):
             save_all_enrichment_changes(enrichment)
     
     st.divider()
@@ -145,31 +148,22 @@ def show_leads():
     leads_cache = st.session_state.test_enrichment_leads.get(project_id, {"data": None, "columns": None, "count": 0})
 
     if leads_cache["data"] is None:
-        try:
-            result = get_merged_results(project_id)
-            if result and result.get("data"):
-                leads_data = result["data"][:5]  # first 5 rows
-                # Filter to only include lead column
-                filtered_data = []
-                for row in leads_data:
-                    filtered_row = {"lead": row.get("lead", "")}
-                    filtered_data.append(filtered_row)
-                st.session_state.test_enrichment_leads[project_id] = {
-                    "data": filtered_data,
-                    "columns": ["lead"],
-                    "count": result.get("count", len(filtered_data)),
-                }
-                leads_cache = st.session_state.test_enrichment_leads[project_id]
-            else:
-                st.info("ℹ️ No leads available yet for this project.")
-                return
-        except Exception as e:
-            st.error(f"❌ Error loading leads: {str(e)}")
-            return
+        result = call_api(get_merged_results, project_id)
+        if result and result.get("data"):
+            leads_data = result["data"][:5]  # first 5 rows
+            # Filter to only include lead column
+            filtered_data = []
+            for row in leads_data:
+                filtered_row = {"lead": row.get("lead", "")}
+                filtered_data.append(filtered_row)
+            st.session_state.test_enrichment_leads[project_id] = {
+                "data": filtered_data,
+                "columns": ["lead"],
+                "count": result.get("count", len(filtered_data)),
+            }
+            leads_cache = st.session_state.test_enrichment_leads[project_id]
 
-    import pandas as pd
-
-    df = pd.DataFrame(leads_cache["data"])
+    df = pd.DataFrame(leads_cache["data"] or [])
     # Show lead column and any enrichment columns, exclude id, project_id, and serp_count
     exclude_columns = ["id", "project_id", "serp_count"]
     display_columns = [c for c in df.columns if c not in exclude_columns]
@@ -218,7 +212,6 @@ def show_leads():
 
 def show_run_enrichment(enrichment):
     """Run enrichment on test leads."""
-    import pandas as pd
     project = st.session_state.selected_project
     if not project:
         return
@@ -236,46 +229,26 @@ def show_run_enrichment(enrichment):
     run_enrichment_key = f"run_enrichment_message_{enrichment_id}"
     
     if st.button("Run Enrichment", key=f"run_enrichment_{enrichment_id}", width='stretch'):
-        # Validate all required fields (checks both session state and saved values)
-        is_valid, error_msg = validate_enrichment_config(enrichment)
-        if not is_valid:
-            st.error(error_msg)
-        elif not leads_cache.get("data"):
-            st.warning("⚠️ No test leads available. Add or load leads above before running.")
-        else:
-            # Use saved values from database for running (not unsaved session state values)
-            # This ensures we're running with the saved configuration
-            saved_column_name = enrichment.get("column_name", "") or ""
-            saved_result_format = enrichment.get("result_format", "") or ""
-            
-            if not saved_column_name or not saved_result_format:
-                st.error("❌ Please save your configuration changes before running enrichment.")
-            else:
-                with st.spinner("Running enrichment on test leads..."):
-                    try:
-                        leads_data = leads_cache.get("data", [])
-                        result = test_enrich_leads(project_id, enrichment_id, leads_data, saved_column_name, saved_result_format)
-                        if result and result.get("success"):
-                            # Store enriched results in test-specific session state, keyed by project_id and enrichment_id
-                            results_key = f"{project_id}_{enrichment_id}"
-                            enrichment_name = enrichment.get("enrichment_name", "")
-                            st.session_state.test_enriched_results[results_key] = {
-                                "data": result.get("enriched_leads", leads_data),
-                                "columns": result.get("columns", leads_cache.get("columns", ["lead"])),
-                                "count": result.get("leads_processed", len(leads_data)),
-                                "enrichment_name": enrichment_name,
-                                "column_name": saved_column_name,  # Store the column_name that was used at runtime
-                                "result_format": saved_result_format
-                            }
-                            
-                            leads_processed = result.get("leads_processed", len(leads_data))
-                            # Store message in session state so it persists across rerun
-                            st.session_state[run_enrichment_key] = f"✅ Enrichment '{enrichment_name}' completed successfully on {leads_processed} test lead(s)."
-                            st.rerun()
-                        else:
-                            st.error(f"❌ Failed to run enrichment: {result.get('message', 'Unknown error') if result else 'No response from server'}")
-                    except Exception as e:
-                        st.error(f"❌ Error running enrichment: {str(e)}")
+        with st.spinner("Running enrichment on test leads..."):
+            leads_data = leads_cache.get("data") or []  # Ensure it's always a list, not None
+            result = call_api(test_enrich_leads, project_id, enrichment_id, leads_data)
+            if result and result.get("success"):
+                # Store enriched results in test-specific session state, keyed by project_id and enrichment_id
+                results_key = f"{project_id}_{enrichment_id}"
+                enrichment_name = enrichment.get("enrichment_name", "")
+                st.session_state.test_enriched_results[results_key] = {
+                    "data": result.get("enriched_leads", leads_data),
+                    "columns": result.get("columns", leads_cache.get("columns", ["lead"])),
+                    "count": result.get("leads_processed", len(leads_data)),
+                    "enrichment_name": enrichment_name,
+                    "column_name": column_name,  # Store the column_name that was used at runtime
+                    "result_format": result_format
+                }
+                
+                leads_processed = result.get("leads_processed", len(leads_data))
+                # Store message in session state so it persists across rerun
+                st.session_state[run_enrichment_key] = f"✅ Enrichment '{enrichment_name}' completed successfully on {leads_processed} test lead(s)."
+                st.rerun()
     
     # Display success message below the button if it exists
     if st.session_state.get(run_enrichment_key):
@@ -428,57 +401,6 @@ def show_result_format_editor(enrichment):
             placeholder="e.g., The company's primary service area or specialty",
         )
 
-def validate_enrichment_config(enrichment):
-    """Validate all required enrichment configuration fields are set. Returns (is_valid, error_messages)"""
-    enrichment_id = enrichment['id']
-    errors = []
-    
-    # Get all session state keys for this enrichment
-    column_name_key = f"enrichment_column_name_edit_{enrichment_id}"
-    goal_key = f"enrichment_goal_edit_{enrichment_id}"
-    evidence_key = f"enrichment_acceptable_evidence_edit_{enrichment_id}"
-    format_key = f"enrichment_result_format_edit_{enrichment_id}"
-    true_if_key = f"{format_key}_true_if"
-    false_if_key = f"{format_key}_false_if"
-    number_def_key = f"{format_key}_number_def"
-    text_def_key = f"{format_key}_text_def"
-    
-    # Always required fields
-    column_name = st.session_state.get(column_name_key, '').strip() or enrichment.get('column_name', '') or ''
-    goal = st.session_state.get(goal_key, '').strip() or enrichment.get('goal', '') or ''
-    evidence = st.session_state.get(evidence_key, '').strip() or enrichment.get('acceptable_evidence', '') or ''
-    result_format = st.session_state.get(format_key, '').strip() or enrichment.get('result_format', '') or ''
-    
-    if not column_name:
-        errors.append("Column name")
-    if not goal:
-        errors.append("Goal")
-    if not evidence:
-        errors.append("Agent Reasoning")
-    if not result_format:
-        errors.append("Result Format")
-    
-    # Format-specific required fields
-    if result_format == "True/False":
-        true_if = st.session_state.get(true_if_key, '').strip() or enrichment.get('result_true_if', '') or ''
-        false_if = st.session_state.get(false_if_key, '').strip() or enrichment.get('result_false_if', '') or ''
-        if not true_if:
-            errors.append("True if")
-        if not false_if:
-            errors.append("False if")
-    elif result_format == "Number":
-        number_def = st.session_state.get(number_def_key, '').strip() or enrichment.get('result_number_value', '') or ''
-        if not number_def:
-            errors.append("Define the Value")
-    elif result_format == "Text":
-        text_def = st.session_state.get(text_def_key, '').strip() or enrichment.get('result_text_value', '') or ''
-        if not text_def:
-            errors.append("What do you want returned")
-    
-    if errors:
-        error_msg = "❌ The following fields are required before running enrichment:\n- " + "\n- ".join(errors)
-        return False, error_msg
-    return True, ""
 
 def check_enrichment_changes(enrichment):
     """Check if any enrichment configuration fields have been changed"""
@@ -520,37 +442,31 @@ def save_all_enrichment_changes(enrichment):
     number_def_key = f"{format_key}_number_def"
     text_def_key = f"{format_key}_text_def"
     
-    # Validate all required fields
-    is_valid, error_msg = validate_enrichment_config(enrichment)
-    if not is_valid:
-        st.error(error_msg.replace("before running enrichment", "before saving"))
-        return
+    # Get values from session state - backend will validate
+    column_name = (st.session_state.get(column_name_key, '') or '').strip()
     
-    # Get values from session state (validation already passed, so we know they exist)
-    column_name = st.session_state.get(column_name_key, '').strip()
-    
-    # Build payload with all current values
+    # Build payload with all current values - handle None values from session state
     payload = {
         "column_name": column_name,
-        "goal": st.session_state.get(goal_key, ''),
-        "acceptable_evidence": st.session_state.get(evidence_key, ''),
-        "result_format": st.session_state.get(format_key, ''),
+        "goal": st.session_state.get(goal_key, '') or '',
+        "acceptable_evidence": st.session_state.get(evidence_key, '') or '',
+        "result_format": st.session_state.get(format_key, '') or '',
     }
     
     # Add format-specific fields based on selected format
-    selected_format = st.session_state.get(format_key, '')
+    selected_format = st.session_state.get(format_key, '') or ''
     if selected_format == "True/False":
-        payload["result_true_if"] = st.session_state.get(true_if_key, '')
-        payload["result_false_if"] = st.session_state.get(false_if_key, '')
+        payload["result_true_if"] = st.session_state.get(true_if_key, '') or ''
+        payload["result_false_if"] = st.session_state.get(false_if_key, '') or ''
         payload["result_number_value"] = ""
         payload["result_text_value"] = ""
     elif selected_format == "Number":
-        payload["result_number_value"] = st.session_state.get(number_def_key, '')
+        payload["result_number_value"] = st.session_state.get(number_def_key, '') or ''
         payload["result_true_if"] = ""
         payload["result_false_if"] = ""
         payload["result_text_value"] = ""
     elif selected_format == "Text":
-        payload["result_text_value"] = st.session_state.get(text_def_key, '')
+        payload["result_text_value"] = st.session_state.get(text_def_key, '') or ''
         payload["result_true_if"] = ""
         payload["result_false_if"] = ""
         payload["result_number_value"] = ""
@@ -563,17 +479,14 @@ def save_all_enrichment_changes(enrichment):
     
     # Save all changes
     with st.spinner("💾 Saving all changes..."):
-        try:
-            result = update_enrichment(enrichment_id, **payload)
-            if result and result.get("success"):
-                # Store message in session state so it persists across rerun
-                save_changes_key = f"save_all_changes_message_{enrichment_id}"
-                st.session_state[save_changes_key] = "✅ All changes saved successfully!"
-                updated = get_enrichment(enrichment_id)
-                if updated:
-                    st.session_state.selected_enrichment = updated
-                st.rerun()
-            else:
-                st.error(f"❌ Failed to save: {result.get('message', 'Unknown error') if result else 'No response from server'}")
-        except Exception as e:
-            st.error(f"❌ Error saving changes: {str(e)}")
+        result = call_api(update_enrichment, enrichment_id, **payload)
+        if result:
+            # Show immediate success message
+            st.success("✅ All changes saved successfully!")
+            # Also store message in session state so it persists across rerun
+            save_changes_key = f"save_all_changes_message_{enrichment_id}"
+            st.session_state[save_changes_key] = "✅ All changes saved successfully!"
+            updated = call_api(get_enrichment, enrichment_id)
+            if updated:
+                st.session_state.selected_enrichment = updated
+            st.rerun()

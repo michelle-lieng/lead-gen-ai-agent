@@ -1,8 +1,8 @@
 """
 Pydantic models for API request/response validation
 """
-from pydantic import BaseModel, field_validator
-from typing import Optional
+from pydantic import BaseModel, field_validator, model_validator
+from typing import Optional, Literal
 
 def validate_not_empty_string(v: str) -> str:
     """Shared validation: ensure string is not empty or just whitespace"""
@@ -34,7 +34,7 @@ class ProjectUpdate(BaseModel):
     @field_validator('lead_minimum_criteria')
     @classmethod
     def validate_lead_minimum_criteria_if_provided(cls, v: Optional[str]) -> Optional[str]:
-        """If provided, ensure field is not empty or just whitespace. Cannot be set to None to remove it."""
+        """If provided as a string, ensure it's not empty or just whitespace. Service layer enforces business rule that prevents removal."""
         if v is not None:  # Only validate if field is being updated (not None)
             return validate_not_empty_string(v)
         return v
@@ -62,6 +62,14 @@ class ProjectResponse(BaseModel):
     
     class Config:
         from_attributes = True
+    
+    @field_validator('date_added', 'last_updated', mode='before')
+    @classmethod
+    def serialize_datetime(cls, v):
+        """Convert datetime to ISO format string"""
+        if hasattr(v, 'isoformat'):
+            return v.isoformat()
+        return v
 
 class QueryListRequest(BaseModel):
     """Schema for query list requests"""
@@ -160,19 +168,11 @@ class EnrichmentUpdate(BaseModel):
     result_number_value: Optional[str] = None
     result_text_value: Optional[str] = None
     
-    @field_validator('enrichment_name')
-    @classmethod
-    def validate_not_empty_if_provided(cls, v: Optional[str]) -> Optional[str]:
-        """If provided, ensure field is not empty or just whitespace"""
-        if v is not None:  # Only validate if field is being updated (not None)
-            return validate_not_empty_string(v)
-        return v
-    
     @field_validator('column_name')
     @classmethod
-    def validate_column_name_if_provided(cls, v: Optional[str]) -> Optional[str]:
-        """If provided, validate column name is a valid SQL column name"""
-        if v is not None:  # Only validate if field is being updated (not None)
+    def validate_column_name_format(cls, v: Optional[str]) -> Optional[str]:
+        """Validate column name is a valid SQL identifier if provided"""
+        if v is not None and v.strip():
             return validate_column_name(v)
         return v
 
@@ -185,7 +185,7 @@ class EnrichmentResponse(BaseModel):
     enrichment_description: Optional[str] = None
     goal: Optional[str] = None
     acceptable_evidence: Optional[str] = None
-    result_format: Optional[str] = None
+    result_format: Optional[Literal["True/False", "Text", "Number"]] = None
     result_true_if: Optional[str] = None
     result_false_if: Optional[str] = None
     result_number_value: Optional[str] = None
@@ -195,10 +195,76 @@ class EnrichmentResponse(BaseModel):
     
     class Config:
         from_attributes = True
+    
+    @field_validator('date_added', 'last_updated', mode='before')
+    @classmethod
+    def serialize_datetime(cls, v):
+        """Convert datetime to ISO format string"""
+        if hasattr(v, 'isoformat'):
+            return v.isoformat()
+        return v
 
 class EnrichLeadsRequest(BaseModel):
     """Schema for enriching leads"""
-    enrichment_id: int
-    column_name: str  # Column name to use for the enrichment results
-    result_format: str
-    leads_data: list[dict]  # List of lead dictionaries with at least a "lead" key
+    leads_data: Optional[list[dict]] = None  # List of lead dictionaries with at least a "lead" key
+    
+    @field_validator('leads_data', mode='before')
+    @classmethod
+    def validate_leads_data(cls, v):
+        """Convert None to empty list, ensure it's a list"""
+        if v is None:
+            return []
+        if not isinstance(v, list):
+            raise ValueError('leads_data must be a list')
+        return v
+
+class QueryResponse(BaseModel):
+    """Schema for query response"""
+    id: int
+    project_id: int
+    query: str
+    date_added: str
+    
+    class Config:
+        from_attributes = True
+    
+    @field_validator('date_added', mode='before')
+    @classmethod
+    def serialize_datetime(cls, v):
+        """Convert datetime to ISO format string"""
+        if hasattr(v, 'isoformat'):
+            return v.isoformat()
+        return v
+
+class UrlResponse(BaseModel):
+    """Schema for URL response"""
+    id: int
+    project_id: int
+    query: str
+    title: str
+    link: str
+    snippet: str
+    date: Optional[str] = None
+    website_scraped: Optional[str] = None
+    status: str
+    created_at: Optional[str] = None
+
+class UrlGenerationResponse(BaseModel):
+    """Schema for URL generation response"""
+    urls_added: int
+    queries_processed: int
+
+class LeadExtractionResponse(BaseModel):
+    """Schema for lead extraction response from SERP URLs"""
+    urls_processed: int
+    urls_skipped: int
+    urls_failed: int
+    total_urls_attempted: int
+    new_leads_extracted: int
+    extracted_leads: list[dict]  # List of extraction results per URL
+
+class MergedResultsResponse(BaseModel):
+    """Schema for merged results API response"""
+    data: list[dict]  # List of result rows with dynamic columns
+    columns: list[str]  # List of column names (base columns + enrichment columns)
+    count: int  # Total number of results

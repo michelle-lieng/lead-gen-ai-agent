@@ -10,10 +10,12 @@ from agents import Agent, Runner, function_tool, set_default_openai_key
 import logging
 import openai
 
+from ..models.tables import Enrichment
+
 # Import existing Jina functions from utils
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..config import settings
-from ..exceptions import ApiKeyNotConfiguredError, OpenAITokenLimitExceededError
+from ..exceptions import ApiKeyNotConfiguredError, OpenAITokenLimitExceededError, ExternalScraperError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -21,7 +23,6 @@ logging.getLogger("openai").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
-
 
 class EnrichmentExecutionService:
     """Service for executing enrichment operations using AI agents"""
@@ -461,6 +462,84 @@ In {enrichment_name} return None if you do not find any information at all. Do n
         
         return output_dict
 
+    async def enrich_leads(self, enrichment: Enrichment, leads_data: list[dict]) -> tuple[list[dict], list[str]]:
+        """
+        Process leads enrichment using the enrichment configuration.
+        
+        Args:
+            enrichment: The enrichment configuration
+            leads_data: List of lead dictionaries e.g. [{"lead": "Acme Corp", "serp_count": 5, "bcorp_certified": True}, {...}, ...]
+            
+        Returns:
+            Tuple of (enriched_leads, columns)
+        """
+        # Map result_format to output_type for AI service
+        output_type_map = {"True/False": "bool", "Text": "str", "Number": "int"}
+        output_type = output_type_map.get(enrichment.result_format)
+
+        column_name = enrichment.column_name
+        
+        # Process each lead
+        enriched_leads = []
+        for lead_row in leads_data:
+            company_name = lead_row.get("lead", "")
+            if not company_name:
+                # Skip leads without a "lead" field
+                continue
+            
+            try:
+                # Run enrichment for this company
+                result = await self.enrich_company(
+                    company_name=company_name,
+                    enrichment_name=column_name,
+                    prompt_goal=enrichment.goal,
+                    prompt_reasoning=enrichment.acceptable_evidence,
+                    output_type=output_type,
+                    string_prompt=enrichment.result_text_value or "",
+                    is_false_prompt=enrichment.result_false_if or "",
+                    is_true_prompt=enrichment.result_true_if or "",
+                    int_prompt=enrichment.result_number_value or "",
+                    return_metadata=False
+                )
+                
+                # Create enriched lead row
+                enriched_lead = lead_row.copy()
+                
+                # Extract the enrichment value, reasoning, and evidence from result
+                enriched_lead[column_name] = result.get(column_name, "")
+                enriched_lead[f"{column_name}_reasoning"] = result.get(f"{column_name}_reasoning", "")
+                enriched_lead[f"{column_name}_evidence"] = result.get(f"{column_name}_evidence", "")
+                
+                enriched_leads.append(enriched_lead)
+                
+            except (ExternalScraperError, OpenAITokenLimitExceededError, ApiKeyNotConfiguredError,
+                    TimeoutError, openai.APITimeoutError, openai.RateLimitError, 
+                    openai.BadRequestError, RuntimeError) as e:
+                # They will propagate up to indicate bugs that need fixing
+                logger.exception(
+                    f"❌ Failed to enrich '{company_name}' for column '{column_name}'. "
+                    f"Error: {type(e).__name__}: {str(e)}"
+                )
+                
+                # Add the lead with NULL values - keep business data clean
+                # Error details are in logs, not in business data
+                enriched_lead = lead_row.copy()
+                enriched_lead[column_name] = None
+                enriched_lead[f"{column_name}_reasoning"] = None
+                enriched_lead[f"{column_name}_evidence"] = None
+                enriched_leads.append(enriched_lead)
+        
+        # Get columns list
+        columns = list(enriched_leads[0].keys()) if enriched_leads else ["lead"]
+        # Ensure enrichment columns are in the list
+        if column_name not in columns:
+            columns.append(column_name)
+        if f"{column_name}_reasoning" not in columns:
+            columns.append(f"{column_name}_reasoning")
+        if f"{column_name}_evidence" not in columns:
+            columns.append(f"{column_name}_evidence")
+        
+        return (enriched_leads, columns)
 
 # Global service instance
 enrichment_execution_service = EnrichmentExecutionService()

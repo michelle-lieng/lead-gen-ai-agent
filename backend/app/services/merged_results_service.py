@@ -23,10 +23,92 @@ logger = logging.getLogger(__name__)
 class MergedResultsService:
     """Service for merging SERP leads and dataset leads into merged_results table"""
 
-    def _ensure_enrichment_column_exists(self, column_name: str, dataset_name: str) -> str:
+    ########################################
+    # PART 1: AGGREGATE THE LEADS TOGETHER #
+    ########################################
+    def merge_serp_leads(self, project_id: int):
         """
-        Ensure an enrichment column exists in merged_results table.
-        Adds the column if it doesn't exist.
+        Merge aggregated SERP leads into merged_results table.
+        Called after SERP aggregation completes.
+        
+        Strategy: Refresh SERP data by:
+        1. Setting all existing merged_results serp_count to NULL (preserve enrichment columns)
+        2. Insert/update with latest SERP counts from aggregated leads
+        This ensures we always have the latest SERP counts without losing enrichment data.
+        
+        Args:
+            project_id: Project ID to merge leads for
+        """
+        try:
+            with db_service.get_session() as session:
+                # Get all aggregated SERP leads for this project
+                aggregated_leads = session.query(SerpLeadAggregated).filter(
+                    SerpLeadAggregated.project_id == project_id
+                ).all()
+                
+                if not aggregated_leads:
+                    logger.info(f"No aggregated SERP leads found for project {project_id} to merge")
+                    # Clear SERP counts for existing records (they may have been removed)
+                    session.query(MergedResult).filter(
+                        MergedResult.project_id == project_id
+                    ).update({"serp_count": None})
+                    session.commit()
+                    logger.info(f"No aggregated SERP leads found to merge")
+                    return
+                
+                # Step 1: Reset all SERP counts to NULL (preserve enrichment columns)
+                # This handles cases where leads were removed from SERP results
+                session.query(MergedResult).filter(
+                    MergedResult.project_id == project_id
+                ).update({"serp_count": None})
+                
+                new_leads_merged_count = 0
+                existing_leads_updated_count = 0
+                
+                # Step 2: Insert or update with latest SERP counts
+                for agg_lead in aggregated_leads:
+                    # Normalize lead name (already normalized in aggregation, but ensure consistency)
+                    normalized_lead = normalize_lead_name(agg_lead.leads)
+                    
+                    if not normalized_lead:
+                        continue
+                    
+                    # Check if lead already exists in merged_results
+                    existing = session.query(MergedResult).filter(
+                        MergedResult.project_id == project_id,
+                        MergedResult.lead == normalized_lead
+                    ).first()
+                    
+                    if existing:
+                        # Update existing record with latest SERP count
+                        existing.serp_count = agg_lead.serp_count
+                        existing_leads_updated_count += 1
+                    else:
+                        # Create new merged result (only SERP data, no enrichment yet)
+                        merged_result = MergedResult(
+                            project_id=project_id,
+                            lead=normalized_lead,
+                            serp_count=agg_lead.serp_count
+                        )
+                        session.add(merged_result)
+                        new_leads_merged_count += 1
+                
+                session.commit()
+                
+                total_leads_processed = new_leads_merged_count + existing_leads_updated_count
+                logger.info(f"✅ Merged {total_leads_processed} SERP leads for project {project_id} ({new_leads_merged_count} new, {existing_leads_updated_count} updated)")
+                return 
+                
+        except SQLAlchemyError as e:
+            logger.exception("❌ Database error merging SERP leads")
+            raise DatabaseFailureError("Failed to merge SERP leads") from e
+
+    ##########################################################
+    # PART 2: AGGREGATE THE DATASET ENRICHMENT COLS TOGETHER #
+    ##########################################################
+    def _ensure_dataset_enrichment_column_exists(self, column_name: str, dataset_name: str) -> str:
+        """
+        Ensure an enrichment column exists in merged_results table. Adds the column if it doesn't exist.
         Prefixes the column name with dataset name to avoid conflicts:
         e.g., "dataset_name_mandate" instead of just "mandate"
         
@@ -64,123 +146,20 @@ class MergedResultsService:
         
         try:
             with db_service.get_session() as session:
-                # Check if column exists
-                check_query = text("""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name = 'merged_results' 
-                    AND column_name = :column_name
-                """)
-                result = session.execute(check_query, {"column_name": final_column_name}).fetchone()
-                
-                if result:
-                    # Column already exists
-                    return final_column_name
-                
                 # Add column if it doesn't exist
                 alter_query = text(f"""
                     ALTER TABLE merged_results 
-                    ADD COLUMN {final_column_name} TEXT
+                    ADD COLUMN IF NOT EXISTS {final_column_name} TEXT
                 """)
                 session.execute(alter_query)
                 session.commit()
                 
-                logger.info(f"✅ Added enrichment column '{final_column_name}' to merged_results table")
+                logger.info(f"✅ Ensured enrichment column '{final_column_name}' exists in merged_results table")
                 return final_column_name
                 
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error ensuring enrichment column '{column_name}' exists")
             raise DatabaseFailureError(f"Failed to ensure enrichment column '{column_name}' exists") from e
-
-    def merge_serp_leads(self, project_id: int) -> dict:
-        """
-        Merge aggregated SERP leads into merged_results table.
-        Called after SERP aggregation completes.
-        
-        Strategy: Refresh SERP data by:
-        1. Setting all existing merged_results serp_count to NULL (preserve enrichment columns)
-        2. Insert/update with latest SERP counts from aggregated leads
-        This ensures we always have the latest SERP counts without losing enrichment data.
-        
-        Args:
-            project_id: Project ID to merge leads for
-            
-        Returns:
-            dict: Success status and statistics
-        """
-        try:
-            with db_service.get_session() as session:
-                # Get all aggregated SERP leads for this project
-                aggregated_leads = session.query(SerpLeadAggregated).filter(
-                    SerpLeadAggregated.project_id == project_id
-                ).all()
-                
-                if not aggregated_leads:
-                    logger.info(f"No aggregated SERP leads found for project {project_id} to merge")
-                    # Clear SERP counts for existing records (they may have been removed)
-                    session.query(MergedResult).filter(
-                        MergedResult.project_id == project_id
-                    ).update({"serp_count": None})
-                    session.commit()
-                    return {
-                        "success": True,
-                        "leads_merged": 0,
-                        "message": "No aggregated SERP leads found to merge"
-                    }
-                
-                # Step 1: Reset all SERP counts to NULL (preserve enrichment columns)
-                # This handles cases where leads were removed from SERP results
-                session.query(MergedResult).filter(
-                    MergedResult.project_id == project_id
-                ).update({"serp_count": None})
-                
-                merged_count = 0
-                updated_count = 0
-                
-                # Step 2: Insert or update with latest SERP counts
-                for agg_lead in aggregated_leads:
-                    # Normalize lead name (already normalized in aggregation, but ensure consistency)
-                    normalized_lead = normalize_lead_name(agg_lead.leads)
-                    
-                    if not normalized_lead:
-                        continue
-                    
-                    # Check if lead already exists in merged_results
-                    existing = session.query(MergedResult).filter(
-                        MergedResult.project_id == project_id,
-                        MergedResult.lead == normalized_lead
-                    ).first()
-                    
-                    if existing:
-                        # Update existing record with latest SERP count
-                        existing.serp_count = agg_lead.serp_count
-                        updated_count += 1
-                    else:
-                        # Create new merged result (only SERP data, no enrichment yet)
-                        merged_result = MergedResult(
-                            project_id=project_id,
-                            lead=normalized_lead,
-                            serp_count=agg_lead.serp_count
-                        )
-                        session.add(merged_result)
-                        merged_count += 1
-                
-                session.commit()
-                
-                total_processed = merged_count + updated_count
-                logger.info(f"✅ Merged {total_processed} SERP leads for project {project_id} ({merged_count} new, {updated_count} updated)")
-                
-                return {
-                    "success": True,
-                    "leads_merged": merged_count,
-                    "leads_updated": updated_count,
-                    "total_processed": total_processed,
-                    "message": f"Merged {total_processed} SERP leads ({merged_count} new, {updated_count} updated)"
-                }
-                
-        except SQLAlchemyError as e:
-            logger.exception("❌ Database error merging SERP leads")
-            raise DatabaseFailureError("Failed to merge SERP leads") from e
 
     def merge_dataset_leads(self, project_id: int, project_dataset_id: int, enrichment_column_list: list[str]) -> dict:
         """
@@ -208,11 +187,11 @@ class MergedResultsService:
                     raise ProjectDatasetNotFoundError(project_dataset_id)
                 
                 # Build prefixed enrichment column names: {dataset_name}_{column_name}
-                # The _ensure_enrichment_column_exists method handles prefixing automatically
+                # The _ensure_dataset_enrichment_column_exists method handles prefixing automatically
                 prefixed_enrichment_columns = {}
                 prefixed_column_names = []
                 for col in enrichment_column_list:
-                    prefixed_name = self._ensure_enrichment_column_exists(col, dataset_name=project_dataset.dataset_name)
+                    prefixed_name = self._ensure_dataset_enrichment_column_exists(col, dataset_name=project_dataset.dataset_name)
                     prefixed_enrichment_columns[col] = prefixed_name
                     prefixed_column_names.append(prefixed_name)
                 
@@ -320,6 +299,9 @@ class MergedResultsService:
             logger.exception("❌ Database error merging dataset leads")
             raise DatabaseFailureError("Failed to merge dataset leads") from e
 
+    ##########################################################
+    # PART 3: AGGREGATE THE AI LEAD ENRICHMENT COLS TOGETHER #
+    ##########################################################
     def _ensure_ai_enrichment_columns_exist(self, column_name: str) -> tuple[str, str, str]:
         """
         Ensure AI enrichment columns exist in merged_results table.
@@ -345,57 +327,23 @@ class MergedResultsService:
         
         try:
             with db_service.get_session() as session:
-                # Check which columns exist
-                check_query = text("""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name = 'merged_results' 
-                    AND column_name IN (:col1, :col2, :col3)
-                """)
-                existing_columns = session.execute(
-                    check_query, 
-                    {"col1": safe_column_name, "col2": reasoning_column_name, "col3": evidence_column_name}
-                ).fetchall()
-                existing_column_names = {row[0] for row in existing_columns}
-                
-                # Add missing columns
-                if safe_column_name not in existing_column_names:
+                # Add columns if they don't exist
+                for col_name in [safe_column_name, reasoning_column_name, evidence_column_name]:
                     alter_query = text(f"""
                         ALTER TABLE merged_results 
-                        ADD COLUMN {safe_column_name} TEXT
+                        ADD COLUMN IF NOT EXISTS {col_name} TEXT
                     """)
                     session.execute(alter_query)
-                    logger.info(f"✅ Added AI enrichment column '{safe_column_name}' to merged_results table")
-                
-                if reasoning_column_name not in existing_column_names:
-                    alter_query = text(f"""
-                        ALTER TABLE merged_results 
-                        ADD COLUMN {reasoning_column_name} TEXT
-                    """)
-                    session.execute(alter_query)
-                    logger.info(f"✅ Added AI enrichment column '{reasoning_column_name}' to merged_results table")
-                
-                if evidence_column_name not in existing_column_names:
-                    alter_query = text(f"""
-                        ALTER TABLE merged_results 
-                        ADD COLUMN {evidence_column_name} TEXT
-                    """)
-                    session.execute(alter_query)
-                    logger.info(f"✅ Added AI enrichment column '{evidence_column_name}' to merged_results table")
                 
                 session.commit()
+                logger.info(f"✅ Ensured AI enrichment columns exist: {safe_column_name}, {reasoning_column_name}, {evidence_column_name}")
                 return (safe_column_name, reasoning_column_name, evidence_column_name)
                 
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error ensuring AI enrichment columns for '{column_name}' exist")
             raise DatabaseFailureError(f"Failed to ensure AI enrichment columns for '{column_name}' exist") from e
 
-    def save_ai_enrichment_results(
-        self, 
-        project_id: int, 
-        column_name: str, 
-        enriched_leads: list[dict]
-    ) -> dict:
+    def save_ai_enrichment_results(self, project_id: int, column_name: str, enriched_leads: list[dict]) -> dict:
         """
         Save AI enrichment results to merged_results table.
         Only updates existing leads - does not create new leads.
@@ -415,13 +363,14 @@ class MergedResultsService:
         """
         try:
             # Verify project exists
-            project_service.get_project(project_id)
+            if not project_service.get_project(project_id):
+                raise ProjectNotFoundError
             
             # Ensure columns exist
             col_name, reasoning_col, evidence_col = self._ensure_ai_enrichment_columns_exist(column_name)
             
             with db_service.get_session() as session:
-                updated_count = 0
+                total_leads_updated = 0
                 
                 for enriched_lead in enriched_leads:
                     lead_name = enriched_lead.get("lead", "")
@@ -463,25 +412,19 @@ class MergedResultsService:
                         "evidence": enrichment_evidence_str,
                         "id": existing.id
                     })
-                    updated_count += 1
+                    total_leads_updated += 1
                 
                 session.commit()
                 
-                logger.info(f"✅ Saved AI enrichment results for {updated_count} lead(s) in project {project_id}")
+                logger.info(f"✅ Saved AI enrichment results for {total_leads_updated} lead(s) in project {project_id}")
                 
-                return {
-                    "success": True,
-                    "leads_updated": updated_count,
-                    "total_processed": updated_count,
-                    "message": f"Saved enrichment results for {updated_count} lead(s)"
-                }
-                
-        except ProjectNotFoundError:
-            raise
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error saving AI enrichment results for project {project_id}")
             raise DatabaseFailureError(f"Failed to save AI enrichment results for project {project_id}") from e
 
+    #####################################
+    # PART 4: REVIEW WHOLE MERGED TABLE #
+    #####################################
     def _get_project_enrichment_columns(self, session, project_id: int) -> list[str]:
         """
         Get list of enrichment column names that belong to this project.
@@ -562,11 +505,6 @@ class MergedResultsService:
                 
                 # Filter to only include columns that actually exist in the database
                 column_names = [col for col in all_column_names if col in existing_column_names]
-                
-                # Log if any expected columns are missing
-                missing_columns = [col for col in all_column_names if col not in existing_column_names]
-                if missing_columns:
-                    logger.warning(f"⚠️ Expected columns not found in merged_results table: {missing_columns}")
                 
                 # Get all merged results for this project using raw SQL
                 columns_str = ", ".join([f'"{col}"' for col in column_names])
