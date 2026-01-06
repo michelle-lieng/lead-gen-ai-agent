@@ -126,16 +126,17 @@ async def enrich_leads(
     # Validate that leads_data is not empty
     if not request.leads_data or len(request.leads_data) == 0:
         raise NoLeadsToEnrichError()
+    
+    running_job = job_service.check_running_job(project_id, "enrich_leads", enrichment_id)
 
-    # Check if there is a running job
-    job_service.check_running_job(project_id, "enrich_leads", enrichment_id)
-
-    # Create job
-    job = job_service.create_job(project_id, "enrich_leads", enrichment_id)
-
+    job = job_service.create_job(project_id, "enrichments", enrichment_id)
     # Process leads enrichment using enrichment's configured values
     enriched_leads, columns = await enrichment_execution_service.enrich_leads(
-        enrichment=enrichment, leads_data=request.leads_data
+        enrichment=enrichment,
+        leads_data=request.leads_data,
+        project_id=project_id,
+        enrichment_id=enrichment_id,
+        job_id=job.id
     )
 
     # Automatically save enrichment results to merged_results table
@@ -144,8 +145,6 @@ async def enrich_leads(
         column_name=enrichment.column_name,
         enriched_leads=enriched_leads,
     )
-
-    job_service.mark_job_as_completed(job.id)
 
     return {
         "success": True,
@@ -192,14 +191,16 @@ async def test_enrich_leads(
     job_service.check_running_job(project_id, "enrich_leads", enrichment_id)
 
     # Create job
-    job = job_service.create_job(project_id, "enrich_leads", enrichment_id)
+    job = job_service.create_job(project_id, "test_enrichments", enrichment_id)
 
     # Process leads enrichment using enrichment's configured values
     enriched_leads, columns = await enrichment_execution_service.enrich_leads(
-        enrichment=enrichment, leads_data=request.leads_data
+        enrichment=enrichment,
+        leads_data=request.leads_data,
+        project_id=project_id,
+        enrichment_id=enrichment_id,
+        job_id=job.id
     )
-
-    job_service.mark_job_as_completed(job.id)
 
     # Return results without saving (test mode)
     return {
