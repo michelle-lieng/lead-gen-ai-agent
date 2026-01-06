@@ -154,7 +154,7 @@ def show_run_on_all_leads():
     column_name = selected_enrichment.get("column_name", "")
     result_format = selected_enrichment.get("result_format", "")
 
-    job_status = get_job_status(project_id, "enrichments", enrichment_id)
+    job_status = call_api(get_job_status, project_id, "enrichments", enrichment_id)
 
     is_job_running = job_status and job_status.get("status") == "running"
 

@@ -4,7 +4,8 @@ Test enrichment page - edit enrichment configuration
 
 import streamlit as st
 import pandas as pd
-from api import get_enrichment, update_enrichment, get_merged_results, test_enrich_leads
+import time
+from api import get_enrichment, update_enrichment, get_merged_results, test_enrich_leads, get_job_status
 from api.base import ApiError
 from utils.display_errors import call_api
 from utils.ui_errors import show_api_error
@@ -268,44 +269,103 @@ def show_run_enrichment(enrichment):
     )
     run_enrichment_key = f"run_enrichment_message_{enrichment_id}"
 
-    if st.button(
-        "Run Enrichment", key=f"run_enrichment_{enrichment_id}", width="stretch"
-    ):
-        with st.spinner("Running enrichment on test leads..."):
-            leads_data = (
-                leads_cache.get("data") or []
-            )  # Ensure it's always a list, not None
-            # Try to call test_enrich_leads, catch JOB_ALREADY_RUNNING error specifically
-            try:
-                result = test_enrich_leads(project_id, enrichment_id, leads_data)
-                if result and result.get("success"):
-                    # Store enriched results in test-specific session state, keyed by project_id and enrichment_id
-                    results_key = f"{project_id}_{enrichment_id}"
-                    enrichment_name = enrichment.get("enrichment_name", "")
-                    st.session_state.test_enriched_results[results_key] = {
-                        "data": result.get("enriched_leads", leads_data),
-                        "columns": result.get(
-                            "columns", leads_cache.get("columns", ["lead"])
-                        ),
-                        "count": result.get("leads_processed", len(leads_data)),
-                        "enrichment_name": enrichment_name,
-                        "column_name": column_name,  # Store the column_name that was used at runtime
-                        "result_format": result_format,
-                    }
+    # Check job status on every page load/rerun
+    job_status = call_api(get_job_status, project_id, "test_enrichments", enrichment_id)
+    
+    # Determine if job is running
+    is_job_running = job_status and job_status.get("status") == "running"
+    
+    # If job is running, show spinner and schedule auto-refresh
+    if is_job_running:
+        with st.spinner("🔄 Running enrichment on test leads..."):
+            # Auto-refresh every 3 seconds while job is running
+            time.sleep(3)
+            st.rerun()
+    
+    # Handle completed job
+    if job_status and job_status.get("status") == "completed":
+        # Job completed - check if we've already handled this completion
+        handled_key = f"test_job_handled_{project_id}_{enrichment_id}"
+        if not st.session_state.get(handled_key):
+            # Clear any previous error messages
+            error_key = f"test_enrichment_error_{project_id}_{enrichment_id}"
+            if error_key in st.session_state:
+                del st.session_state[error_key]
+            
+            # Check if results are already in session state (from button click)
+            results_key = f"{project_id}_{enrichment_id}"
+            if results_key in st.session_state.test_enriched_results:
+                enrichment_name = enrichment.get("enrichment_name", "")
+                enriched_results = st.session_state.test_enriched_results[results_key]
+                leads_processed = enriched_results.get("count", 0)
+                st.session_state[run_enrichment_key] = (
+                    f"✅ Enrichment '{enrichment_name}' completed successfully on {leads_processed} test lead(s)."
+                )
+                st.session_state[handled_key] = True
+                st.rerun()
+    
+    # Handle failed job
+    if job_status and job_status.get("status") == "failed":
+        error_message = job_status.get("error_message", "Unknown error occurred")
+        error_key = f"test_enrichment_error_{project_id}_{enrichment_id}"
+        if not st.session_state.get(error_key):
+            st.error(f"❌ Test enrichment failed: {error_message}")
+            st.session_state[error_key] = True
+            # Clear handled flag so user can try again
+            handled_key = f"test_job_handled_{project_id}_{enrichment_id}"
+            if handled_key in st.session_state:
+                del st.session_state[handled_key]
 
-                    leads_processed = result.get("leads_processed", len(leads_data))
-                    # Store message in session state so it persists across rerun
-                    st.session_state[run_enrichment_key] = (
-                        f"✅ Enrichment '{enrichment_name}' completed successfully on {leads_processed} test lead(s)."
-                    )
+    # Show button only if job is not running
+    if not is_job_running:
+        if st.button(
+            "Run Enrichment", key=f"run_enrichment_{enrichment_id}", width="stretch"
+        ):
+            # Clear any previous error/handled flags
+            error_key = f"test_enrichment_error_{project_id}_{enrichment_id}"
+            handled_key = f"test_job_handled_{project_id}_{enrichment_id}"
+            if error_key in st.session_state:
+                del st.session_state[error_key]
+            if handled_key in st.session_state:
+                del st.session_state[handled_key]
+            
+            with st.spinner("Running enrichment on test leads..."):
+                leads_data = (
+                    leads_cache.get("data") or []
+                )  # Ensure it's always a list, not None
+                # Try to call test_enrich_leads, catch JOB_ALREADY_RUNNING error specifically
+                try:
+                    result = test_enrich_leads(project_id, enrichment_id, leads_data)
+                    if result and result.get("success"):
+                        # Store enriched results in test-specific session state BEFORE rerun
+                        results_key = f"{project_id}_{enrichment_id}"
+                        enrichment_name = enrichment.get("enrichment_name", "")
+                        st.session_state.test_enriched_results[results_key] = {
+                            "data": result.get("enriched_leads", leads_data),
+                            "columns": result.get(
+                                "columns", leads_cache.get("columns", ["lead"])
+                            ),
+                            "count": result.get("leads_processed", len(leads_data)),
+                            "enrichment_name": enrichment_name,
+                            "column_name": column_name,  # Store the column_name that was used at runtime
+                            "result_format": result_format,
+                        }
+                        # Store success message
+                        leads_processed = result.get("leads_processed", len(leads_data))
+                        st.session_state[run_enrichment_key] = (
+                            f"✅ Enrichment '{enrichment_name}' completed successfully on {leads_processed} test lead(s)."
+                        )
+                    # After storing results, rerun to check job status and hide button
                     st.rerun()
-            except ApiError as e:
-                # Check if it's the "job already running" error
-                if e.code == "JOB_ALREADY_RUNNING":
-                    st.info("🔄 Still running enrichment on test leads... please wait.")
-                else:
-                    # For other errors, use the standard error handler
-                    show_api_error(e)
+                except ApiError as e:
+                    # Check if it's the "job already running" error
+                    if e.code == "JOB_ALREADY_RUNNING":
+                        # Job is already running - trigger polling
+                        st.info("🔄 Test enrichment is already running. Checking status...")
+                        st.rerun()
+                    else:
+                        # For other errors, use the standard error handler
+                        show_api_error(e)
 
     # Display success message below the button if it exists
     if st.session_state.get(run_enrichment_key):
@@ -344,7 +404,6 @@ def show_run_enrichment(enrichment):
             )
 
         st.dataframe(display_df, width="stretch", hide_index=True)
-
 
 def show_column_name_editor(enrichment):
     """Editable column name field - REQUIRED before running enrichment"""
