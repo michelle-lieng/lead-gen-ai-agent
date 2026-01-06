@@ -104,4 +104,39 @@ class JobService:
             logger.exception(f"❌ Error marking job as failed: {error_message} for job {job_id}")
             raise DatabaseFailureError(f"Failed to mark job as failed: {error_message} for job {job_id}") from e
 
+    def mark_all_running_jobs_as_failed(self, error_message: str = "Server restarted - job marked as failed") -> int:
+        """
+        Mark all running jobs as failed. Called on server startup to clean up
+        jobs that were left in 'running' state due to server crash or shutdown.
+        
+        Args:
+            error_message: Error message to set for all failed jobs
+            
+        Returns:
+            int: Number of jobs marked as failed
+        """
+        try:
+            with db_service.get_session() as session:
+                running_jobs = session.query(Jobs).filter(Jobs.status == "running").all()
+                
+                if not running_jobs:
+                    logger.info("ℹ️ No running jobs found to mark as failed")
+                    return 0
+                
+                count = 0
+                for job in running_jobs:
+                    job.status = "failed"
+                    job.error_message = error_message
+                    job.completed_at = datetime.now()
+                    count += 1
+                
+                session.commit()
+                logger.info(f"✅ Marked {count} running job(s) as failed on server startup")
+                return count
+                
+        except SQLAlchemyError as e:
+            logger.exception(f"❌ Error marking running jobs as failed on startup")
+            # Don't raise - allow server to start even if this fails
+            return 0
+
 job_service = JobService()

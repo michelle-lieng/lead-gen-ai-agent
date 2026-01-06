@@ -10,6 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .api.routes import projects, leads_serp, leads_dataset, merged_results, enrichments
 from .services.database_service import db_service
+from .services.job_service import job_service
 from . import exceptions
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,16 @@ async def startup_event():
     logger.info("🚀 Initializing database on startup")
     db_service.create_tables()
     logger.info("✅ Database initialized successfully")
+
+    # Mark all running jobs as failed (they were left running due to server crash/shutdown)
+    logger.info("🧹 Cleaning up running jobs from previous session")
+    failed_count = job_service.mark_all_running_jobs_as_failed(
+        error_message="Server restarted - job was running when server shut down"
+    )
+    if failed_count > 0:
+        logger.info(f"✅ Marked {failed_count} job(s) as failed")
+    else:
+        logger.info("ℹ️ No running jobs to clean up")
 
 ########## DEFAULT ENDPOINTS
 
