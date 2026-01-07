@@ -318,7 +318,7 @@ def show_web_search_tab(project):
     
     # Show warning message if generating URLs
     if generate_urls_running:
-        st.warning("⚠️ Please do not navigate away from this page as progress will be lost.")
+        st.warning("⚠️ Please do not navigate away from this page (in-app) as progress will be lost.")
     
     if not has_queries:
         st.info("ℹ️ Add at least one search query in Step 1 before you can generate URLs.")
@@ -584,7 +584,7 @@ def show_web_search_tab(project):
     
     # Show warning message if extracting leads
     if extract_leads_running:
-        st.warning("⚠️ Please do not navigate away from this page as progress will be lost.")
+        st.warning("⚠️ Please do not navigate away from this page (in-app) as progress will be lost.")
     
     if not has_urls:
         st.info("ℹ️ Generate URLs in Step 2 before you can extract leads.")

@@ -199,7 +199,7 @@ def show_run_on_all_leads():
     
     # Show warning message if enrichment is running
     if st.session_state.review_enrichment_running:
-        st.warning("⚠️ Please do not navigate away from this page as progress will be lost.")
+        st.warning("⚠️ Please do not navigate away from this page (in-app) as progress will be lost.")
     
     if st.button("🚀 Run Enrichment on All Leads", width='stretch', disabled=st.session_state.review_enrichment_running):        
         # Validate configuration before running

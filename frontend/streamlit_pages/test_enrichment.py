@@ -306,7 +306,7 @@ def show_run_enrichment(enrichment):
     
     # Show warning message if enrichment is running
     if st.session_state[test_enrichment_running_key]:
-        st.warning("⚠️ Please do not navigate away from this page as progress will be lost.")
+        st.warning("⚠️ Please do not navigate away from this page (in-app) as progress will be lost.")
     
     if st.button("Run Enrichment", key=f"run_enrichment_{enrichment_id}", width='stretch', disabled=st.session_state[test_enrichment_running_key]):
         # Validate configuration before running
