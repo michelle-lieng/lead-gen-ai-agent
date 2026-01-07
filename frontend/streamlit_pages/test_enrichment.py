@@ -309,6 +309,11 @@ def show_run_enrichment(enrichment):
         st.warning("⚠️ Please do not navigate away from this page (in-app) as progress will be lost.")
     
     if st.button("Run Enrichment", key=f"run_enrichment_{enrichment_id}", width='stretch', disabled=st.session_state[test_enrichment_running_key]):
+        # Clear previous error message when starting new enrichment
+        test_enrichment_error_key = f"test_enrichment_error_{project_id}_{enrichment_id}"
+        if test_enrichment_error_key in st.session_state:
+            st.session_state.pop(test_enrichment_error_key, None)
+        
         # Validate configuration before running
         validation_errors = validate_test_enrichment_config(enrichment)
         if validation_errors:
@@ -322,6 +327,15 @@ def show_run_enrichment(enrichment):
     if st.session_state[test_enrichment_running_key]:
         with st.spinner("Running enrichment on test leads..."):
             leads_data = leads_cache.get("data") or []  # Ensure it's always a list, not None
+            
+            # Check if there are no leads to enrich
+            if not leads_data or len(leads_data) == 0:
+                test_enrichment_error_key = f"test_enrichment_error_{project_id}_{enrichment_id}"
+                st.session_state[test_enrichment_error_key] = "❌ No leads to enrich."
+                st.session_state[test_enrichment_running_key] = False
+                st.rerun()
+                return
+            
             result = call_api(test_enrich_leads, project_id, enrichment_id, leads_data)
             # Reset running state regardless of success or failure
             st.session_state[test_enrichment_running_key] = False
@@ -346,6 +360,13 @@ def show_run_enrichment(enrichment):
     # Display success message below the button if it exists
     if st.session_state.get(run_enrichment_key):
         st.success(st.session_state[run_enrichment_key])
+    
+    # Display error message if it exists in session state
+    test_enrichment_error_key = f"test_enrichment_error_{project_id}_{enrichment_id}"
+    if test_enrichment_error_key in st.session_state:
+        st.error(st.session_state[test_enrichment_error_key])
+        # Clear the error message after displaying it
+        st.session_state.pop(test_enrichment_error_key, None)
     
     # Display enriched results if available for this specific enrichment
     results_key = f"{project_id}_{enrichment_id}"
