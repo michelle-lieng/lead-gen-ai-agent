@@ -135,6 +135,10 @@ def show_run_on_all_leads():
     if "review_enriched_results" not in st.session_state:
         st.session_state.review_enriched_results = {}
     
+    # Initialize enrichment running state
+    if "review_enrichment_running" not in st.session_state:
+        st.session_state.review_enrichment_running = False
+    
     selected_project = st.session_state.selected_project
     selected_enrichment = st.session_state.selected_enrichment
     
@@ -146,16 +150,29 @@ def show_run_on_all_leads():
     column_name = selected_enrichment.get("column_name", "")
     result_format = selected_enrichment.get("result_format", "")
     
-    if st.button("🚀 Run Enrichment on All Leads", width='stretch'):        
+    # Show warning message if enrichment is running
+    if st.session_state.review_enrichment_running:
+        st.warning("⚠️ Please do not navigate away from this page as progress will be lost.")
+    
+    if st.button("🚀 Run Enrichment on All Leads", width='stretch', disabled=st.session_state.review_enrichment_running):        
+        st.session_state.review_enrichment_running = True
+        st.rerun()
+    
+    # Run enrichment if flag is set
+    if st.session_state.review_enrichment_running:
         with st.spinner("🔄 Running enrichment on all leads (this may take several minutes)..."):
             # Get all leads from merged results
             merged_results = call_api(get_merged_results, project_id)
             if not merged_results or not merged_results.get("data"):
                 st.warning("⚠️ No leads available for this project.")
+                st.session_state.review_enrichment_running = False
+                st.rerun()
                 return
             
             leads_data = merged_results["data"]
             result = call_api(enrich_leads, project_id, enrichment_id, leads_data)
+            # Reset running state regardless of success or failure
+            st.session_state.review_enrichment_running = False
             if result:
                 # Store enriched results in review-specific session state, keyed by project_id and enrichment_id
                 results_key = f"{project_id}_{enrichment_id}"
@@ -169,7 +186,7 @@ def show_run_on_all_leads():
                     "result_format": result_format
                 }
                 st.success(f"✅ Enrichment '{enrichment_name}' completed successfully on {result.get('leads_processed')} lead(s). Results have been automatically saved to merged leads.")
-                st.rerun()
+            st.rerun()
     
     # Display enriched results if available for this specific enrichment
     results_key = f"{project_id}_{enrichment_id}"

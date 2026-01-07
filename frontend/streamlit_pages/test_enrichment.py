@@ -224,14 +224,30 @@ def show_run_enrichment(enrichment):
     result_format = enrichment.get("result_format", "")
     leads_cache = st.session_state.test_enrichment_leads.get(project_id, {"data": []})
 
+    # Initialize enrichment running state
+    test_enrichment_running_key = f"test_enrichment_running_{enrichment_id}"
+    if test_enrichment_running_key not in st.session_state:
+        st.session_state[test_enrichment_running_key] = False
+
     st.subheader("🚀 Run Enrichment on Test Leads")
     st.markdown("Test your configuration by running enrichment on the test leads above.")
     run_enrichment_key = f"run_enrichment_message_{enrichment_id}"
     
-    if st.button("Run Enrichment", key=f"run_enrichment_{enrichment_id}", width='stretch'):
+    # Show warning message if enrichment is running
+    if st.session_state[test_enrichment_running_key]:
+        st.warning("⚠️ Please do not navigate away from this page as progress will be lost.")
+    
+    if st.button("Run Enrichment", key=f"run_enrichment_{enrichment_id}", width='stretch', disabled=st.session_state[test_enrichment_running_key]):
+        st.session_state[test_enrichment_running_key] = True
+        st.rerun()
+    
+    # Run enrichment if flag is set
+    if st.session_state[test_enrichment_running_key]:
         with st.spinner("Running enrichment on test leads..."):
             leads_data = leads_cache.get("data") or []  # Ensure it's always a list, not None
             result = call_api(test_enrich_leads, project_id, enrichment_id, leads_data)
+            # Reset running state regardless of success or failure
+            st.session_state[test_enrichment_running_key] = False
             if result and result.get("success"):
                 # Store enriched results in test-specific session state, keyed by project_id and enrichment_id
                 results_key = f"{project_id}_{enrichment_id}"
@@ -248,7 +264,7 @@ def show_run_enrichment(enrichment):
                 leads_processed = result.get("leads_processed", len(leads_data))
                 # Store message in session state so it persists across rerun
                 st.session_state[run_enrichment_key] = f"✅ Enrichment '{enrichment_name}' completed successfully on {leads_processed} test lead(s)."
-                st.rerun()
+            st.rerun()
     
     # Display success message below the button if it exists
     if st.session_state.get(run_enrichment_key):
