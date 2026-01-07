@@ -129,6 +129,53 @@ def show_result_format(enrichment):
             placeholder="Not set"
         )
 
+def validate_enrichment_config(enrichment):
+    """Validate that all required enrichment configuration fields are set"""
+    errors = []
+    
+    # Helper function to safely get and strip a value
+    def get_stripped_value(key, default=""):
+        value = enrichment.get(key)
+        if value is None:
+            return default
+        return str(value).strip() if value else default
+    
+    # Core required fields
+    column_name = get_stripped_value("column_name")
+    if not column_name:
+        errors.append("Column Name")
+    
+    goal = get_stripped_value("goal")
+    if not goal:
+        errors.append("Goal")
+    
+    acceptable_evidence = get_stripped_value("acceptable_evidence")
+    if not acceptable_evidence:
+        errors.append("Agent Reasoning")
+    
+    result_format = get_stripped_value("result_format")
+    if not result_format:
+        errors.append("Result Format")
+    
+    # Format-specific fields
+    if result_format == "True/False":
+        result_true_if = get_stripped_value("result_true_if")
+        if not result_true_if:
+            errors.append("True if")
+        result_false_if = get_stripped_value("result_false_if")
+        if not result_false_if:
+            errors.append("False if")
+    elif result_format == "Number":
+        result_number_value = get_stripped_value("result_number_value")
+        if not result_number_value:
+            errors.append("Define the Value")
+    elif result_format == "Text":
+        result_text_value = get_stripped_value("result_text_value")
+        if not result_text_value:
+            errors.append("What do you want returned")
+    
+    return errors
+
 def show_run_on_all_leads():
     """Button to run enrichment on all leads"""
     # Initialize review enriched results session state (separate from test enriched results)
@@ -155,8 +202,14 @@ def show_run_on_all_leads():
         st.warning("⚠️ Please do not navigate away from this page as progress will be lost.")
     
     if st.button("🚀 Run Enrichment on All Leads", width='stretch', disabled=st.session_state.review_enrichment_running):        
-        st.session_state.review_enrichment_running = True
-        st.rerun()
+        # Validate configuration before running
+        validation_errors = validate_enrichment_config(selected_enrichment)
+        if validation_errors:
+            error_message = "❌ Please complete the following required fields before running enrichment:\n- " + "\n- ".join(validation_errors)
+            st.error(error_message)
+        else:
+            st.session_state.review_enrichment_running = True
+            st.rerun()
     
     # Run enrichment if flag is set
     if st.session_state.review_enrichment_running:

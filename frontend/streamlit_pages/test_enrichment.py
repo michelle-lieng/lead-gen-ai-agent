@@ -213,6 +213,74 @@ def show_leads():
 
     total_session_leads = len(display_df)
 
+def validate_test_enrichment_config(enrichment):
+    """Validate that all required enrichment configuration fields are set (checks session state first, then enrichment)"""
+    enrichment_id = enrichment["id"]
+    errors = []
+    
+    # Helper function to safely get and strip a value from session state or enrichment
+    def get_stripped_value(session_key, enrichment_key, default=""):
+        # Try session state first
+        if session_key in st.session_state:
+            session_value = st.session_state[session_key]
+            if session_value is not None:
+                session_value_str = str(session_value).strip()
+                if session_value_str:
+                    return session_value_str
+        
+        # Fall back to enrichment
+        enrichment_value = enrichment.get(enrichment_key)
+        if enrichment_value is None:
+            return default
+        enrichment_value_str = str(enrichment_value).strip()
+        return enrichment_value_str if enrichment_value_str else default
+    
+    # Get session state keys
+    column_name_key = f"enrichment_column_name_edit_{enrichment_id}"
+    goal_key = f"enrichment_goal_edit_{enrichment_id}"
+    evidence_key = f"enrichment_acceptable_evidence_edit_{enrichment_id}"
+    format_key = f"enrichment_result_format_edit_{enrichment_id}"
+    true_if_key = f"{format_key}_true_if"
+    false_if_key = f"{format_key}_false_if"
+    number_def_key = f"{format_key}_number_def"
+    text_def_key = f"{format_key}_text_def"
+    
+    # Check core fields (session state first, then enrichment)
+    column_name = get_stripped_value(column_name_key, "column_name")
+    if not column_name:
+        errors.append("Column Name")
+    
+    goal = get_stripped_value(goal_key, "goal")
+    if not goal:
+        errors.append("Goal")
+    
+    acceptable_evidence = get_stripped_value(evidence_key, "acceptable_evidence")
+    if not acceptable_evidence:
+        errors.append("Agent Reasoning")
+    
+    result_format = get_stripped_value(format_key, "result_format")
+    if not result_format:
+        errors.append("Result Format")
+    
+    # Check format-specific fields
+    if result_format == "True/False":
+        result_true_if = get_stripped_value(true_if_key, "result_true_if")
+        if not result_true_if:
+            errors.append("True if")
+        result_false_if = get_stripped_value(false_if_key, "result_false_if")
+        if not result_false_if:
+            errors.append("False if")
+    elif result_format == "Number":
+        result_number_value = get_stripped_value(number_def_key, "result_number_value")
+        if not result_number_value:
+            errors.append("Define the Value")
+    elif result_format == "Text":
+        result_text_value = get_stripped_value(text_def_key, "result_text_value")
+        if not result_text_value:
+            errors.append("What do you want returned")
+    
+    return errors
+
 def show_run_enrichment(enrichment):
     """Run enrichment on test leads."""
     project = st.session_state.selected_project
@@ -241,8 +309,14 @@ def show_run_enrichment(enrichment):
         st.warning("⚠️ Please do not navigate away from this page as progress will be lost.")
     
     if st.button("Run Enrichment", key=f"run_enrichment_{enrichment_id}", width='stretch', disabled=st.session_state[test_enrichment_running_key]):
-        st.session_state[test_enrichment_running_key] = True
-        st.rerun()
+        # Validate configuration before running
+        validation_errors = validate_test_enrichment_config(enrichment)
+        if validation_errors:
+            error_message = "❌ Please complete the following required fields before running enrichment:\n- " + "\n- ".join(validation_errors)
+            st.error(error_message)
+        else:
+            st.session_state[test_enrichment_running_key] = True
+            st.rerun()
     
     # Run enrichment if flag is set
     if st.session_state[test_enrichment_running_key]:
