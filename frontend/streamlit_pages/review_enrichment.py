@@ -202,6 +202,12 @@ def show_run_on_all_leads():
         st.warning("⚠️ Please do not navigate away from this page (in-app) as progress will be lost.")
     
     if st.button("🚀 Run Enrichment on All Leads", width='stretch', disabled=st.session_state.review_enrichment_running):        
+        # Clear previous messages when starting new enrichment
+        if "review_enrichment_success" in st.session_state:
+            st.session_state.pop("review_enrichment_success", None)
+        if "review_enrichment_error" in st.session_state:
+            st.session_state.pop("review_enrichment_error", None)
+        
         # Validate configuration before running
         validation_errors = validate_enrichment_config(selected_enrichment)
         if validation_errors:
@@ -217,7 +223,7 @@ def show_run_on_all_leads():
             # Get all leads from merged results
             merged_results = call_api(get_merged_results, project_id)
             if not merged_results or not merged_results.get("data"):
-                st.warning("⚠️ No leads available for this project.")
+                st.session_state.review_enrichment_error = "❌ No leads to enrich."
                 st.session_state.review_enrichment_running = False
                 st.rerun()
                 return
@@ -253,6 +259,12 @@ def show_run_on_all_leads():
         st.success(st.session_state.review_enrichment_success)
         # Clear the success message after displaying it
         st.session_state.pop("review_enrichment_success", None)
+    
+    # Display error message if it exists in session state
+    if "review_enrichment_error" in st.session_state:
+        st.error(st.session_state.review_enrichment_error)
+        # Clear the error message after displaying it
+        st.session_state.pop("review_enrichment_error", None)
     
     # Display enriched results if available for this specific enrichment
     results_key = f"{project_id}_{enrichment_id}"
