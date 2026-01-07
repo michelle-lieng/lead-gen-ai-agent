@@ -85,15 +85,18 @@ def show_test_enrichment():
     # Check if any changes were made and show save button
     has_changes = check_enrichment_changes(enrichment)
     save_changes_key = f"save_all_changes_message_{enrichment_id}"
+    just_saved_key = f"just_saved_enrichment_{enrichment_id}"
     
-    # Clear save message if new changes are detected
-    if has_changes and st.session_state.get(save_changes_key):
-        st.session_state[save_changes_key] = None
-    
-    # Display save message below the button if it exists (from previous save)
-    # Only show if there are no pending changes (to avoid confusion)
-    if st.session_state.get(save_changes_key) and not has_changes:
+    # Display save message if it exists
+    if st.session_state.get(save_changes_key):
         st.success(st.session_state[save_changes_key])
+        # If we just saved, keep the message even if has_changes is True (might be due to whitespace differences)
+        # Clear the "just saved" flag after showing the message once
+        if st.session_state.get(just_saved_key):
+            st.session_state[just_saved_key] = False
+        # Only clear the message if there are changes AND we're not in the just-saved state
+        elif has_changes:
+            st.session_state[save_changes_key] = None
     
     if has_changes:
         if st.button("💾 Save All Changes", key=f"save_all_changes_{enrichment_id}", type="primary", width='stretch'):
@@ -501,7 +504,9 @@ def save_all_enrichment_changes(enrichment):
             st.success("✅ All changes saved successfully!")
             # Also store message in session state so it persists across rerun
             save_changes_key = f"save_all_changes_message_{enrichment_id}"
+            just_saved_key = f"just_saved_enrichment_{enrichment_id}"
             st.session_state[save_changes_key] = "✅ All changes saved successfully!"
+            st.session_state[just_saved_key] = True  # Flag to keep message visible even if has_changes is True
             updated = call_api(get_enrichment, enrichment_id)
             if updated:
                 st.session_state.selected_enrichment = updated
