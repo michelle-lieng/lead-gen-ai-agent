@@ -493,24 +493,29 @@ class MergedResultsService:
                         .first()
                     )
 
-                    # Update existing record
-                    update_query = text(f"""
-                        UPDATE merged_results 
-                        SET {col_name} = :value,
-                            {reasoning_col} = :reasoning,
-                            {evidence_col} = :evidence
-                        WHERE id = :id
-                    """)
-                    session.execute(
-                        update_query,
-                        {
-                            "value": enrichment_value_str,
-                            "reasoning": enrichment_reasoning_str,
-                            "evidence": enrichment_evidence_str,
-                            "id": existing.id,
-                        },
-                    )
-                    total_leads_updated += 1
+                    # Only update if lead exists in merged_results
+                    if existing:
+                        update_query = text(f"""
+                            UPDATE merged_results 
+                            SET {col_name} = :value,
+                                {reasoning_col} = :reasoning,
+                                {evidence_col} = :evidence
+                            WHERE id = :id
+                        """)
+                        session.execute(
+                            update_query,
+                            {
+                                "value": enrichment_value_str,
+                                "reasoning": enrichment_reasoning_str,
+                                "evidence": enrichment_evidence_str,
+                                "id": existing.id,
+                            },
+                        )
+                        total_leads_updated += 1
+                    else:
+                        logger.warning(
+                            f"⚠️ Lead '{lead_name}' not found in merged_results for project {project_id}. Skipping enrichment update."
+                        )
 
                 session.commit()
 

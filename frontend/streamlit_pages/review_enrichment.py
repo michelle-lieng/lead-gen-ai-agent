@@ -275,7 +275,7 @@ def show_run_on_all_leads():
         # Exclude id, project_id, and serp_count columns
         exclude_columns = ["id", "project_id", "serp_count"]
         display_columns = [c for c in df.columns if c not in exclude_columns]
-        display_df = df[display_columns] if display_columns else df
+        display_df = df[display_columns].copy() if display_columns else df.copy()
         
         # Convert boolean values to strings for True/False format
         column_name = enriched_results.get("column_name", "")
