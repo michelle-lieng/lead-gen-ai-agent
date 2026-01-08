@@ -129,11 +129,62 @@ def show_result_format(enrichment):
             placeholder="Not set"
         )
 
+def validate_enrichment_config(enrichment):
+    """Validate that all required enrichment configuration fields are set"""
+    errors = []
+    
+    # Helper function to safely get and strip a value
+    def get_stripped_value(key, default=""):
+        value = enrichment.get(key)
+        if value is None:
+            return default
+        return str(value).strip() if value else default
+    
+    # Core required fields
+    column_name = get_stripped_value("column_name")
+    if not column_name:
+        errors.append("Column Name")
+    
+    goal = get_stripped_value("goal")
+    if not goal:
+        errors.append("Goal")
+    
+    acceptable_evidence = get_stripped_value("acceptable_evidence")
+    if not acceptable_evidence:
+        errors.append("Agent Reasoning")
+    
+    result_format = get_stripped_value("result_format")
+    if not result_format:
+        errors.append("Result Format")
+    
+    # Format-specific fields
+    if result_format == "True/False":
+        result_true_if = get_stripped_value("result_true_if")
+        if not result_true_if:
+            errors.append("True if")
+        result_false_if = get_stripped_value("result_false_if")
+        if not result_false_if:
+            errors.append("False if")
+    elif result_format == "Number":
+        result_number_value = get_stripped_value("result_number_value")
+        if not result_number_value:
+            errors.append("Define the Value")
+    elif result_format == "Text":
+        result_text_value = get_stripped_value("result_text_value")
+        if not result_text_value:
+            errors.append("What do you want returned")
+    
+    return errors
+
 def show_run_on_all_leads():
     """Button to run enrichment on all leads"""
     # Initialize review enriched results session state (separate from test enriched results)
     if "review_enriched_results" not in st.session_state:
         st.session_state.review_enriched_results = {}
+    
+    # Initialize enrichment running state
+    if "review_enrichment_running" not in st.session_state:
+        st.session_state.review_enrichment_running = False
     
     selected_project = st.session_state.selected_project
     selected_enrichment = st.session_state.selected_enrichment
@@ -146,30 +197,74 @@ def show_run_on_all_leads():
     column_name = selected_enrichment.get("column_name", "")
     result_format = selected_enrichment.get("result_format", "")
     
-    if st.button("🚀 Run Enrichment on All Leads", width='stretch'):        
+    # Show warning message if enrichment is running
+    if st.session_state.review_enrichment_running:
+        st.warning("⚠️ Please do not navigate away from this page (in-app) as progress will be lost.")
+    
+    if st.button("🚀 Run Enrichment on All Leads", width='stretch', disabled=st.session_state.review_enrichment_running):        
+        # Clear previous messages when starting new enrichment
+        if "review_enrichment_success" in st.session_state:
+            st.session_state.pop("review_enrichment_success", None)
+        if "review_enrichment_error" in st.session_state:
+            st.session_state.pop("review_enrichment_error", None)
+        
+        # Validate configuration before running
+        validation_errors = validate_enrichment_config(selected_enrichment)
+        if validation_errors:
+            error_message = "❌ Please complete the following required fields before running enrichment:\n- " + "\n- ".join(validation_errors)
+            st.error(error_message)
+        else:
+            st.session_state.review_enrichment_running = True
+            st.rerun()
+    
+    # Run enrichment if flag is set
+    if st.session_state.review_enrichment_running:
         with st.spinner("🔄 Running enrichment on all leads (this may take several minutes)..."):
             # Get all leads from merged results
             merged_results = call_api(get_merged_results, project_id)
             if not merged_results or not merged_results.get("data"):
-                st.warning("⚠️ No leads available for this project.")
+                st.session_state.review_enrichment_error = "❌ No leads to enrich."
+                st.session_state.review_enrichment_running = False
+                st.rerun()
                 return
             
             leads_data = merged_results["data"]
             result = call_api(enrich_leads, project_id, enrichment_id, leads_data)
+            # Reset running state regardless of success or failure
+            st.session_state.review_enrichment_running = False
+            enrichment_name = selected_enrichment.get("enrichment_name", "")
+            
             if result:
-                # Store enriched results in review-specific session state, keyed by project_id and enrichment_id
-                results_key = f"{project_id}_{enrichment_id}"
-                enrichment_name = selected_enrichment.get("enrichment_name", "")
-                st.session_state.review_enriched_results[results_key] = {
-                    "data": result.get("enriched_leads"),
-                    "columns": result.get("columns", ["lead"]),
-                    "count": result.get("leads_processed"),
-                    "enrichment_name": enrichment_name,
-                    "column_name": column_name,
-                    "result_format": result_format
-                }
-                st.success(f"✅ Enrichment '{enrichment_name}' completed successfully on {result.get('leads_processed')} lead(s). Results have been automatically saved to merged leads.")
-                st.rerun()
+                enriched_leads = result.get("enriched_leads", [])
+                
+                if not enriched_leads or len(enriched_leads) == 0:
+                    # Empty enriched_leads means all leads were already enriched
+                    st.session_state.review_enrichment_success = f"✅ Enrichment '{enrichment_name}' already completed on all leads."
+                else:
+                    # Store enriched results in review-specific session state, keyed by project_id and enrichment_id
+                    results_key = f"{project_id}_{enrichment_id}"
+                    st.session_state.review_enriched_results[results_key] = {
+                        "data": enriched_leads,
+                        "columns": result.get("columns", ["lead"]),
+                        "count": result.get("leads_processed"),
+                        "enrichment_name": enrichment_name,
+                        "column_name": column_name,
+                        "result_format": result_format
+                    }
+                    st.session_state.review_enrichment_success = f"✅ Enrichment '{enrichment_name}' completed successfully on {result.get('leads_processed')} lead(s). Results have been automatically saved to merged leads."
+            st.rerun()
+    
+    # Display success message if it exists in session state
+    if "review_enrichment_success" in st.session_state:
+        st.success(st.session_state.review_enrichment_success)
+        # Clear the success message after displaying it
+        st.session_state.pop("review_enrichment_success", None)
+    
+    # Display error message if it exists in session state
+    if "review_enrichment_error" in st.session_state:
+        st.error(st.session_state.review_enrichment_error)
+        # Clear the error message after displaying it
+        st.session_state.pop("review_enrichment_error", None)
     
     # Display enriched results if available for this specific enrichment
     results_key = f"{project_id}_{enrichment_id}"

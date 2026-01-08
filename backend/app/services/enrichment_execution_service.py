@@ -2,6 +2,7 @@
 Enrichment Execution Service - Uses OpenAI Agent with SERP and Web Scraper tools
 to enrich company data based on user-defined fields.
 """
+
 import asyncio
 import re
 from typing import Literal, Optional
@@ -15,48 +16,62 @@ from .job_service import job_service
 # Import existing Jina functions from utils
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..config import settings
-from ..exceptions import ApiKeyNotConfiguredError, OpenAITokenLimitExceededError, ExternalScraperError
+from ..exceptions import (
+    ApiKeyNotConfiguredError,
+    OpenAITokenLimitExceededError,
+    ExternalScraperError,
+)
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logging.getLogger("openai").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
+
 class EnrichmentExecutionService:
     """Service for executing enrichment operations using AI agents"""
-    
+
     def __init__(self):
         """Initialize the enrichment execution service"""
         # Track Jina API calls for cost tracking (per instance)
         self.jina_serp_calls = 0
         self.jina_url_calls = 0
-        
+
         # Set up OpenAI API key if available
         if settings.openai_api_key:
             set_default_openai_key(settings.openai_api_key)
-        
+
         # Separate semaphores for each API type since they have different rate limits
         # and are used in different workflow stages
-        self.serp_scraper_semaphore = asyncio.Semaphore(15)  # For jina_serp_scraper (increased from 10)
-        self.url_scraper_semaphore = asyncio.Semaphore(15)    # For jina_url_scraper (increased from 10, Jina Reader API: 200 RPM)
-        self.llm_semaphore = asyncio.Semaphore(3)             # For Runner.run (OpenAI API, reduced from 12 due to TPM limits: 30K TPM)
-    
+        self.serp_scraper_semaphore = asyncio.Semaphore(
+            15
+        )  # For jina_serp_scraper (increased from 10)
+        self.url_scraper_semaphore = asyncio.Semaphore(
+            15
+        )  # For jina_url_scraper (increased from 10, Jina Reader API: 200 RPM)
+        self.llm_semaphore = asyncio.Semaphore(
+            3
+        )  # For Runner.run (OpenAI API, reduced from 12 due to TPM limits: 30K TPM)
+
     def _create_tools(self):
         """
         Create tool functions that can be used by the agent.
         These are wrapper functions that don't include 'self' in their signature.
         """
+
         @function_tool
         async def jina_serp_search(search_phrase: str) -> list[dict]:
             """
             Search the web using Jina SERP API. Returns a list of search results.
             Use this tool to find information about a company when you need to search for it.
-            
+
             Args:
                 search_phrase: The search query (e.g., "Hurstville Highpoint Medical Centre more than 1 doctor")
-            
+
             Returns:
                 List of dictionaries containing search results with keys like 'title', 'snippet', 'url'
             """
@@ -69,16 +84,16 @@ class EnrichmentExecutionService:
             except Exception as e:
                 logger.error(f"SERP search error: {e}")
                 return []
-        
+
         @function_tool
         async def jina_scrape_url(url: str) -> str:
             """
             Scrape a URL using Jina API to get the full content of a webpage.
             Use this tool when you need more detailed information from a specific webpage.
-            
+
             Args:
                 url: The URL to scrape (e.g., "https://example.com")
-            
+
             Returns:
                 String containing the scraped and cleaned content of the webpage
             """
@@ -91,34 +106,36 @@ class EnrichmentExecutionService:
             except Exception as e:
                 logger.error(f"URL scrape error for {url}: {e}")
                 return "scrape_failed"
-        
+
         return [jina_serp_search, jina_scrape_url]
-    
+
     def _extract_metadata(self, result) -> dict:
         """Extract metadata from the Runner result including tool calls and costs."""
         # Estimate Jina costs (SERP: ~$0.01 per search, URL: ~$0.01 per URL)
         serp_cost = self.jina_serp_calls * 0.01
         url_cost = self.jina_url_calls * 0.01
-        
+
         return {
             "tool_calls": {
                 "jina_serp_search": self.jina_serp_calls,
                 "jina_scrape_url": self.jina_url_calls,
-                "total": self.jina_serp_calls + self.jina_url_calls
+                "total": self.jina_serp_calls + self.jina_url_calls,
             },
             "jina_costs": {
                 "serp_calls": self.jina_serp_calls,
                 "url_calls": self.jina_url_calls,
-                "estimated_cost_usd": serp_cost + url_cost
-            }
+                "estimated_cost_usd": serp_cost + url_cost,
+            },
         }
-    
-    def _create_enrichment_output_model(self, enrichment_name: str, output_type: Literal["str", "int", "bool"]):
+
+    def _create_enrichment_output_model(
+        self, enrichment_name: str, output_type: Literal["str", "int", "bool"]
+    ):
         """
         Dynamically create a Pydantic model for the enrichment output.
         Returns a model with three fields: enrichment_name, enrichment_name_reasoning, enrichment_name_evidence
         """
-        
+
         # Determine the type annotation based on output_type
         if output_type == "int":
             value_type = Optional[int]
@@ -126,28 +143,37 @@ class EnrichmentExecutionService:
             value_type = Optional[bool]
         else:  # str
             value_type = Optional[str]
-        
+
         # Create the model dynamically
         EnrichmentOutput = create_model(
-            'EnrichmentOutput',
+            "EnrichmentOutput",
             **{
-                enrichment_name: (value_type, Field(
-                    default=None,
-                    description=f"The enriched value for {enrichment_name}"
-                )),
-                f"{enrichment_name}_reasoning": (str, Field(
-                    default="",
-                    description=f"Brief explanation of how the {enrichment_name} value was determined"
-                )),
-                f"{enrichment_name}_evidence": (str, Field(
-                    default="",
-                    description=f"Evidence or source that supports the {enrichment_name} value"
-                ))
-            }
+                enrichment_name: (
+                    value_type,
+                    Field(
+                        default=None,
+                        description=f"The enriched value for {enrichment_name}",
+                    ),
+                ),
+                f"{enrichment_name}_reasoning": (
+                    str,
+                    Field(
+                        default="",
+                        description=f"Brief explanation of how the {enrichment_name} value was determined",
+                    ),
+                ),
+                f"{enrichment_name}_evidence": (
+                    str,
+                    Field(
+                        default="",
+                        description=f"Evidence or source that supports the {enrichment_name} value",
+                    ),
+                ),
+            },
         )
-        
+
         return EnrichmentOutput
-    
+
     def _build_enrichment_prompt(
         self,
         company_name: str,
@@ -158,26 +184,26 @@ class EnrichmentExecutionService:
         string_prompt: str = "",
         is_false_prompt: str = "",
         is_true_prompt: str = "",
-        int_prompt: str = ""
+        int_prompt: str = "",
     ) -> str:
         """
         Build a dynamic prompt based on user inputs for the enrichment task.
         """
         # Determine type-specific values
         if output_type == "str":
-            json_value_example = 'string value or None'
+            json_value_example = "string value or None"
             null_handling = "If you cannot find the information, set the value to None and explain why in the reasoning."
             type_specific_instructions = f"""String extraction instructions: {string_prompt}
 Output type: String (text value)
 """
         elif output_type == "int":
-            json_value_example = 'integer value or None'
+            json_value_example = "integer value or None"
             null_handling = "If you cannot find the information, set the value to None and explain why in the reasoning."
             type_specific_instructions = f"""Integer extraction instructions: {int_prompt}
 Output type: Integer (whole number)
 """
         elif output_type == "bool":
-            json_value_example = 'true/false or None'
+            json_value_example = "true/false or None"
             null_handling = "If the company name doesn't match exactly, return None. If you search and find no evidence of the condition being true (but company matches), return false. Only return None if company name doesn't match exactly or you truly cannot determine anything."
             type_specific_instructions = f"""True condition: {is_true_prompt}
 False condition: {is_false_prompt}
@@ -189,7 +215,7 @@ Important for boolean fields:
 - If you search and find NO evidence of the condition being true, return false (not None)
 - Only return None if you truly cannot determine anything (e.g., no relevant information found at all, wrong company, etc.)
 """
-        
+
         base_prompt = f"""You are an AI assistant that enriches company data by finding specific information about companies.
 
 Your task:
@@ -202,7 +228,7 @@ Goal: {prompt_goal}
 Additional context: {prompt_reasoning}
 
 """
-        
+
         base_prompt += f"""
 Instructions:
 1. **First, use jina_serp_search** to search for information about the company and the enrichment field
@@ -246,13 +272,13 @@ In {enrichment_name} return None if you do not find any information at all. Do n
     "{enrichment_name}_evidence": "<sources/URLs>"
 }}
 """
-        
+
         return base_prompt
-    
+
     def _truncate_by_word_count(self, text: str, max_words: int) -> str:
         """
         Truncate text to max_words, cutting at word boundaries.
-        
+
         OpenAI TPM limit: 30,000 tokens
         - ~1.3 tokens per word on average
         - Need to leave room for prompt, instructions, and output
@@ -260,15 +286,15 @@ In {enrichment_name} return None if you do not find any information at all. Do n
         """
         if not text:
             return text
-        
+
         words = text.split()
         if len(words) <= max_words:
             return text
-        
+
         # Truncate to max_words and rejoin
         truncated_words = words[:max_words]
-        return ' '.join(truncated_words) + "\n\n[Content truncated due to token limit]"
-    
+        return " ".join(truncated_words) + "\n\n[Content truncated due to token limit]"
+
     async def enrich_company(
         self,
         company_name: str,
@@ -280,11 +306,11 @@ In {enrichment_name} return None if you do not find any information at all. Do n
         is_false_prompt: str = "",
         is_true_prompt: str = "",
         int_prompt: str = "",
-        return_metadata: bool = False
+        return_metadata: bool = False,
     ) -> dict:
         """
         Main function to enrich a company with a specific field.
-        
+
         Args:
             company_name: Name of the company to enrich
             enrichment_name: Name of the field to enrich (e.g., "more_than_1_doctor")
@@ -296,36 +322,46 @@ In {enrichment_name} return None if you do not find any information at all. Do n
             is_true_prompt: Optional description of true condition for bool
             int_prompt: Optional instructions for integer extraction
             return_metadata: If True, include metadata about tool calls and costs in the result
-        
+
         Returns:
             Dictionary with enrichment_name, enrichment_name_reasoning, and enrichment_name_evidence.
             If return_metadata=True, also includes "_metadata" key with usage and cost information.
         """
         # Set OpenAI API key for agents SDK
         if not settings.openai_api_key:
-            raise ApiKeyNotConfiguredError("OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file.")
+            raise ApiKeyNotConfiguredError(
+                "OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file."
+            )
         set_default_openai_key(settings.openai_api_key)
-        
+
         # Validate that required prompts are provided based on output type
         if output_type == "str":
             if not string_prompt or not string_prompt.strip():
-                raise ValueError(f"string_prompt is required when output_type is 'str'. Please provide string extraction instructions.")
+                raise ValueError(
+                    f"string_prompt is required when output_type is 'str'. Please provide string extraction instructions."
+                )
         elif output_type == "int":
             if not int_prompt or not int_prompt.strip():
-                raise ValueError(f"int_prompt is required when output_type is 'int'. Please provide integer extraction instructions.")
+                raise ValueError(
+                    f"int_prompt is required when output_type is 'int'. Please provide integer extraction instructions."
+                )
         elif output_type == "bool":
             if not is_true_prompt or not is_true_prompt.strip():
-                raise ValueError(f"is_true_prompt is required when output_type is 'bool'. Please provide a description of the true condition.")
+                raise ValueError(
+                    f"is_true_prompt is required when output_type is 'bool'. Please provide a description of the true condition."
+                )
             if not is_false_prompt or not is_false_prompt.strip():
-                raise ValueError(f"is_false_prompt is required when output_type is 'bool'. Please provide a description of the false condition.")
-        
+                raise ValueError(
+                    f"is_false_prompt is required when output_type is 'bool'. Please provide a description of the false condition."
+                )
+
         # Reset counters before run
         self.jina_serp_calls = 0
         self.jina_url_calls = 0
-        
+
         # Create output model
         OutputModel = self._create_enrichment_output_model(enrichment_name, output_type)
-        
+
         # Build prompt
         instructions = self._build_enrichment_prompt(
             company_name=company_name,
@@ -336,12 +372,12 @@ In {enrichment_name} return None if you do not find any information at all. Do n
             string_prompt=string_prompt,
             is_false_prompt=is_false_prompt,
             is_true_prompt=is_true_prompt,
-            int_prompt=int_prompt
+            int_prompt=int_prompt,
         )
-        
+
         # Create tools that don't include 'self' in their signature
         tools = self._create_tools()
-        
+
         # Create agent with tools
         agent = Agent(
             name="Company Enrichment Agent",
@@ -349,29 +385,35 @@ In {enrichment_name} return None if you do not find any information at all. Do n
             tools=tools,
             output_type=OutputModel,
         )
-        
+
         # Run the agent with increased max_turns for enrichment (default is 10, enrichment may need more)
-        input_text = f"Company to enrich: {company_name}\nEnrichment field: {enrichment_name}"
-        
+        input_text = (
+            f"Company to enrich: {company_name}\nEnrichment field: {enrichment_name}"
+        )
+
         # Retry logic: 3 retries max, parse wait time from error message
         max_retries = 3
         default_wait_time = 10.0  # Fallback if we can't parse the time
-        
+
         # Track original input for truncation if needed
         original_input_text = input_text
         current_input_text = input_text
-        
+
         result = None
         for attempt in range(max_retries):
             try:
                 async with self.llm_semaphore:
-                    result = await Runner.run(agent, input=current_input_text, max_turns=10)
+                    result = await Runner.run(
+                        agent, input=current_input_text, max_turns=10
+                    )
                 break  # Success, exit retry loop
 
             except (TimeoutError, openai.APITimeoutError) as e:
                 # Timeout errors from OpenAI API
                 if attempt < max_retries - 1:
-                    wait_time = min(2.0 * (2 ** attempt), 30.0)  # Exponential backoff: 2s, 4s, 8s (max 30s)
+                    wait_time = min(
+                        2.0 * (2**attempt), 30.0
+                    )  # Exponential backoff: 2s, 4s, 8s (max 30s)
                     logger.warning(
                         f"⚠️ Timeout error for {company_name} enrichment (attempt {attempt + 1}/{max_retries}). "
                         f"Waiting {wait_time:.1f}s before retry..."
@@ -386,7 +428,9 @@ In {enrichment_name} return None if you do not find any information at all. Do n
                     error_str = str(e)
                     wait_time = default_wait_time
                     # Try to parse the retry time from the error message
-                    retry_time_match = re.search(r'Please try again in ([\d.]+)s', error_str, re.IGNORECASE)
+                    retry_time_match = re.search(
+                        r"Please try again in ([\d.]+)s", error_str, re.IGNORECASE
+                    )
                     if retry_time_match:
                         try:
                             parsed_time = float(retry_time_match.group(1))
@@ -396,7 +440,9 @@ In {enrichment_name} return None if you do not find any information at all. Do n
                             pass  # wait_time already set to default_wait_time
                     else:
                         # Try to match milliseconds
-                        retry_time_match = re.search(r'Please try again in ([\d.]+)ms', error_str, re.IGNORECASE)
+                        retry_time_match = re.search(
+                            r"Please try again in ([\d.]+)ms", error_str, re.IGNORECASE
+                        )
                         if retry_time_match:
                             try:
                                 parsed_time_ms = float(retry_time_match.group(1))
@@ -405,7 +451,7 @@ In {enrichment_name} return None if you do not find any information at all. Do n
                             except ValueError:
                                 # Invalid float format, use default
                                 pass  # wait_time already set to default_wait_time
-                    
+
                     logger.warning(
                         f"⚠️ Rate limit error for {company_name} enrichment (attempt {attempt + 1}/{max_retries}). "
                         f"Waiting {wait_time:.1f}s before retry..."
@@ -419,17 +465,19 @@ In {enrichment_name} return None if you do not find any information at all. Do n
                 error_str = str(e)
                 error_lower = error_str.lower()
                 is_request_too_large = (
-                    "request too large" in error_lower or
-                    "tokens must be reduced" in error_lower or
-                    "maximum context length" in error_lower or
-                    "token limit" in error_lower
+                    "request too large" in error_lower
+                    or "tokens must be reduced" in error_lower
+                    or "maximum context length" in error_lower
+                    or "token limit" in error_lower
                 )
-                
+
                 if is_request_too_large and attempt < max_retries - 1:
                     max_words = 10000
                     word_count = len(current_input_text.split())
                     if word_count > max_words:
-                        current_input_text = self._truncate_by_word_count(current_input_text, max_words)
+                        current_input_text = self._truncate_by_word_count(
+                            current_input_text, max_words
+                        )
                         logger.warning(
                             f"⚠️ Request too large for {company_name} enrichment (attempt {attempt + 1}/{max_retries}). "
                             f"Truncating from {word_count} words to {max_words} words and retrying..."
@@ -442,30 +490,38 @@ In {enrichment_name} return None if you do not find any information at all. Do n
                             f"❌ Request too large for {company_name} enrichment even with {word_count} words. "
                             f"Error: {error_str}"
                         )
-                        raise OpenAITokenLimitExceededError(f"Request too large: input exceeds token limit even after truncation. {error_str}")
+                        raise OpenAITokenLimitExceededError(
+                            f"Request too large: input exceeds token limit even after truncation. {error_str}"
+                        )
                 else:
                     # Not a "request too large" error, or max retries reached
                     raise
-        
+
         if result is None:
             raise RuntimeError(f"Failed to get result after {max_retries} attempts")
-        
+
         # Extract and convert output to dictionary
         output = result.final_output
         output_dict = output.model_dump()
-        
+
         # Add metadata if requested
         if return_metadata:
             metadata = self._extract_metadata(result)
             metadata["prompt"] = instructions
             output_dict["_metadata"] = metadata
-        
+
         return output_dict
 
-    async def enrich_leads(self, enrichment: Enrichment, leads_data: list[dict], project_id: int, enrichment_id: int, job_id: int) -> tuple[list[dict], list[str]]:
+    async def enrich_leads(
+        self, enrichment: Enrichment, 
+        leads_data: list[dict], 
+        project_id: int, 
+        enrichment_id: int, 
+        job_id: int
+    ) -> tuple[list[dict], list[str]]:
         """
         Process leads enrichment using the enrichment configuration.
-        
+
         Args:
             enrichment: The enrichment configuration
             leads_data: List of lead dictionaries e.g. [{"lead": "Acme Corp", "serp_count": 5, "bcorp_certified": True}, {...}, ...]
@@ -568,6 +624,7 @@ In {enrichment_name} return None if you do not find any information at all. Do n
             job_service.mark_job_as_failed(job_id, f"Unexpected error: {type(e).__name__}: {str(e)}")
             # Return empty results on critical failure
             return ([], ["lead"])
+
 
 # Global service instance
 enrichment_execution_service = EnrichmentExecutionService()

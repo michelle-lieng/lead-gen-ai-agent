@@ -4,7 +4,20 @@ Lead collection page
 import streamlit as st
 import pandas as pd
 from utils.display_errors import call_api
-from api import update_project, generate_queries, get_queries, generate_urls, get_urls, create_url, update_url, delete_url, generate_leads, fetch_latest_run_zip, get_project, upload_dataset
+from api import (
+    update_project,
+    generate_queries,
+    get_queries,
+    generate_urls,
+    get_urls,
+    create_url,
+    update_url,
+    delete_url,
+    generate_leads,
+    fetch_latest_run_zip,
+    get_project,
+    upload_dataset,
+)
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -72,6 +85,14 @@ def init_collect_leads_session_state():
         st.session_state.extraction_results = {}
     if current_project_id and current_project_id not in st.session_state.extraction_results:
         st.session_state.extraction_results[current_project_id] = {}  # Store full result dict from backend
+    if 'generate_urls_running' not in st.session_state:
+        st.session_state.generate_urls_running = {}
+    if current_project_id and current_project_id not in st.session_state.generate_urls_running:
+        st.session_state.generate_urls_running[current_project_id] = False
+    if 'extract_leads_running' not in st.session_state:
+        st.session_state.extract_leads_running = {}
+    if current_project_id and current_project_id not in st.session_state.extract_leads_running:
+        st.session_state.extract_leads_running[current_project_id] = False
 
 # =============================================================================
 # MAIN PAGE - WEB SEARCH TAB
@@ -292,25 +313,39 @@ def show_web_search_tab(project):
     # Check if queries exist for this project
     has_queries = bool(st.session_state.generated_queries.get(project_id, {}))
     
+    # Initialize running state for this project
+    generate_urls_running = st.session_state.generate_urls_running.get(project_id, False)
+    
+    # Show warning message if generating URLs
+    if generate_urls_running:
+        st.warning("⚠️ Please do not navigate away from this page (in-app) as progress will be lost.")
+    
     if not has_queries:
         st.info("ℹ️ Add at least one search query in Step 1 before you can generate URLs.")
         st.button("🔍 Generate URLs", disabled=True)
     else:
-        if st.button("🔍 Generate URLs"):
-            # Clear previous save message when generating new URLs
-            if 'urls_table_save_message' in st.session_state:
-                st.session_state.urls_table_save_message = None
+        if st.button("🔍 Generate URLs", disabled=generate_urls_running):
+            st.session_state.generate_urls_running[project_id] = True
+            st.rerun()
+    
+    # Run URL generation if flag is set
+    if generate_urls_running:
+        # Clear previous save message when generating new URLs
+        if 'urls_table_save_message' in st.session_state:
+            st.session_state.urls_table_save_message = None
+        
+        with st.spinner("🔍 Generating URLs from queries..."):
+            # Convert dict to list for API call (use queries for this project)
+            queries_list = list(st.session_state.generated_queries.get(project_id, {}).values())
+            urls_result = call_api(generate_urls, project['id'], queries_list)
+            # Reset running state regardless of success or failure
+            st.session_state.generate_urls_running[project_id] = False
             
-            with st.spinner("🔍 Generating URLs from queries..."):
-                # Convert dict to list for API call (use queries for this project)
-                queries_list = list(st.session_state.generated_queries.get(project_id, {}).values())
-                urls_result = call_api(generate_urls, project['id'], queries_list)
-                
-                if urls_result:
-                    st.success(f"✅ Generated {urls_result.get('urls_added', 0)} URLs from {urls_result.get('queries_processed', 0)} search queries")
-                    st.rerun()
-                else:
-                    st.error(f"❌ Failed to generate URLs")
+            if urls_result:
+                st.success(f"✅ Generated {urls_result.get('urls_added', 0)} URLs from {urls_result.get('queries_processed', 0)} search queries")
+            else:
+                st.error(f"❌ Failed to generate URLs")
+            st.rerun()
     
     # Fetch and display URLs from backend
     urls = call_api(get_urls, project['id'])
@@ -544,6 +579,13 @@ def show_web_search_tab(project):
     has_criteria = current_criteria and current_criteria.strip()
     has_urls = len(urls) > 0
     
+    # Initialize running state for this project
+    extract_leads_running = st.session_state.extract_leads_running.get(project_id, False)
+    
+    # Show warning message if extracting leads
+    if extract_leads_running:
+        st.warning("⚠️ Please do not navigate away from this page (in-app) as progress will be lost.")
+    
     if not has_urls:
         st.info("ℹ️ Generate URLs in Step 2 before you can extract leads.")
         st.button("🤖 Extract Leads", disabled=True)
@@ -556,31 +598,38 @@ def show_web_search_tab(project):
         
         # Show button - "Re-run Extraction" if results exist, otherwise "Extract Leads"
         button_text = "🔄 Re-run Extraction" if project_extraction_result else "🤖 Extract Leads"
-        if st.button(button_text):
-            # Clear previous results and queries when starting new extraction
-            st.session_state.extraction_results[project_id] = {}
-            st.session_state.generated_queries[project_id] = {}
-            st.session_state.query_counter = 0
-            st.session_state.query_message[project_id] = None
-            st.session_state.criteria_message[project_id] = None
+        if st.button(button_text, disabled=extract_leads_running):
+            st.session_state.extract_leads_running[project_id] = True
+            st.rerun()
+    
+    # Run extraction if flag is set
+    if extract_leads_running:
+        # Clear previous results and queries when starting new extraction
+        st.session_state.extraction_results[project_id] = {}
+        st.session_state.generated_queries[project_id] = {}
+        st.session_state.query_counter = 0
+        st.session_state.query_message[project_id] = None
+        st.session_state.criteria_message[project_id] = None
+        
+        with st.spinner("🤖 Extracting leads from URLs (this may take several minutes)..."):
+            leads_result = call_api(generate_leads, project['id'])
+            # Reset running state regardless of success or failure
+            st.session_state.extract_leads_running[project_id] = False
             
-            with st.spinner("🤖 Extracting leads from URLs (this may take several minutes)..."):
-                leads_result = call_api(generate_leads, project['id'])
+            if leads_result:
+                # Store full result (including stats from backend) in session state for this project
+                st.session_state.extraction_results[project_id] = leads_result
                 
-                if leads_result:
-                    # Store full result (including stats from backend) in session state for this project
-                    st.session_state.extraction_results[project_id] = leads_result
-                    
-                    # Refresh project data to get updated stats
-                    updated_project = call_api(get_project, project['id'])
-                    if updated_project:
-                        st.session_state.selected_project = updated_project
-                    
-                    # Automatically fetch ZIP file after successful extraction
-                    with st.spinner("📥 Preparing download..."):
-                        _fetch_and_store_zip_data(project['id'])
-                    
-                    st.rerun()
+                # Refresh project data to get updated stats
+                updated_project = call_api(get_project, project['id'])
+                if updated_project:
+                    st.session_state.selected_project = updated_project
+                
+                # Automatically fetch ZIP file after successful extraction
+                with st.spinner("📥 Preparing download..."):
+                    _fetch_and_store_zip_data(project['id'])
+            
+            st.rerun()
     
     # Display extraction results if they exist for this project
     project_extraction_result = st.session_state.extraction_results.get(project_id, {})
@@ -961,4 +1010,3 @@ def show_upload_dataset_tab(project):
 
         if upload_success_key in st.session_state:
             st.success(st.session_state[upload_success_key])
-
