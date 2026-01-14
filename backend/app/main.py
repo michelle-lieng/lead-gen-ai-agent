@@ -9,7 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from slowapi.errors import RateLimitExceeded
-from .middleware.rate_limit import limiter
+from slowapi.util import get_remote_address
+from .middleware.rate_limit import Limiter
 
 from .api.routes import (
     projects,
@@ -24,6 +25,7 @@ from .services.job_service import job_service
 from . import exceptions
 
 logger = logging.getLogger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 
 # =========================
 # App
@@ -48,6 +50,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# =========================
+# Rate Limiting
+# =========================
+
+# Add rate limiting middleware
+app.state.limiter = limiter
 
 # =========================
 # Exception handlers
