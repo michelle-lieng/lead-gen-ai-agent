@@ -62,7 +62,6 @@ def show_network_error(e: NetworkError | None = None):
         "❌ Can't reach the backend. Check BACKEND_URL, server status, or your network/VPC."
     )
 
-
 def show_validation_errors(detail: list):
     """
     FastAPI 422 detail format:

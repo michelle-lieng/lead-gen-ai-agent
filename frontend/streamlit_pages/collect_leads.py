@@ -4,6 +4,8 @@ Lead collection page
 import streamlit as st
 import pandas as pd
 from utils.display_errors import call_api
+from api.base import ApiError, NetworkError
+from utils.ui_errors import friendly_message, show_api_error, show_network_error
 from api import (
     update_project,
     generate_queries,
@@ -210,7 +212,6 @@ def show_web_search_tab(project):
                     with st.spinner(f"🤖 AI is generating {st.session_state.num_queries} targeted search queries..."):
                         # Clear previous message when generating new queries
                         st.session_state.query_message[project_id] = None
-                        
                         generated_queries = call_api(generate_queries, project['id'], num_queries=st.session_state.num_queries)
                         if generated_queries:
                             # Get existing queries for this project (case-insensitive comparison)
