@@ -2,13 +2,18 @@
 Query endpoints
 """
 import logging
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Response, Request
 import openai
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
 
 from ...services.leads_serp_service import leads_serp_service
 from ...services.job_service import job_service
 
 logger = logging.getLogger(__name__)
+
+# Get limiter from app state
+limiter = Limiter(key_func=get_remote_address)
 
 from ...models.schemas import QueryListRequest, QueryGenerationRequest, UrlCreate, UrlUpdate
 from fastapi import APIRouter, Response
@@ -28,7 +33,8 @@ from ...models.schemas import (
 router = APIRouter()
 
 @router.post("/projects/{project_id}/queries", response_model=list[str])
-async def generate_queries(project_id: int, request: QueryGenerationRequest):
+@limiter.limit("1/minute")
+async def generate_queries(request: Request, project_id: int, query_data: QueryGenerationRequest):
     """
     Generate AI-powered search queries for a project based on its description.
     
@@ -38,7 +44,7 @@ async def generate_queries(project_id: int, request: QueryGenerationRequest):
     
     Returns list of generated search query strings.
     """
-    return leads_serp_service.generate_queries(project_id, num_queries=request.num_queries)
+    return leads_serp_service.generate_queries(project_id, num_queries=query_data.num_queries)
 
 @router.get("/projects/{project_id}/queries", response_model=list[QueryResponse])
 async def get_queries(project_id: int):

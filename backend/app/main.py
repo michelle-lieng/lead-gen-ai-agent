@@ -94,13 +94,18 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     """
     Custom handler for rate limit exceeded errors
     """
+    # Build response headers - only include Retry-After if available
+    headers = {}
+    if hasattr(exc, 'retry_after') and exc.retry_after is not None:
+        headers["Retry-After"] = str(exc.retry_after)
+    
     return JSONResponse(
         status_code=429,
         content={
-            "detail": f"Rate limit exceeded: {exc.detail}",
+            "detail": f"Rate limit exceeded: {exc.detail}" if hasattr(exc, 'detail') else "Rate limit exceeded",
             "code": "RATE_LIMIT_EXCEEDED"
         },
-        headers={"Retry-After": str(exc.retry_after)}
+        headers=headers
     )
 
 @app.exception_handler(exceptions.AppError)
