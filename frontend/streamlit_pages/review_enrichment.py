@@ -282,6 +282,8 @@ def show_run_on_all_leads():
         result_format = enriched_results.get("result_format", "")
         if result_format == "True/False" and column_name in display_df.columns:
             display_df[column_name] = display_df[column_name].apply(lambda x: "True" if x is True else "False" if x is False else str(x))
+        elif result_format == "Number" and column_name in display_df.columns:
+            display_df[column_name] = display_df[column_name].apply(lambda x: str(x) if pd.notna(x) else "")
         
         st.dataframe(display_df, width='stretch', hide_index=True)
         st.caption(f"Showing {len(display_df)} enriched lead(s) with '{enriched_results.get('enrichment_name', '')}' column.")
