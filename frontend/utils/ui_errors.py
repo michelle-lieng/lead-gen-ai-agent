@@ -33,6 +33,8 @@ FRIENDLY_TEMPLATES: dict[str, str] = {
     # Jobs
     "JOB_NOT_FOUND": "That job can't be found. It may have been deleted—try refreshing.",
     "JOB_ALREADY_RUNNING": "🔄 Still running enrichment on all leads...please wait.",
+    # Rate Limiting
+    "RATE_LIMIT_EXCEEDED": "⏱️ Rate limit exceeded. Please wait a moment before trying again.",
     # Generic / server fallback
     "UNEXPECTED_INTERNAL_ERROR": "Something went wrong on the server. Please try again.",
 }
@@ -46,6 +48,7 @@ STATUS_FALLBACK_MESSAGES: dict[int, str] = {
     409: "Conflict. This item may already exist.",
     413: "Request too large. Try reducing the input size.",
     422: "Some inputs are invalid. Please correct them and try again.",
+    429: "⏱️ Rate limit exceeded. Please wait a moment before trying again.",
     500: "Server error. Please try again.",
     502: "Upstream service error. Please try again soon.",
     503: "Service temporarily unavailable. Please try again soon.",
