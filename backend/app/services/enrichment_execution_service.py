@@ -15,6 +15,7 @@ import openai
 
 from ..models.tables import Enrichment
 from .job_service import job_service
+
 # Import existing Jina functions from utils
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..config import settings
@@ -424,7 +425,6 @@ In {enrichment_name} return None if you do not find any information at all, OR i
         default_wait_time = 10.0  # Fallback if we can't parse the time
 
         # Track original input for truncation if needed
-        original_input_text = input_text
         current_input_text = input_text
 
         result = None
@@ -543,11 +543,12 @@ In {enrichment_name} return None if you do not find any information at all, OR i
         return output_dict
 
     async def enrich_leads(
-        self, enrichment: Enrichment, 
-        leads_data: list[dict], 
-        project_id: int, 
-        enrichment_id: int, 
-        job_id: int
+        self,
+        enrichment: Enrichment,
+        leads_data: list[dict],
+        project_id: int,
+        enrichment_id: int,
+        job_id: int,
     ) -> tuple[list[dict], list[str]]:
         """
         Process leads enrichment using the enrichment configuration.
@@ -564,7 +565,7 @@ In {enrichment_name} return None if you do not find any information at all, OR i
             output_type_map = {"True/False": "bool", "Text": "str", "Number": "int"}
             output_type = output_type_map.get(enrichment.result_format)
             column_name = enrichment.column_name
-            
+
             leads_to_enrich = []
             already_enriched_leads = []
 
@@ -575,10 +576,14 @@ In {enrichment_name} return None if you do not find any information at all, OR i
                     continue
                 # Check if this lead already has a non-NULL/non-empty value for column_name
                 existing_value = lead_row.get(column_name)
-                
+
                 # Consider None, empty string, or missing key as "needs enrichment"
                 # Consider any other value (including False, 0, empty list) as "already enriched"
-                if existing_value is None or existing_value == "" or column_name not in lead_row:
+                if (
+                    existing_value is None
+                    or existing_value == ""
+                    or column_name not in lead_row
+                ):
                     leads_to_enrich.append(lead_row)
                 else:
                     already_enriched_leads.append(lead_row)
@@ -587,7 +592,7 @@ In {enrichment_name} return None if you do not find any information at all, OR i
             async def process_single_lead(lead_row: dict) -> dict:
                 """Process a single lead enrichment"""
                 company_name = lead_row.get("lead", "")
-                
+
                 try:
                     # Run enrichment for this company
                     result = await self.enrich_company(
@@ -600,12 +605,12 @@ In {enrichment_name} return None if you do not find any information at all, OR i
                         is_false_prompt=enrichment.result_false_if or "",
                         is_true_prompt=enrichment.result_true_if or "",
                         int_prompt=enrichment.result_number_value or "",
-                        return_metadata=False
+                        return_metadata=False,
                     )
-                    
+
                     # Create enriched lead row
                     enriched_lead = lead_row.copy()
-                    
+
                     # Extract the enrichment value, reasoning, and evidence from result
                     enriched_lead[column_name] = result.get(column_name, "")
                     enriched_lead[f"{column_name}_reasoning"] = result.get(
@@ -633,7 +638,7 @@ In {enrichment_name} return None if you do not find any information at all, OR i
                         f"❌ Failed to enrich '{company_name}' for column '{column_name}'. "
                         f"Error: {type(e).__name__}: {str(e)}"
                     )
-                    
+
                     # Add the lead with NULL values - keep business data clean
                     # Error details are in logs, not in business data
                     enriched_lead = lead_row.copy()
@@ -655,7 +660,7 @@ In {enrichment_name} return None if you do not find any information at all, OR i
                 columns.append(f"{column_name}_reasoning")
             if f"{column_name}_evidence" not in columns:
                 columns.append(f"{column_name}_evidence")
-            
+
             # Mark job as completed
             job_service.mark_job_as_completed(job_id)
             return (enriched_leads, columns)
@@ -667,7 +672,9 @@ In {enrichment_name} return None if you do not find any information at all, OR i
                 f"Error: {type(e).__name__}: {str(e)}"
             )
             # Mark job as failed
-            job_service.mark_job_as_failed(job_id, f"Unexpected error: {type(e).__name__}: {str(e)}")
+            job_service.mark_job_as_failed(
+                job_id, f"Unexpected error: {type(e).__name__}: {str(e)}"
+            )
             # Return empty results on critical failure
             return ([], ["lead"])
 
