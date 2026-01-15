@@ -7,7 +7,8 @@ import asyncio
 import re
 from typing import Literal, Optional
 from pydantic import Field, create_model
-from agents import Agent, Runner, function_tool, set_default_openai_key
+from agents import Agent, Runner, function_tool, set_default_openai_key, ModelSettings
+from openai.types.shared import Reasoning
 import logging
 import openai
 
@@ -292,10 +293,12 @@ In {enrichment_name} return None if you do not find any information at all. Do n
         """
         Truncate text to max_words, cutting at word boundaries.
 
-        OpenAI TPM limit: 30,000 tokens
+        Using gpt-5-mini which has 500,000 TPM limit (16.7x higher than gpt-4.1's 30K TPM)
         - ~1.3 tokens per word on average
-        - Need to leave room for prompt, instructions, and output
-        - Safe target: ~20,000 tokens for content = ~15,000 words
+        - With 500K TPM, we can handle much larger requests (50K+ tokens per request)
+        - Safe target: ~50,000 tokens for content = ~38,000 words
+        - Still need to leave room for prompt, instructions, and output (~10-15K tokens)
+        - Truncation is a safety mechanism for per-request context window limits
         """
         if not text:
             return text
@@ -397,9 +400,16 @@ In {enrichment_name} return None if you do not find any information at all. Do n
             instructions=instructions,
             tools=tools,
             output_type=OutputModel,
+            model="gpt-5-mini",  # Using gpt-5-mini: 500K TPM, better quality, supports function tools, 10x cheaper input than gpt-4o
+            model_settings=ModelSettings(
+                reasoning=Reasoning(
+                    effort="minimal"
+                ),  # Lower latency - custom function tools work with minimal effort
+                verbosity="low",
+            ),
         )
 
-        # Run the agent with increased max_turns for enrichment (default is 10, enrichment may need more)
+        # Run the agent with max_turns for enrichment (default is 10)
         input_text = (
             f"Company to enrich: {company_name}\nEnrichment field: {enrichment_name}"
         )

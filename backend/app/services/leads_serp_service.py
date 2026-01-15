@@ -10,7 +10,8 @@ from io import StringIO, BytesIO
 from datetime import datetime
 import re
 import zipfile
-from agents import Agent, Runner, set_default_openai_key
+from agents import Agent, Runner, set_default_openai_key, ModelSettings
+from openai.types.shared import Reasoning
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import func, distinct
 from sqlalchemy.exc import SQLAlchemyError
@@ -65,8 +66,8 @@ class LeadsSerpService:
             15
         )  # For jina_url_scraper (increased from 10, Jina Reader API: 200 RPM)
         self.llm_semaphore = asyncio.Semaphore(
-            3
-        )  # For Runner.run (OpenAI API, reduced from 12 due to TPM limits: 30K TPM)
+            12
+        )  # For Runner.run (OpenAI API, using gpt-5-mini with 500K TPM limit - increased from 3 to take advantage of higher TPM)
 
     def generate_queries(self, project_id: int, num_queries: int = 3) -> list[str]:
         """
@@ -92,7 +93,7 @@ class LeadsSerpService:
 
         # Call OpenAI API
         response = self.openai_client.responses.parse(
-            model="gpt-4o-2024-08-06",
+            model="gpt-5-mini",  # Using gpt-5-mini: 500K TPM, better quality, 10x cheaper input than gpt-4o
             input=[
                 {
                     "role": "system",
@@ -507,10 +508,12 @@ class LeadsSerpService:
         """
         Truncate text to max_words, cutting at word boundaries.
 
-        OpenAI TPM limit: 30,000 tokens
+        Using gpt-5-mini which has 500,000 TPM limit (16.7x higher than gpt-4.1's 30K TPM)
         - ~1.3 tokens per word on average
-        - Need to leave room for prompt, instructions, and output
-        - Safe target: ~20,000 tokens for content = ~15,000 words
+        - With 500K TPM, we can handle much larger requests (50K+ tokens per request)
+        - Safe target: ~50,000 tokens for content = ~38,000 words
+        - Still need to leave room for prompt, instructions, and output (~10-15K tokens)
+        - Truncation is a safety mechanism for per-request context window limits
         """
         if not text:
             return text
@@ -551,6 +554,13 @@ class LeadsSerpService:
                 instructions=extraction_prompt,
                 tools=[],  # No tools - we always scrape first
                 output_type=list[str],  # Specify the output type as a list of strings
+                model="gpt-5-mini",  # Using gpt-5-mini: 500K TPM, better quality, 10x cheaper input than gpt-4o
+                model_settings=ModelSettings(
+                    reasoning=Reasoning(
+                        effort="minimal"
+                    ),  # Lower latency for faster responses
+                    verbosity="low",
+                ),
             )
 
             # Track original scraped content for return value
