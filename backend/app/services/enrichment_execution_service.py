@@ -8,6 +8,7 @@ import re
 from typing import Literal, Optional
 from pydantic import Field, create_model
 from agents import Agent, Runner, function_tool, set_default_openai_key, ModelSettings
+from agents.exceptions import MaxTurnsExceeded
 from openai.types.shared import Reasoning
 import logging
 import openai
@@ -612,9 +613,17 @@ In {enrichment_name} return None if you do not find any information at all, OR i
                     
                     enriched_leads.append(enriched_lead)
                     
-                except (ExternalScraperError, OpenAITokenLimitExceededError, ApiKeyNotConfiguredError,
-                        TimeoutError, openai.APITimeoutError, openai.RateLimitError, 
-                        openai.BadRequestError, RuntimeError) as e:
+                except (
+                    ExternalScraperError,
+                    OpenAITokenLimitExceededError,
+                    ApiKeyNotConfiguredError,
+                    TimeoutError,
+                    openai.APITimeoutError,
+                    openai.RateLimitError,
+                    openai.BadRequestError,
+                    RuntimeError,
+                    MaxTurnsExceeded,
+                ) as e:
                     # They will propagate up to indicate bugs that need fixing
                     logger.exception(
                         f"❌ Failed to enrich '{company_name}' for column '{column_name}'. "
