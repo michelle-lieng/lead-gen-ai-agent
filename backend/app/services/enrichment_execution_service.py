@@ -7,12 +7,15 @@ import asyncio
 import re
 from typing import Literal, Optional
 from pydantic import Field, create_model
-from agents import Agent, Runner, function_tool, set_default_openai_key
+from agents import Agent, Runner, function_tool, set_default_openai_key, ModelSettings
+from agents.exceptions import MaxTurnsExceeded
+from openai.types.shared import Reasoning
 import logging
 import openai
 
 from ..models.tables import Enrichment
 from .job_service import job_service
+
 # Import existing Jina functions from utils
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..config import settings
@@ -54,8 +57,8 @@ class EnrichmentExecutionService:
             15
         )  # For jina_url_scraper (increased from 10, Jina Reader API: 200 RPM)
         self.llm_semaphore = asyncio.Semaphore(
-            3
-        )  # For Runner.run (OpenAI API, reduced from 12 due to TPM limits: 30K TPM)
+            12
+        )  # For Runner.run (OpenAI API, using gpt-5-mini with 500K TPM limit - increased from 3 to take advantage of higher TPM)
 
     def _create_tools(self):
         """
@@ -71,6 +74,13 @@ class EnrichmentExecutionService:
 
             Args:
                 search_phrase: The search query (e.g., "Hurstville Highpoint Medical Centre more than 1 doctor")
+                    CRITICAL: Use ONLY simple, natural language queries. DO NOT use:
+                    - site: operators (e.g., "site:example.com" - these cause errors)
+                    - Quotes around terms (e.g., "Locations" "Bondi" - these cause errors)
+                    - Complex boolean operators (AND, OR, NOT)
+                    - Parentheses or special syntax
+                    Instead, use plain natural language like: "98 Training gym locations list"
+                    Keep queries short (under 10 words) and simple.
 
             Returns:
                 List of dictionaries containing search results with keys like 'title', 'snippet', 'url'
@@ -192,19 +202,19 @@ class EnrichmentExecutionService:
         # Determine type-specific values
         if output_type == "str":
             json_value_example = "string value or None"
-            null_handling = "If you cannot find the information, set the value to None and explain why in the reasoning."
+            null_handling = "If the company name doesn't match exactly in search results, return None. If you cannot find the information, set the value to None and explain why in the reasoning. If the company is completely irrelevant to the question (e.g., asking about gym locations for a transportation company), return None."
             type_specific_instructions = f"""String extraction instructions: {string_prompt}
 Output type: String (text value)
 """
         elif output_type == "int":
             json_value_example = "integer value or None"
-            null_handling = "If you cannot find the information, set the value to None and explain why in the reasoning."
+            null_handling = "If the company name doesn't match exactly in search results, return None. If you cannot find the information, set the value to None and explain why in the reasoning. If the company is completely irrelevant to the question (e.g., asking about gym locations for a transportation company), return None - do NOT apply the rules to irrelevant companies."
             type_specific_instructions = f"""Integer extraction instructions: {int_prompt}
 Output type: Integer (whole number)
 """
         elif output_type == "bool":
             json_value_example = "true/false or None"
-            null_handling = "If the company name doesn't match exactly, return None. If you search and find no evidence of the condition being true (but company matches), return false. Only return None if company name doesn't match exactly or you truly cannot determine anything."
+            null_handling = "If the company name doesn't match exactly OR the company is completely irrelevant to the question, return None. If you search and find no evidence of the condition being true (but company matches and is relevant), return false. Only return None if company name doesn't match exactly, company is irrelevant, or you truly cannot determine anything."
             type_specific_instructions = f"""True condition: {is_true_prompt}
 False condition: {is_false_prompt}
 Output type: Boolean (true/false)
@@ -232,6 +242,12 @@ Additional context: {prompt_reasoning}
         base_prompt += f"""
 Instructions:
 1. **First, use jina_serp_search** to search for information about the company and the enrichment field
+   - **CRITICAL: Use ONLY simple, natural language queries** - plain text like "company name location information"
+   - **DO NOT use site: operators** (e.g., "site:example.com") - these cause 422 errors
+   - **DO NOT use quotes** around terms (e.g., "Locations" "Bondi") - these cause 422 errors
+   - **DO NOT use boolean operators** (AND, OR, NOT) or parentheses
+   - Use natural language queries that a person would type into Google (5-10 words max)
+   - Example: "98 Training gym locations" NOT "site:98training.com \"Locations\" \"Bondi\""
 2. **Review the search results carefully** - check if the snippets and titles already contain the information you need
 3. **Search thoroughly and interpret evidence broadly**:
    - Use multiple search queries if needed to find comprehensive information
@@ -251,19 +267,23 @@ Instructions:
 8. Include evidence (URLs, quotes, or specific data points) that support your answer
 
 Important:
-- **Use tools efficiently and sparingly** - each API call has a cost
+- **CRITICAL: Company name must match exactly** - If the company name in search results doesn't match exactly (e.g., searching for "Uber" but results are about a different company), return None. Do NOT apply enrichment rules if the company name doesn't match.
+- **CRITICAL: Irrelevant companies return None** - If the company is completely irrelevant to the enrichment question (e.g., asking about gym locations for a transportation company like Uber, or asking about medical practices for a retail company), return None. Do NOT try to apply the enrichment rules to irrelevant companies - return None with clear reasoning that the company is not relevant to the question.
+- **Work efficiently within turn limits** - you have 10 turns maximum. Use tools strategically and avoid unnecessary calls
+- **Use tools efficiently and sparingly** - each API call has a cost and uses a turn
 - **Prioritize search result snippets** - if they clearly answer the question, use them directly without scraping
 - **Scrape when information is insufficient** - if SERP results don't provide enough information to answer confidently, scrape the most relevant URL(s) to get definitive information
 - **Optimize URL selection** - choose the most relevant source (e.g., official company website, company profile page, relevant company pages) that's most likely to contain the answer
-- **Search comprehensively** - use multiple search queries if needed, and look for company pages, reports, and documentation that might contain the information
+- **Search comprehensively but efficiently** - use 2-3 targeted search queries maximum, then decide if scraping is needed
 - **Interpret evidence broadly** - consider related information and broader context, not just exact literal matches
+- **If you can't find the answer after reasonable searches, return None with clear reasoning** - don't keep searching indefinitely
 - Be precise and accurate
 - **None handling**: {null_handling}
 - Always cite your sources in the evidence field
 
 Output JSON:
 You must return a JSON object with the following structure:
-In {enrichment_name} return None if you do not find any information at all. Do not make up information!
+In {enrichment_name} return None if you do not find any information at all, OR if the company is irrelevant to the question. Do not make up information! Do not apply enrichment rules to irrelevant companies - return None instead.
 
 {type_specific_instructions}
 {{
@@ -279,10 +299,12 @@ In {enrichment_name} return None if you do not find any information at all. Do n
         """
         Truncate text to max_words, cutting at word boundaries.
 
-        OpenAI TPM limit: 30,000 tokens
+        Using gpt-5-mini which has 500,000 TPM limit (16.7x higher than gpt-4.1's 30K TPM)
         - ~1.3 tokens per word on average
-        - Need to leave room for prompt, instructions, and output
-        - Safe target: ~20,000 tokens for content = ~15,000 words
+        - With 500K TPM, we can handle much larger requests (50K+ tokens per request)
+        - Safe target: ~50,000 tokens for content = ~38,000 words
+        - Still need to leave room for prompt, instructions, and output (~10-15K tokens)
+        - Truncation is a safety mechanism for per-request context window limits
         """
         if not text:
             return text
@@ -384,9 +406,16 @@ In {enrichment_name} return None if you do not find any information at all. Do n
             instructions=instructions,
             tools=tools,
             output_type=OutputModel,
+            model="gpt-5-mini",  # Using gpt-5-mini: 500K TPM, better quality, supports function tools, 10x cheaper input than gpt-4o
+            model_settings=ModelSettings(
+                reasoning=Reasoning(
+                    effort="minimal"
+                ),  # Lower latency - custom function tools work with minimal effort
+                verbosity="low",
+            ),
         )
 
-        # Run the agent with increased max_turns for enrichment (default is 10, enrichment may need more)
+        # Run the agent with max_turns for enrichment (default is 10)
         input_text = (
             f"Company to enrich: {company_name}\nEnrichment field: {enrichment_name}"
         )
@@ -396,7 +425,6 @@ In {enrichment_name} return None if you do not find any information at all. Do n
         default_wait_time = 10.0  # Fallback if we can't parse the time
 
         # Track original input for truncation if needed
-        original_input_text = input_text
         current_input_text = input_text
 
         result = None
@@ -472,7 +500,9 @@ In {enrichment_name} return None if you do not find any information at all. Do n
                 )
 
                 if is_request_too_large and attempt < max_retries - 1:
-                    max_words = 10000
+                    # With gpt-5-mini's 500K TPM, we can handle much larger content
+                    # ~38K words = ~50K tokens, leaving ~10-15K tokens for prompt/instructions/output
+                    max_words = 38000  # Increased significantly from 10K to take advantage of 500K TPM
                     word_count = len(current_input_text.split())
                     if word_count > max_words:
                         current_input_text = self._truncate_by_word_count(
@@ -513,11 +543,12 @@ In {enrichment_name} return None if you do not find any information at all. Do n
         return output_dict
 
     async def enrich_leads(
-        self, enrichment: Enrichment, 
-        leads_data: list[dict], 
-        project_id: int, 
-        enrichment_id: int, 
-        job_id: int
+        self,
+        enrichment: Enrichment,
+        leads_data: list[dict],
+        project_id: int,
+        enrichment_id: int,
+        job_id: int,
     ) -> tuple[list[dict], list[str]]:
         """
         Process leads enrichment using the enrichment configuration.
@@ -534,7 +565,7 @@ In {enrichment_name} return None if you do not find any information at all. Do n
             output_type_map = {"True/False": "bool", "Text": "str", "Number": "int"}
             output_type = output_type_map.get(enrichment.result_format)
             column_name = enrichment.column_name
-            
+
             leads_to_enrich = []
             already_enriched_leads = []
 
@@ -545,19 +576,23 @@ In {enrichment_name} return None if you do not find any information at all. Do n
                     continue
                 # Check if this lead already has a non-NULL/non-empty value for column_name
                 existing_value = lead_row.get(column_name)
-                
+
                 # Consider None, empty string, or missing key as "needs enrichment"
                 # Consider any other value (including False, 0, empty list) as "already enriched"
-                if existing_value is None or existing_value == "" or column_name not in lead_row:
+                if (
+                    existing_value is None
+                    or existing_value == ""
+                    or column_name not in lead_row
+                ):
                     leads_to_enrich.append(lead_row)
                 else:
                     already_enriched_leads.append(lead_row)
 
-            # Process each lead to enrich
-            enriched_leads = []
-            for lead_row in leads_to_enrich:
+            # Process each lead to enrich concurrently (semaphore limits to 12 concurrent)
+            async def process_single_lead(lead_row: dict) -> dict:
+                """Process a single lead enrichment"""
                 company_name = lead_row.get("lead", "")
-                
+
                 try:
                     # Run enrichment for this company
                     result = await self.enrich_company(
@@ -570,36 +605,52 @@ In {enrichment_name} return None if you do not find any information at all. Do n
                         is_false_prompt=enrichment.result_false_if or "",
                         is_true_prompt=enrichment.result_true_if or "",
                         int_prompt=enrichment.result_number_value or "",
-                        return_metadata=False
+                        return_metadata=False,
                     )
-                    
+
                     # Create enriched lead row
                     enriched_lead = lead_row.copy()
-                    
+
                     # Extract the enrichment value, reasoning, and evidence from result
                     enriched_lead[column_name] = result.get(column_name, "")
-                    enriched_lead[f"{column_name}_reasoning"] = result.get(f"{column_name}_reasoning", "")
-                    enriched_lead[f"{column_name}_evidence"] = result.get(f"{column_name}_evidence", "")
-                    
-                    enriched_leads.append(enriched_lead)
-                    
-                except (ExternalScraperError, OpenAITokenLimitExceededError, ApiKeyNotConfiguredError,
-                        TimeoutError, openai.APITimeoutError, openai.RateLimitError, 
-                        openai.BadRequestError, RuntimeError) as e:
+                    enriched_lead[f"{column_name}_reasoning"] = result.get(
+                        f"{column_name}_reasoning", ""
+                    )
+                    enriched_lead[f"{column_name}_evidence"] = result.get(
+                        f"{column_name}_evidence", ""
+                    )
+
+                    return enriched_lead
+
+                except (
+                    ExternalScraperError,
+                    OpenAITokenLimitExceededError,
+                    ApiKeyNotConfiguredError,
+                    TimeoutError,
+                    openai.APITimeoutError,
+                    openai.RateLimitError,
+                    openai.BadRequestError,
+                    RuntimeError,
+                    MaxTurnsExceeded,
+                ) as e:
                     # They will propagate up to indicate bugs that need fixing
                     logger.exception(
                         f"❌ Failed to enrich '{company_name}' for column '{column_name}'. "
                         f"Error: {type(e).__name__}: {str(e)}"
                     )
-                    
+
                     # Add the lead with NULL values - keep business data clean
                     # Error details are in logs, not in business data
                     enriched_lead = lead_row.copy()
                     enriched_lead[column_name] = None
                     enriched_lead[f"{column_name}_reasoning"] = None
                     enriched_lead[f"{column_name}_evidence"] = None
-                    enriched_leads.append(enriched_lead)
-            
+                    return enriched_lead
+
+            # Process all leads concurrently (semaphore limits concurrency to 12)
+            tasks = [process_single_lead(lead_row) for lead_row in leads_to_enrich]
+            enriched_leads = await asyncio.gather(*tasks)
+
             # Get columns list
             columns = list(enriched_leads[0].keys()) if enriched_leads else ["lead"]
             # Ensure enrichment columns are in the list
@@ -609,7 +660,7 @@ In {enrichment_name} return None if you do not find any information at all. Do n
                 columns.append(f"{column_name}_reasoning")
             if f"{column_name}_evidence" not in columns:
                 columns.append(f"{column_name}_evidence")
-            
+
             # Mark job as completed
             job_service.mark_job_as_completed(job_id)
             return (enriched_leads, columns)
@@ -621,7 +672,9 @@ In {enrichment_name} return None if you do not find any information at all. Do n
                 f"Error: {type(e).__name__}: {str(e)}"
             )
             # Mark job as failed
-            job_service.mark_job_as_failed(job_id, f"Unexpected error: {type(e).__name__}: {str(e)}")
+            job_service.mark_job_as_failed(
+                job_id, f"Unexpected error: {type(e).__name__}: {str(e)}"
+            )
             # Return empty results on critical failure
             return ([], ["lead"])
 
