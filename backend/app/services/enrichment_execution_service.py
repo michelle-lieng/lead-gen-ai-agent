@@ -200,19 +200,19 @@ class EnrichmentExecutionService:
         # Determine type-specific values
         if output_type == "str":
             json_value_example = "string value or None"
-            null_handling = "If you cannot find the information, set the value to None and explain why in the reasoning."
+            null_handling = "If the company name doesn't match exactly in search results, return None. If you cannot find the information, set the value to None and explain why in the reasoning. If the company is completely irrelevant to the question (e.g., asking about gym locations for a transportation company), return None."
             type_specific_instructions = f"""String extraction instructions: {string_prompt}
 Output type: String (text value)
 """
         elif output_type == "int":
             json_value_example = "integer value or None"
-            null_handling = "If you cannot find the information, set the value to None and explain why in the reasoning."
+            null_handling = "If the company name doesn't match exactly in search results, return None. If you cannot find the information, set the value to None and explain why in the reasoning. If the company is completely irrelevant to the question (e.g., asking about gym locations for a transportation company), return None - do NOT apply the rules to irrelevant companies."
             type_specific_instructions = f"""Integer extraction instructions: {int_prompt}
 Output type: Integer (whole number)
 """
         elif output_type == "bool":
             json_value_example = "true/false or None"
-            null_handling = "If the company name doesn't match exactly, return None. If you search and find no evidence of the condition being true (but company matches), return false. Only return None if company name doesn't match exactly or you truly cannot determine anything."
+            null_handling = "If the company name doesn't match exactly OR the company is completely irrelevant to the question, return None. If you search and find no evidence of the condition being true (but company matches and is relevant), return false. Only return None if company name doesn't match exactly, company is irrelevant, or you truly cannot determine anything."
             type_specific_instructions = f"""True condition: {is_true_prompt}
 False condition: {is_false_prompt}
 Output type: Boolean (true/false)
@@ -265,19 +265,23 @@ Instructions:
 8. Include evidence (URLs, quotes, or specific data points) that support your answer
 
 Important:
-- **Use tools efficiently and sparingly** - each API call has a cost
+- **CRITICAL: Company name must match exactly** - If the company name in search results doesn't match exactly (e.g., searching for "Uber" but results are about a different company), return None. Do NOT apply enrichment rules if the company name doesn't match.
+- **CRITICAL: Irrelevant companies return None** - If the company is completely irrelevant to the enrichment question (e.g., asking about gym locations for a transportation company like Uber, or asking about medical practices for a retail company), return None. Do NOT try to apply the enrichment rules to irrelevant companies - return None with clear reasoning that the company is not relevant to the question.
+- **Work efficiently within turn limits** - you have 10 turns maximum. Use tools strategically and avoid unnecessary calls
+- **Use tools efficiently and sparingly** - each API call has a cost and uses a turn
 - **Prioritize search result snippets** - if they clearly answer the question, use them directly without scraping
 - **Scrape when information is insufficient** - if SERP results don't provide enough information to answer confidently, scrape the most relevant URL(s) to get definitive information
 - **Optimize URL selection** - choose the most relevant source (e.g., official company website, company profile page, relevant company pages) that's most likely to contain the answer
-- **Search comprehensively** - use multiple search queries if needed, and look for company pages, reports, and documentation that might contain the information
+- **Search comprehensively but efficiently** - use 2-3 targeted search queries maximum, then decide if scraping is needed
 - **Interpret evidence broadly** - consider related information and broader context, not just exact literal matches
+- **If you can't find the answer after reasonable searches, return None with clear reasoning** - don't keep searching indefinitely
 - Be precise and accurate
 - **None handling**: {null_handling}
 - Always cite your sources in the evidence field
 
 Output JSON:
 You must return a JSON object with the following structure:
-In {enrichment_name} return None if you do not find any information at all. Do not make up information!
+In {enrichment_name} return None if you do not find any information at all, OR if the company is irrelevant to the question. Do not make up information! Do not apply enrichment rules to irrelevant companies - return None instead.
 
 {type_specific_instructions}
 {{
