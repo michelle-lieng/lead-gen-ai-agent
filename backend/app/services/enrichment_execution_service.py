@@ -56,8 +56,8 @@ class EnrichmentExecutionService:
             15
         )  # For jina_url_scraper (increased from 10, Jina Reader API: 200 RPM)
         self.llm_semaphore = asyncio.Semaphore(
-            3
-        )  # For Runner.run (OpenAI API, reduced from 12 due to TPM limits: 30K TPM)
+            12
+        )  # For Runner.run (OpenAI API, using gpt-5-mini with 500K TPM limit - increased from 3 to take advantage of higher TPM)
 
     def _create_tools(self):
         """
@@ -583,9 +583,9 @@ In {enrichment_name} return None if you do not find any information at all, OR i
                 else:
                     already_enriched_leads.append(lead_row)
 
-            # Process each lead to enrich
-            enriched_leads = []
-            for lead_row in leads_to_enrich:
+            # Process each lead to enrich concurrently (semaphore limits to 12 concurrent)
+            async def process_single_lead(lead_row: dict) -> dict:
+                """Process a single lead enrichment"""
                 company_name = lead_row.get("lead", "")
                 
                 try:
@@ -608,11 +608,15 @@ In {enrichment_name} return None if you do not find any information at all, OR i
                     
                     # Extract the enrichment value, reasoning, and evidence from result
                     enriched_lead[column_name] = result.get(column_name, "")
-                    enriched_lead[f"{column_name}_reasoning"] = result.get(f"{column_name}_reasoning", "")
-                    enriched_lead[f"{column_name}_evidence"] = result.get(f"{column_name}_evidence", "")
-                    
-                    enriched_leads.append(enriched_lead)
-                    
+                    enriched_lead[f"{column_name}_reasoning"] = result.get(
+                        f"{column_name}_reasoning", ""
+                    )
+                    enriched_lead[f"{column_name}_evidence"] = result.get(
+                        f"{column_name}_evidence", ""
+                    )
+
+                    return enriched_lead
+
                 except (
                     ExternalScraperError,
                     OpenAITokenLimitExceededError,
@@ -636,8 +640,12 @@ In {enrichment_name} return None if you do not find any information at all, OR i
                     enriched_lead[column_name] = None
                     enriched_lead[f"{column_name}_reasoning"] = None
                     enriched_lead[f"{column_name}_evidence"] = None
-                    enriched_leads.append(enriched_lead)
-            
+                    return enriched_lead
+
+            # Process all leads concurrently (semaphore limits concurrency to 12)
+            tasks = [process_single_lead(lead_row) for lead_row in leads_to_enrich]
+            enriched_leads = await asyncio.gather(*tasks)
+
             # Get columns list
             columns = list(enriched_leads[0].keys()) if enriched_leads else ["lead"]
             # Ensure enrichment columns are in the list
