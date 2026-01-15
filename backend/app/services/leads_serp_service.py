@@ -668,7 +668,9 @@ class LeadsSerpService:
                     )
 
                     if is_request_too_large and attempt < max_retries - 1:
-                        max_words = 10000
+                        # With gpt-5-mini's 500K TPM, we can handle much larger content
+                        # ~38K words = ~50K tokens, leaving ~10-15K tokens for prompt/instructions/output
+                        max_words = 38000  # Increased significantly from 10K to take advantage of 500K TPM
                         word_count = len(current_scraped_content.split())
                         if word_count > max_words:
                             current_scraped_content = self._truncate_by_word_count(
