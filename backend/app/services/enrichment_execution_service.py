@@ -71,6 +71,13 @@ class EnrichmentExecutionService:
 
             Args:
                 search_phrase: The search query (e.g., "Hurstville Highpoint Medical Centre more than 1 doctor")
+                    CRITICAL: Use ONLY simple, natural language queries. DO NOT use:
+                    - site: operators (e.g., "site:example.com" - these cause errors)
+                    - Quotes around terms (e.g., "Locations" "Bondi" - these cause errors)
+                    - Complex boolean operators (AND, OR, NOT)
+                    - Parentheses or special syntax
+                    Instead, use plain natural language like: "98 Training gym locations list"
+                    Keep queries short (under 10 words) and simple.
 
             Returns:
                 List of dictionaries containing search results with keys like 'title', 'snippet', 'url'
@@ -232,6 +239,12 @@ Additional context: {prompt_reasoning}
         base_prompt += f"""
 Instructions:
 1. **First, use jina_serp_search** to search for information about the company and the enrichment field
+   - **CRITICAL: Use ONLY simple, natural language queries** - plain text like "company name location information"
+   - **DO NOT use site: operators** (e.g., "site:example.com") - these cause 422 errors
+   - **DO NOT use quotes** around terms (e.g., "Locations" "Bondi") - these cause 422 errors
+   - **DO NOT use boolean operators** (AND, OR, NOT) or parentheses
+   - Use natural language queries that a person would type into Google (5-10 words max)
+   - Example: "98 Training gym locations" NOT "site:98training.com \"Locations\" \"Bondi\""
 2. **Review the search results carefully** - check if the snippets and titles already contain the information you need
 3. **Search thoroughly and interpret evidence broadly**:
    - Use multiple search queries if needed to find comprehensive information
