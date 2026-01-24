@@ -4,7 +4,6 @@ Enrichment endpoints
 
 import logging
 from fastapi import APIRouter
-from typing import List
 
 from ...services.enrichment_execution_service import enrichment_execution_service
 from ...services.enrichment_service import enrichment_service
@@ -14,17 +13,9 @@ from ...models.schemas import (
     EnrichmentCreate,
     EnrichmentUpdate,
     EnrichmentResponse,
-    EnrichLeadsRequest,
-    JobResponse,
+    EnrichLeadsRequest
 )
-from ...exceptions import EnrichmentNotFoundError, ProjectNotFoundError
 from ...services.project_service import project_service
-from ...models.schemas import (
-    EnrichmentCreate,
-    EnrichmentUpdate,
-    EnrichmentResponse,
-    EnrichLeadsRequest,
-)
 from ...exceptions import (
     EnrichmentNotFoundError,
     ProjectNotFoundError,
@@ -58,7 +49,7 @@ async def create_enrichment(project_id: int, request: EnrichmentCreate):
 
 
 @router.get(
-    "/projects/{project_id}/enrichments/", response_model=List[EnrichmentResponse]
+    "/projects/{project_id}/enrichments/", response_model=list[EnrichmentResponse]
 )
 async def get_enrichments(project_id: int):
     """
