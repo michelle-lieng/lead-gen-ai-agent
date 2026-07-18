@@ -10,7 +10,8 @@ databases:
     plan: free            # free Postgres expires after 30 days — upgrade for anything long-lived
     region: oregon
     databaseName: ai_lead_generator
-    user: postgres
+    # No `user:` — Render auto-generates one, and the backend reads the full
+    # DATABASE_URL (connectionString) below, so the username doesn't matter.
 
 services:
   # ---- Backend: FastAPI ----
