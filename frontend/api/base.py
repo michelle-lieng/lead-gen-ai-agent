@@ -13,6 +13,10 @@ from urllib3.util.retry import Retry
 # Configuration
 # =========================
 BASE_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+# Render private networking supplies a scheme-less "host:port"; add http:// so
+# requests can build a valid URL. (localhost default already has a scheme.)
+if not BASE_URL.startswith(("http://", "https://")):
+    BASE_URL = f"http://{BASE_URL}"
 TIMEOUT = 600
 
 # =========================

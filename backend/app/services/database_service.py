@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 class DatabaseService:
     def __init__(self):
         """Initialize database service with connection to the main database"""
-        self.connection_string = (
+        # Prefer a full DATABASE_URL (managed Postgres like Render) if provided,
+        # otherwise build one from the individual POSTGRESQL_* settings.
+        self.connection_string = settings.database_url or (
             f"postgresql://{settings.postgresql_user}:{settings.postgresql_password}"
             f"@{settings.postgresql_host}:{settings.postgresql_port}/{settings.postgresql_database}"
         )
