@@ -51,9 +51,9 @@ services:
     dockerCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true --server.enableCORS false --server.enableXsrfProtection false
     healthCheckPath: /_stcore/health
     envVars:
-      # Talks to the backend over Render's private network (host:port; base.py adds http://).
+      # Free web services can SEND but not RECEIVE private-network requests, so the
+      # backend can't be reached privately — use its PUBLIC URL instead. Paste the
+      # backend's onrender.com URL here in the dashboard, e.g.
+      #   https://lead-gen-backend-ms7s.onrender.com
       - key: BACKEND_URL
-        fromService:
-          type: web
-          name: lead-gen-backend
-          property: hostport
+        sync: false
