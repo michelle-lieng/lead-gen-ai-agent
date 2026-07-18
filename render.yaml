@@ -23,7 +23,8 @@ services:
     dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile
     # Bind to the port Render assigns via $PORT instead of the hardcoded 8000.
-    dockerCommand: sh -c "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    # (Render already runs this through a shell, so $PORT expands — no `sh -c` wrapper.)
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
@@ -47,7 +48,7 @@ services:
     region: oregon
     dockerContext: ./frontend
     dockerfilePath: ./frontend/Dockerfile
-    dockerCommand: sh -c "streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true --server.enableCORS false --server.enableXsrfProtection false"
+    dockerCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true --server.enableCORS false --server.enableXsrfProtection false
     healthCheckPath: /_stcore/health
     envVars:
       # Talks to the backend over Render's private network (host:port; base.py adds http://).
