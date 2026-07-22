@@ -2,11 +2,12 @@
 Query endpoints
 """
 import logging
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Depends, Response
 import openai
 
 from ...services.leads_serp_service import leads_serp_service
 from ...services.job_service import job_service
+from ..deps import ApiKeys, get_api_keys
 
 logger = logging.getLogger(__name__)
 
@@ -28,17 +29,25 @@ from ...models.schemas import (
 router = APIRouter()
 
 @router.post("/projects/{project_id}/queries", response_model=list[str])
-async def generate_queries(project_id: int, request: QueryGenerationRequest):
+async def generate_queries(
+    project_id: int,
+    request: QueryGenerationRequest,
+    keys: ApiKeys = Depends(get_api_keys),
+):
     """
     Generate AI-powered search queries for a project based on its description.
-    
+
     Args:
         project_id: ID of the project
         request: Request body with num_queries (defaults to 3 if not provided)
-    
+
     Returns list of generated search query strings.
     """
-    return leads_serp_service.generate_queries(project_id, num_queries=request.num_queries)
+    return leads_serp_service.generate_queries(
+        project_id,
+        num_queries=request.num_queries,
+        openai_api_key=keys.require_openai(),
+    )
 
 @router.get("/projects/{project_id}/queries", response_model=list[QueryResponse])
 async def get_queries(project_id: int):
@@ -50,17 +59,23 @@ async def get_queries(project_id: int):
     return leads_serp_service.get_queries(project_id)
 
 @router.post("/projects/{project_id}/urls", response_model=UrlGenerationResponse)
-async def generate_urls(project_id: int, request: QueryListRequest):
+async def generate_urls(
+    project_id: int,
+    request: QueryListRequest,
+    keys: ApiKeys = Depends(get_api_keys),
+):
     """
     Save queries and generate URLs for a project.
-    
+
     Business workflow:
     1. Save generated queries to serp_queries table
     2. Generate URLs from queries and save them to serp_urls table
-    
+
     Returns operation status and statistics.
     """
-    return await leads_serp_service.generate_urls(project_id, request.queries)
+    return await leads_serp_service.generate_urls(
+        project_id, request.queries, jina_api_key=keys.require_jina()
+    )
 
 @router.get("/projects/{project_id}/urls", response_model=list[UrlResponse])
 async def get_urls(project_id: int):
@@ -111,14 +126,18 @@ async def delete_url(project_id: int, url_id: int):
     return 
 
 @router.post("/projects/{project_id}/leads", response_model=LeadExtractionResponse)
-async def generate_leads(project_id: int):
+async def generate_leads(project_id: int, keys: ApiKeys = Depends(get_api_keys)):
     """
     Extract leads from SERP URLs for a project.
-    
+
     Processes unprocessed URLs, extracts leads using AI, and saves to database.
     Returns detailed extraction statistics and results.
     """
-    return await leads_serp_service.generate_leads(project_id)
+    return await leads_serp_service.generate_leads(
+        project_id,
+        openai_api_key=keys.require_openai(),
+        jina_api_key=keys.require_jina(),
+    )
 
 @router.get("/projects/{project_id}/leads/download")
 async def get_latest_run_results(project_id: int):

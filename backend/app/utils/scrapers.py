@@ -10,8 +10,21 @@ import unicodedata
 import httpx
 import asyncio
 
-from ..config import settings
 from ..exceptions import ExternalScraperError
+
+
+def _jina_auth_header(jina_api_key: str) -> str:
+    """
+    Build the Jina Authorization header value.
+
+    Jina keys are used as ``Bearer jina_{key}``. The frontend collects the raw
+    key (matching the old ``.env`` behaviour), but if a user pastes a key that
+    already includes the ``jina_`` prefix we strip it so we never double it up.
+    """
+    key = (jina_api_key or "").strip()
+    if key.startswith("jina_"):
+        key = key[len("jina_"):]
+    return f"Bearer jina_{key}"
 
 def clean_content(content: str) -> str:
     """
@@ -48,14 +61,18 @@ def clean_content(content: str) -> str:
             
     return content
 
-async def jina_url_scraper(url: str) -> str:
+async def jina_url_scraper(url: str, jina_api_key: str) -> str:
     """
     Uses jina api to scrape url and clean the content.
     Includes retry logic for timeout errors.
+
+    Args:
+        url: The URL to scrape.
+        jina_api_key: The caller's Jina API key (raw, without the "jina_" prefix).
     """
     url = f"https://r.jina.ai/{url}"
     headers = {
-        "Authorization": f"Bearer jina_{settings.jina_api_key}",
+        "Authorization": _jina_auth_header(jina_api_key),
         "X-Md-Link-Style": "discarded",
         "X-Remove-Selector": "header, footer, nav, aside, .subscribe, .paywall, .related, .comments, .share, .advertisement",
         "X-Retain-Images": "none"
@@ -85,12 +102,12 @@ async def jina_url_scraper(url: str) -> str:
                 # Last attempt failed, raise ExternalScraperError
                 raise ExternalScraperError(f"Jina URL scraper failed after {max_retries} attempts: {str(e)}") from e
 
-async def jina_serp_scraper(search_phrase:str) -> list[dict]:
+async def jina_serp_scraper(search_phrase: str, jina_api_key: str) -> list[dict]:
     url = 'https://s.jina.ai/'
     params = {'q': f'{search_phrase}', 'gl': 'AU', 'location': 'Sydney', 'hl': 'en'}
     headers = {
         'Accept': 'application/json',
-        'Authorization': f'Bearer jina_{settings.jina_api_key}',
+        'Authorization': _jina_auth_header(jina_api_key),
         'X-Respond-With': 'no-content'
     }
     
@@ -117,11 +134,13 @@ async def jina_serp_scraper(search_phrase:str) -> list[dict]:
                 raise ExternalScraperError(f"Jina SERP scraper failed after {max_retries} attempts: {str(e)}") from e 
 
 if __name__ == "__main__":
+    import os
     from pprint import pprint
+    _key = os.getenv("JINA_API_KEY", "")
     # try url scraper
     url = "https://www.our-trace.com/blog/23-companies-in-australia-doing-great-things-in-sustainability"
-    print(jina_url_scraper(url))
+    print(asyncio.run(jina_url_scraper(url, _key)))
 
     # try serp scraper
     # search_phrase = "Coles company greenwashing"
-    # pprint(jina_serp_scraper(search_phrase))
+    # pprint(asyncio.run(jina_serp_scraper(search_phrase, _key)))

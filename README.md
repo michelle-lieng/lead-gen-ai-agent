@@ -1,6 +1,6 @@
 # Lead Gen AI Agent
 
-An AI-powered lead generation platform that discovers and enriches potential corporate partners through intelligent search and analysis. Built with FastAPI, Streamlit, and OpenAI.
+An AI-powered lead generation platform that discovers and enriches potential corporate partners through intelligent search and analysis. Built with FastAPI, React + Vite (TypeScript, MUI), and OpenAI.
 
 ## 🎬 Demo
 
@@ -10,21 +10,33 @@ View demo here: https://www.youtube.com/watch?v=GLnULm-Nle4
 
 - **AI-Powered Search**: Automatically generates search queries and extracts company names
 - **Lead Enrichment**: Analyzes companies for specific attributes (e.g., environmental reports, sustainability)
-- **Dataset Management**: Upload and merge CSV datasets with discovered leads
+- **Dataset Management**: Upload and merge CSV/Excel datasets with discovered leads
 - **Project Organization**: Organize leads by projects with stats
+- **Bring-your-own API keys**: Enter your OpenAI and Jina keys in the UI — no server-side `.env` keys required
+
+## 🔑 API Keys
+
+You supply your **own** OpenAI and Jina API keys directly in the app (the "API Keys" button, top-right). They are:
+
+- stored **only in your browser** (`localStorage`),
+- sent with each request that needs them (as `X-OpenAI-Key` / `X-Jina-Key` headers),
+- used by the backend to call OpenAI and Jina **on your behalf**.
+
+The backend no longer requires `OPENAI_API_KEY` / `JINA_API_KEY` in its `.env`.
+
+> **Security note:** keys in `localStorage` are readable by any JavaScript running on the page (an XSS risk) and are transmitted to the backend — always serve the app over HTTPS in production. Use the "Clear keys" button to remove them.
 
 ## 📋 Prerequisites
 
 **For Local Development:**
 - Python 3.9+
+- Node.js 18+ and npm (for the frontend)
 - PostgreSQL 12+ (installed locally)
-- OpenAI API key
-- Jina API key
+- An OpenAI API key and a Jina API key (entered in the UI, not in `.env`)
 
 **For Docker (Alternative):**
 - Docker Desktop (or Docker Engine + Docker Compose)
-- OpenAI API key
-- Jina API key
+- An OpenAI API key and a Jina API key (entered in the UI, not in `.env`)
 
 ## 🛠️ Installation
 
@@ -52,23 +64,20 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-3. **Set up frontend virtual environment and dependencies:**
+3. **Set up frontend dependencies (React + Vite):**
 ```bash
-cd ../frontend
-python -m venv venv
-# On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
-source venv/bin/activate
-
-pip install -r requirements.txt
+cd ../frontend-react
+npm install
+# Optional: copy .env.example to .env to point at a non-default backend
+# cp .env.example .env   # sets VITE_BACKEND_URL (defaults to http://localhost:8000)
 ```
 
 4. **Set up backend environment variables:**
 ```bash
 cd ../backend
 cp env.example .env
-# Edit .env with your API keys and database credentials
+# Edit .env with your database credentials.
+# NOTE: OpenAI/Jina API keys are NOT needed here — you enter them in the UI.
 # Make sure your PostgreSQL database exists and is configured in .env
 ```
 
@@ -93,14 +102,13 @@ Best for: Team collaboration, consistent environments, production-like testing
    # Copy the backend example file
    cp backend/env.example backend/.env
    
-   # Edit backend/.env and add your API keys:
-   # OPENAI_API_KEY=your_key_here
-   # JINA_API_KEY=your_key_here
+   # Edit backend/.env with your database config.
+   # You do NOT need to set OPENAI_API_KEY / JINA_API_KEY — those are entered in the UI.
    ```
    
-   Docker Compose automatically reads `.env` file from `backend/` folder - no shell setup needed!
+   Docker Compose automatically reads the `.env` file from the `backend/` folder - no shell setup needed!
    
-   **Note:** Frontend doesn't need a `.env` file - it defaults to `localhost:8000` for local dev, and Docker sets `BACKEND_URL=http://backend:8000`.
+   **Note:** The frontend is a static React build served by nginx. Docker sets `BACKEND_URL=http://localhost:8000` (the browser calls the backend directly on the host).
 
 2. **Build and start all services:**
    ```bash
@@ -149,11 +157,12 @@ docker-compose build --no-cache frontend
 ```
 
 **Development Mode:**
-The docker-compose.yml is configured with volume mounts, so code changes are reflected immediately without rebuilding. However, you may need to restart the service for some changes:
+The backend uses a volume mount, so backend code changes are reflected immediately (you may need to restart it for some changes). The frontend is a static production build served by nginx, so frontend changes require a rebuild:
 ```bash
-docker-compose restart backend
-docker-compose restart frontend
+docker-compose restart backend            # backend code changes
+docker-compose up --build frontend        # rebuild the frontend after changes
 ```
+For fast frontend iteration, prefer the Vite dev server (`cd frontend-react && npm run dev`).
 
 **Troubleshooting:**
 
@@ -193,19 +202,15 @@ python -m uvicorn app.main:app --reload --port 8000
 
 **Start the frontend:**
 ```bash
-cd frontend
-# Activate frontend virtual environment first
-# On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
-source venv/bin/activate
-
-streamlit run app.py
+cd frontend-react
+npm run dev
 ```
 
 **Access:**
 - Backend API: `http://localhost:8000` (docs at `/docs`)
-- Frontend Dashboard: `http://localhost:8501`
+- Frontend Dashboard: `http://localhost:5173` (Vite dev server)
+
+Then click **API Keys** (top-right) and enter your OpenAI and Jina keys.
 
 ### Docker Development
 

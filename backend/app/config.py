@@ -7,17 +7,24 @@ from pydantic import Field
 from typing import Optional
 
 class Settings(BaseSettings):
-    # NO DEFAULTS, must be provided
     # Database settings
-    postgresql_host: str
-    postgresql_port: int
-    postgresql_user: str
-    postgresql_password: str
-    postgresql_database: str
+    # Either provide a full DATABASE_URL (e.g. Render/managed Postgres) OR the
+    # individual POSTGRESQL_* fields (local dev / docker-compose). If database_url
+    # is set it takes precedence (see database_service.py).
+    database_url: Optional[str] = None
+    postgresql_host: Optional[str] = None
+    postgresql_port: Optional[int] = None
+    postgresql_user: Optional[str] = None
+    postgresql_password: Optional[str] = None
+    postgresql_database: Optional[str] = None
     
     # API Keys
-    openai_api_key: str
-    jina_api_key: str
+    # Optional: keys are now supplied per-request by the frontend (via the
+    # X-OpenAI-Key / X-Jina-Key headers) instead of being required server-side.
+    # They remain here only as an optional fallback so the server still boots
+    # without them.
+    openai_api_key: Optional[str] = None
+    jina_api_key: Optional[str] = None
 
     debug: bool = Field(default=False)
     

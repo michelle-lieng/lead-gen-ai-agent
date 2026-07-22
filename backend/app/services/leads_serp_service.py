@@ -10,7 +10,7 @@ from io import StringIO, BytesIO
 from datetime import datetime
 import re
 import zipfile
-from agents import Agent, Runner, set_default_openai_key, ModelSettings
+from agents import Agent, Runner, ModelSettings, set_tracing_disabled
 from openai.types.shared import Reasoning
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import func, distinct
@@ -32,7 +32,7 @@ from ..exceptions import (
 
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..utils.lead_utils import normalize_lead_name
-from ..config import settings
+from ..utils.ai_clients import build_openai_client, build_agent_model
 from ..prompts import SERP_QUERIES_PROMPT, SERP_EXTRACTION_PROMPT
 from ..models.tables import SerpQuery, SerpUrl, SerpLead, SerpLeadAggregated, Project
 from ..models.schemas import QueryListRequest
@@ -43,19 +43,20 @@ logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("openai").setLevel(logging.WARNING)
 
+# API keys are supplied per-request, so there is no global default key for the
+# Agents SDK. Disable tracing (its exporter would otherwise require a global
+# key) since we don't use it.
+set_tracing_disabled(True)
+
 
 class LeadsSerpService:
     """Service for generating leads from search operations"""
 
     def __init__(self):
         """Initialise leads from search service with database service"""
-        # Initialize OpenAI client once
-        if not settings.openai_api_key:
-            raise ApiKeyNotConfiguredError("OpenAI API key not configured")
-        self.openai_client = openai.OpenAI(api_key=settings.openai_api_key)
-
-        # for openai agents sdk
-        set_default_openai_key(settings.openai_api_key)
+        # OpenAI clients are now built per request from the caller's key
+        # (see build_openai_client / build_agent_model), so nothing key-related
+        # is constructed here — the service boots without any API key.
 
         # Separate semaphores for each API type since they have different rate limits
         # and are used in different workflow stages
@@ -69,7 +70,9 @@ class LeadsSerpService:
             12
         )  # For Runner.run (OpenAI API, using gpt-5-mini with 500K TPM limit - increased from 3 to take advantage of higher TPM)
 
-    def generate_queries(self, project_id: int, num_queries: int = 3) -> list[str]:
+    def generate_queries(
+        self, project_id: int, num_queries: int = 3, *, openai_api_key: str
+    ) -> list[str]:
         """
         Generate AI-powered search queries for a project by project_id.
         Fetches the project query_search_target internally.
@@ -77,6 +80,7 @@ class LeadsSerpService:
         Args:
             project_id (int): ID of the project
             num_queries (int): Number of queries to generate (default: 3)
+            openai_api_key (str): The caller's OpenAI API key.
 
         Returns:
             list[str]: List of generated search queries
@@ -91,8 +95,9 @@ class LeadsSerpService:
             query_search_target=project.query_search_target, num_queries=num_queries
         )
 
-        # Call OpenAI API
-        response = self.openai_client.responses.parse(
+        # Call OpenAI API with a per-request client built from the caller's key
+        openai_client = build_openai_client(openai_api_key)
+        response = openai_client.responses.parse(
             model="gpt-5-mini",  # Using gpt-5-mini: 500K TPM, better quality, 10x cheaper input than gpt-4o
             input=[
                 {
@@ -117,11 +122,13 @@ class LeadsSerpService:
 
         return cleaned_queries
 
-    async def _process_query(self, query: str, project_id: int) -> list[dict]:
+    async def _process_query(
+        self, query: str, project_id: int, jina_api_key: str
+    ) -> list[dict]:
         """Process a single query with semaphore protection for API calls"""
         async with self.serp_scraper_semaphore:
             serp_object = await jina_serp_scraper(
-                query
+                query, jina_api_key
             )  # Protected by serp_scraper_semaphore
             query_urls = []
             for serp_result in serp_object:
@@ -139,7 +146,9 @@ class LeadsSerpService:
                     )
             return query_urls
 
-    async def generate_urls(self, project_id: int, queries: list[str]) -> dict:
+    async def generate_urls(
+        self, project_id: int, queries: list[str], jina_api_key: str
+    ) -> dict:
         """
         Orchestrates saving queries and generating URLs in one operation.
         This is the main business workflow that should be used by API routes.
@@ -147,6 +156,7 @@ class LeadsSerpService:
         Args:
             project_id (int): ID of the project
             queries (list[str]): List of search queries to save and process
+            jina_api_key (str): The caller's Jina API key.
 
         Returns:
             dict: Unified response containing:
@@ -182,7 +192,10 @@ class LeadsSerpService:
                 ################ STEP 2: Generate URLs
                 # Process all queries in parallel using asyncio
                 # ExternalScraperError from _process_query will propagate to caller
-                tasks = [self._process_query(query, project_id) for query in queries]
+                tasks = [
+                    self._process_query(query, project_id, jina_api_key)
+                    for query in queries
+                ]
                 results = await asyncio.gather(*tasks)
 
                 # STEP 2.1: Get existing URLs for this project to avoid duplicates
@@ -527,7 +540,11 @@ class LeadsSerpService:
         return " ".join(truncated_words) + "\n\n[Content truncated due to token limit]"
 
     async def _process_url_and_extract_lead(
-        self, url_data: dict, lead_minimum_criteria: str
+        self,
+        url_data: dict,
+        lead_minimum_criteria: str,
+        openai_api_key: str,
+        jina_api_key: str,
     ) -> dict:
         """Process a single URL and return result (using plain dict, not ORM object)"""
         url = url_data["link"]
@@ -541,20 +558,21 @@ class LeadsSerpService:
             # Always scrape the URL first - protected by url_scraper_semaphore
             logger.info(f"Scraping URL: {url}")
             async with self.url_scraper_semaphore:
-                scraped_content = await jina_url_scraper(url)
+                scraped_content = await jina_url_scraper(url, jina_api_key)
 
             # Format prompt with criteria
             extraction_prompt = SERP_EXTRACTION_PROMPT.format(
                 lead_minimum_criteria=lead_minimum_criteria
             )
 
-            # Create agent without tools (no tool calls needed)
+            # Create agent without tools (no tool calls needed).
+            # The model is bound to the caller's key (per-request, concurrency-safe).
             agent = Agent(
                 name="Lead Generator",
                 instructions=extraction_prompt,
                 tools=[],  # No tools - we always scrape first
                 output_type=list[str],  # Specify the output type as a list of strings
-                model="gpt-5-mini",  # Using gpt-5-mini: 500K TPM, better quality, 10x cheaper input than gpt-4o
+                model=build_agent_model(openai_api_key),
                 model_settings=ModelSettings(
                     reasoning=Reasoning(
                         effort="minimal"
@@ -756,7 +774,9 @@ class LeadsSerpService:
                 "error": str(e),
             }
 
-    async def generate_leads(self, project_id: int) -> dict:
+    async def generate_leads(
+        self, project_id: int, openai_api_key: str, jina_api_key: str
+    ) -> dict:
         """
         Process unprocessed URLs from serp_urls table:
         1. Get all URLs with status="unprocessed" for the project
@@ -840,7 +860,12 @@ class LeadsSerpService:
                 # Step 2: Process URLs in parallel using asyncio
                 # Process all URLs concurrently
                 tasks = [
-                    self._process_url_and_extract_lead(url_data, lead_minimum_criteria)
+                    self._process_url_and_extract_lead(
+                        url_data,
+                        lead_minimum_criteria,
+                        openai_api_key,
+                        jina_api_key,
+                    )
                     for url_data in url_data_list
                 ]
                 results = await asyncio.gather(*tasks)

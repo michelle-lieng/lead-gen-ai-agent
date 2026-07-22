@@ -1,0 +1,57 @@
+# Render Blueprint — deploys the whole stack (backend + frontend + Postgres).
+# Docs: https://render.com/docs/blueprint-spec
+#
+# In the Render dashboard: New > Blueprint, connect this repo. Render reads this
+# file and creates all three resources. You'll be prompted for the two secret
+# API keys below (marked `sync: false`).
+
+databases:
+  - name: lead-gen-db
+    plan: free            # free Postgres expires after 30 days — upgrade for anything long-lived
+    region: oregon
+    databaseName: ai_lead_generator
+    # No `user:` — Render auto-generates one, and the backend reads the full
+    # DATABASE_URL (connectionString) below, so the username doesn't matter.
+
+services:
+  # ---- Backend: FastAPI ----
+  - type: web
+    name: lead-gen-backend
+    runtime: docker
+    plan: free            # free web services sleep when idle (slow first request); use `starter` to stay warm
+    region: oregon
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    # Bind to the port Render assigns via $PORT instead of the hardcoded 8000.
+    # (Render already runs this through a shell, so $PORT expands — no `sh -c` wrapper.)
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lead-gen-db
+          property: connectionString
+      # OpenAI/Jina keys are no longer required here — users enter their own
+      # keys in the frontend, which sends them per-request via HTTP headers.
+      - key: DEBUG
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+
+  # ---- Frontend: React + Vite (served by nginx) ----
+  - type: web
+    name: lead-gen-frontend
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerContext: ./frontend-react
+    dockerfilePath: ./frontend-react/Dockerfile
+    # nginx listens on $PORT (set by Render); no dockerCommand override needed.
+    healthCheckPath: /
+    envVars:
+      # The browser calls the backend directly, so this must be the backend's
+      # PUBLIC URL. It is injected into config.js at container start (no rebuild).
+      # Paste the backend's onrender.com URL in the dashboard, e.g.
+      #   https://lead-gen-backend-ms7s.onrender.com
+      - key: BACKEND_URL
+        sync: false
