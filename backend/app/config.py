@@ -19,8 +19,12 @@ class Settings(BaseSettings):
     postgresql_database: Optional[str] = None
     
     # API Keys
-    openai_api_key: str
-    jina_api_key: str
+    # Optional: keys are now supplied per-request by the frontend (via the
+    # X-OpenAI-Key / X-Jina-Key headers) instead of being required server-side.
+    # They remain here only as an optional fallback so the server still boots
+    # without them.
+    openai_api_key: Optional[str] = None
+    jina_api_key: Optional[str] = None
 
     debug: bool = Field(default=False)
     

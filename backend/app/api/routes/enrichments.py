@@ -3,8 +3,9 @@ Enrichment endpoints
 """
 
 import logging
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from ..deps import ApiKeys, get_api_keys
 from ...services.enrichment_execution_service import enrichment_execution_service
 from ...services.enrichment_service import enrichment_service
 from ...services.merged_results_service import merged_results_service
@@ -94,7 +95,10 @@ async def delete_enrichment(enrichment_id: int):
     response_model=dict,
 )
 async def enrich_leads(
-    project_id: int, enrichment_id: int, request: EnrichLeadsRequest
+    project_id: int,
+    enrichment_id: int,
+    request: EnrichLeadsRequest,
+    keys: ApiKeys = Depends(get_api_keys),
 ):
     """
     Run enrichment on a list of leads using the enrichment configuration.
@@ -117,7 +121,11 @@ async def enrich_leads(
     # Validate that leads_data is not empty
     if not request.leads_data or len(request.leads_data) == 0:
         raise NoLeadsToEnrichError()
-    
+
+    # Require the caller's API keys up front (before creating a job)
+    openai_api_key = keys.require_openai()
+    jina_api_key = keys.require_jina()
+
     running_job = job_service.check_running_job(project_id, "enrich_leads", enrichment_id)
 
     job = job_service.create_job(project_id, "enrichments", enrichment_id)
@@ -127,7 +135,9 @@ async def enrich_leads(
         leads_data=request.leads_data,
         project_id=project_id,
         enrichment_id=enrichment_id,
-        job_id=job.id
+        job_id=job.id,
+        openai_api_key=openai_api_key,
+        jina_api_key=jina_api_key,
     )
 
     # Automatically save enrichment results to merged_results table
@@ -153,7 +163,10 @@ async def enrich_leads(
     response_model=dict,
 )
 async def test_enrich_leads(
-    project_id: int, enrichment_id: int, request: EnrichLeadsRequest
+    project_id: int,
+    enrichment_id: int,
+    request: EnrichLeadsRequest,
+    keys: ApiKeys = Depends(get_api_keys),
 ):
     """
     Run test enrichment on a list of leads using the enrichment configuration.
@@ -178,6 +191,10 @@ async def test_enrich_leads(
     if not request.leads_data or len(request.leads_data) == 0:
         raise NoLeadsToEnrichError()
 
+    # Require the caller's API keys up front (before creating a job)
+    openai_api_key = keys.require_openai()
+    jina_api_key = keys.require_jina()
+
     # Check if there is a running job
     job_service.check_running_job(project_id, "enrich_leads", enrichment_id)
 
@@ -190,7 +207,9 @@ async def test_enrich_leads(
         leads_data=request.leads_data,
         project_id=project_id,
         enrichment_id=enrichment_id,
-        job_id=job.id
+        job_id=job.id,
+        openai_api_key=openai_api_key,
+        jina_api_key=jina_api_key,
     )
 
     # Return results without saving (test mode)

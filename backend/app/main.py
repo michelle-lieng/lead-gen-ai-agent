@@ -38,11 +38,16 @@ app = FastAPI(
 # Middleware
 # =========================
 
-# Add CORS middleware for frontend communication
+# Add CORS middleware for frontend communication.
+# The React SPA calls this API directly from the browser and sends the user's
+# API keys via custom headers (X-OpenAI-Key / X-Jina-Key). We must therefore
+# allow those headers through preflight. `allow_credentials` is False because we
+# use header-based keys (no cookies); a wildcard origin with credentials would
+# be rejected by browsers and would also invalidate the `*` header allowance.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly for production
-    allow_credentials=True,
+    allow_origins=["*"],  # Configure this to specific origins for production
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

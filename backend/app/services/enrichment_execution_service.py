@@ -7,7 +7,7 @@ import asyncio
 import re
 from typing import Literal, Optional
 from pydantic import Field, create_model
-from agents import Agent, Runner, function_tool, set_default_openai_key, ModelSettings
+from agents import Agent, Runner, function_tool, ModelSettings, set_tracing_disabled
 from agents.exceptions import MaxTurnsExceeded
 from openai.types.shared import Reasoning
 import logging
@@ -18,7 +18,7 @@ from .job_service import job_service
 
 # Import existing Jina functions from utils
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
-from ..config import settings
+from ..utils.ai_clients import build_agent_model
 from ..exceptions import (
     ApiKeyNotConfiguredError,
     OpenAITokenLimitExceededError,
@@ -34,6 +34,11 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
+# API keys are supplied per-request, so there is no global default key for the
+# Agents SDK. Disable tracing (its exporter would otherwise require a global
+# key) since we don't use it.
+set_tracing_disabled(True)
+
 
 class EnrichmentExecutionService:
     """Service for executing enrichment operations using AI agents"""
@@ -44,9 +49,8 @@ class EnrichmentExecutionService:
         self.jina_serp_calls = 0
         self.jina_url_calls = 0
 
-        # Set up OpenAI API key if available
-        if settings.openai_api_key:
-            set_default_openai_key(settings.openai_api_key)
+        # OpenAI models are built per request from the caller's key
+        # (see build_agent_model), so no API key is required at construction.
 
         # Separate semaphores for each API type since they have different rate limits
         # and are used in different workflow stages
@@ -60,10 +64,11 @@ class EnrichmentExecutionService:
             12
         )  # For Runner.run (OpenAI API, using gpt-5-mini with 500K TPM limit - increased from 3 to take advantage of higher TPM)
 
-    def _create_tools(self):
+    def _create_tools(self, jina_api_key: str):
         """
         Create tool functions that can be used by the agent.
         These are wrapper functions that don't include 'self' in their signature.
+        The caller's Jina API key is captured by the tool closures.
         """
 
         @function_tool
@@ -88,7 +93,7 @@ class EnrichmentExecutionService:
             self.jina_serp_calls += 1
             try:
                 async with self.serp_scraper_semaphore:
-                    results = await jina_serp_scraper(search_phrase)
+                    results = await jina_serp_scraper(search_phrase, jina_api_key)
                 logger.info(f"SERP search successful: {len(results)} results")
                 return results
             except Exception as e:
@@ -110,7 +115,7 @@ class EnrichmentExecutionService:
             self.jina_url_calls += 1
             try:
                 async with self.url_scraper_semaphore:
-                    content = await jina_url_scraper(url)
+                    content = await jina_url_scraper(url, jina_api_key)
                 logger.info(f"URL scrape successful: {url}")
                 return content
             except Exception as e:
@@ -323,6 +328,8 @@ In {enrichment_name} return None if you do not find any information at all, OR i
         enrichment_name: str,
         prompt_goal: str,
         prompt_reasoning: str,
+        openai_api_key: str,
+        jina_api_key: str,
         output_type: Literal["str", "int", "bool"] = "str",
         string_prompt: str = "",
         is_false_prompt: str = "",
@@ -349,12 +356,12 @@ In {enrichment_name} return None if you do not find any information at all, OR i
             Dictionary with enrichment_name, enrichment_name_reasoning, and enrichment_name_evidence.
             If return_metadata=True, also includes "_metadata" key with usage and cost information.
         """
-        # Set OpenAI API key for agents SDK
-        if not settings.openai_api_key:
+        # Keys are supplied per request; guard defensively in case a caller
+        # invokes this directly without them.
+        if not openai_api_key:
             raise ApiKeyNotConfiguredError(
-                "OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file."
+                "OpenAI API key not provided. Enter your OpenAI API key in the app."
             )
-        set_default_openai_key(settings.openai_api_key)
 
         # Validate that required prompts are provided based on output type
         if output_type == "str":
@@ -397,16 +404,18 @@ In {enrichment_name} return None if you do not find any information at all, OR i
             int_prompt=int_prompt,
         )
 
-        # Create tools that don't include 'self' in their signature
-        tools = self._create_tools()
+        # Create tools that don't include 'self' in their signature.
+        # The caller's Jina key is captured by the tool closures.
+        tools = self._create_tools(jina_api_key)
 
-        # Create agent with tools
+        # Create agent with tools. The model is bound to the caller's OpenAI key
+        # (per-request, concurrency-safe).
         agent = Agent(
             name="Company Enrichment Agent",
             instructions=instructions,
             tools=tools,
             output_type=OutputModel,
-            model="gpt-5-mini",  # Using gpt-5-mini: 500K TPM, better quality, supports function tools, 10x cheaper input than gpt-4o
+            model=build_agent_model(openai_api_key),
             model_settings=ModelSettings(
                 reasoning=Reasoning(
                     effort="minimal"
@@ -549,6 +558,8 @@ In {enrichment_name} return None if you do not find any information at all, OR i
         project_id: int,
         enrichment_id: int,
         job_id: int,
+        openai_api_key: str,
+        jina_api_key: str,
     ) -> tuple[list[dict], list[str]]:
         """
         Process leads enrichment using the enrichment configuration.
@@ -600,6 +611,8 @@ In {enrichment_name} return None if you do not find any information at all, OR i
                         enrichment_name=column_name,
                         prompt_goal=enrichment.goal,
                         prompt_reasoning=enrichment.acceptable_evidence,
+                        openai_api_key=openai_api_key,
+                        jina_api_key=jina_api_key,
                         output_type=output_type,
                         string_prompt=enrichment.result_text_value or "",
                         is_false_prompt=enrichment.result_false_if or "",

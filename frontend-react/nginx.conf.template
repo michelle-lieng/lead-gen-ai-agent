@@ -1,0 +1,20 @@
+server {
+    listen       ${PORT};
+    server_name  _;
+
+    root   /usr/share/nginx/html;
+    index  index.html;
+
+    # Never cache the runtime config or the entry HTML.
+    location = /config.js {
+        add_header Cache-Control "no-store";
+    }
+    location = /index.html {
+        add_header Cache-Control "no-store";
+    }
+
+    # SPA fallback: serve index.html for client-side routes.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

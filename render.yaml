@@ -31,29 +31,27 @@ services:
         fromDatabase:
           name: lead-gen-db
           property: connectionString
-      - key: OPENAI_API_KEY
-        sync: false       # enter in the dashboard (kept out of git)
-      - key: JINA_API_KEY
-        sync: false
+      # OpenAI/Jina keys are no longer required here — users enter their own
+      # keys in the frontend, which sends them per-request via HTTP headers.
       - key: DEBUG
         value: "false"
       - key: LOG_LEVEL
         value: INFO
 
-  # ---- Frontend: Streamlit ----
+  # ---- Frontend: React + Vite (served by nginx) ----
   - type: web
     name: lead-gen-frontend
     runtime: docker
     plan: free
     region: oregon
-    dockerContext: ./frontend
-    dockerfilePath: ./frontend/Dockerfile
-    dockerCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true --server.enableCORS false --server.enableXsrfProtection false
-    healthCheckPath: /_stcore/health
+    dockerContext: ./frontend-react
+    dockerfilePath: ./frontend-react/Dockerfile
+    # nginx listens on $PORT (set by Render); no dockerCommand override needed.
+    healthCheckPath: /
     envVars:
-      # Free web services can SEND but not RECEIVE private-network requests, so the
-      # backend can't be reached privately — use its PUBLIC URL instead. Paste the
-      # backend's onrender.com URL here in the dashboard, e.g.
+      # The browser calls the backend directly, so this must be the backend's
+      # PUBLIC URL. It is injected into config.js at container start (no rebuild).
+      # Paste the backend's onrender.com URL in the dashboard, e.g.
       #   https://lead-gen-backend-ms7s.onrender.com
       - key: BACKEND_URL
         sync: false
