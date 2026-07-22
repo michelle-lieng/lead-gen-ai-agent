@@ -19,6 +19,7 @@ from .api.routes import (
 )
 from .services.database_service import db_service
 from .services.job_service import job_service
+from .config import settings
 from . import exceptions
 
 logger = logging.getLogger(__name__)
@@ -44,9 +45,11 @@ app = FastAPI(
 # allow those headers through preflight. `allow_credentials` is False because we
 # use header-based keys (no cookies); a wildcard origin with credentials would
 # be rejected by browsers and would also invalidate the `*` header allowance.
+# Origins are configurable via CORS_ALLOW_ORIGINS (comma-separated); in
+# production set it to the deployed frontend origin, e.g. the Vercel URL.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this to specific origins for production
+    allow_origins=settings.cors_allow_origins_list,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
