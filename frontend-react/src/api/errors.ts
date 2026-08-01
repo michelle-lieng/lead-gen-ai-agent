@@ -64,6 +64,10 @@ export const FRIENDLY_TEMPLATES: Record<string, string> = {
   // External APIs
   EXTERNAL_SCRAPER_ERROR:
     'Scraper service is having issues right now. Please try again in a moment.',
+  SCRAPER_CREDITS_EXHAUSTED:
+    'Your Jina API key has no credits remaining. Top up at jina.ai/api-dashboard or enter a different key via the "API Keys" button.',
+  SCRAPER_API_KEY_INVALID:
+    'Jina rejected your API key. Please check the key entered via the "API Keys" button.',
   OPENAI_TOKEN_LIMIT_EXCEEDED:
     'This request is too large for the AI to process. Try fewer URLs or smaller content.',
   // Enrichment

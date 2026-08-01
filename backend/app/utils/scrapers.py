@@ -10,7 +10,39 @@ import unicodedata
 import httpx
 import asyncio
 
-from ..exceptions import ExternalScraperError
+from ..exceptions import (
+    ExternalScraperError,
+    ScraperApiKeyError,
+    ScraperCreditsExhaustedError,
+)
+
+# Status codes worth retrying. Everything else (401, 402, 403, 404, ...) is a
+# settled answer from Jina — retrying just burns time and returns the same thing.
+_RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
+
+
+def _scraper_error_for_status(
+    exc: httpx.HTTPStatusError, source: str
+) -> ExternalScraperError:
+    """
+    Map a Jina HTTP error onto an app exception whose status code and message
+    tell the user what to actually do about it.
+    """
+    status = exc.response.status_code
+    if status == 402:
+        return ScraperCreditsExhaustedError(
+            "Your Jina API key has no credits remaining. Top up at "
+            "https://jina.ai/api-dashboard/ or enter a different key in Settings.",
+            meta={"source": source},
+        )
+    if status in (401, 403):
+        return ScraperApiKeyError(
+            "Jina rejected your API key. Check the key entered in Settings.",
+            meta={"source": source},
+        )
+    return ExternalScraperError(
+        f"{source} failed: HTTP {status}", meta={"source": source, "status": status}
+    )
 
 
 def _jina_auth_header(jina_api_key: str) -> str:
@@ -92,7 +124,14 @@ async def jina_url_scraper(url: str, jina_api_key: str) -> str:
             # Clean the scraped content
             cleaned_content = clean_content(raw_content)
             return cleaned_content
-        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as e:
+        except httpx.HTTPStatusError as e:
+            # Only retry statuses that might succeed next time; fail fast on the rest.
+            if e.response.status_code in _RETRYABLE_STATUS and attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            raise _scraper_error_for_status(e, "Jina URL scraper") from e
+        except httpx.RequestError as e:
+            # Transport-level failures (timeouts, connection errors) — always retryable.
             if attempt < max_retries - 1:
                 # Exponential backoff: wait 2^attempt seconds
                 wait_time = 2 ** attempt
@@ -123,7 +162,14 @@ async def jina_serp_scraper(search_phrase: str, jina_api_key: str) -> list[dict]
                 response.raise_for_status()
                 json_data = response.json()
                 return json_data['data']  # Parse JSON and extract data
-        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as e:
+        except httpx.HTTPStatusError as e:
+            # Only retry statuses that might succeed next time; fail fast on the rest.
+            if e.response.status_code in _RETRYABLE_STATUS and attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            raise _scraper_error_for_status(e, "Jina SERP scraper") from e
+        except httpx.RequestError as e:
+            # Transport-level failures (timeouts, connection errors) — always retryable.
             if attempt < max_retries - 1:
                 # Exponential backoff: wait 2^attempt seconds
                 wait_time = 2 ** attempt
