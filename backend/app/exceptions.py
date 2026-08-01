@@ -197,6 +197,36 @@ class ExternalScraperError(AppError):
         super().__init__(message, meta=meta)
 
 
+class ScraperApiKeyError(ExternalScraperError):
+    """Raised when the scraper API rejects the caller's key (401/403)"""
+
+    status_code = 401
+    code = "SCRAPER_API_KEY_INVALID"
+
+    def __init__(
+        self,
+        message: str = "Scraper API key was rejected",
+        *,
+        meta: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, meta=meta)
+
+
+class ScraperCreditsExhaustedError(ExternalScraperError):
+    """Raised when the scraper API reports the key is out of credits (402)"""
+
+    status_code = 402
+    code = "SCRAPER_CREDITS_EXHAUSTED"
+
+    def __init__(
+        self,
+        message: str = "Scraper API key has no credits remaining",
+        *,
+        meta: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, meta=meta)
+
+
 class OpenAITokenLimitExceededError(AppError):
     """Raised when OpenAI request exceeds token limit even after truncation attempts"""
 

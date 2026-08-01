@@ -37,6 +37,11 @@ services:
         value: "false"
       - key: LOG_LEVEL
         value: INFO
+      # Restrict browser CORS to the deployed frontend origin(s). Comma-separated;
+      # defaults to "*" if unset. Set this to your Vercel URL in the dashboard, e.g.
+      #   https://your-app.vercel.app
+      - key: CORS_ALLOW_ORIGINS
+        sync: false
 
   # ---- Frontend: React + Vite (served by nginx) ----
   - type: web

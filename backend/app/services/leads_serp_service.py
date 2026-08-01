@@ -168,13 +168,17 @@ class LeadsSerpService:
             DatabaseFailureError: If database operation fails
             JobAlreadyRunningError: If a job is already running
         """
+        # Validate the project up front so a stale project_id returns a clean 404
+        # instead of hitting the jobs.project_id foreign key and surfacing as a 500.
+        project_service.get_project(project_id)
+
+        # check if there is a running job
+        job_service.check_running_job(project_id, "generate_urls")
+
+        # create job
+        job = job_service.create_job(project_id, "generate_urls")
+
         try:
-            # check if there is a running job
-            job_service.check_running_job(project_id, "generate_urls")
-
-            # create job
-            job = job_service.create_job(project_id, "generate_urls")
-
             ############# Step 1: Save queries to database
             total_queries = 0
             with db_service.get_session() as session:
@@ -250,8 +254,13 @@ class LeadsSerpService:
             logger.exception(f"❌ Error saving queries to database")
             job_service.mark_job_as_failed(job.id, str(e))
             raise DatabaseFailureError("Failed to save queries to database") from e
-
-        return await self._generate_and_add_urls_to_table(project_id, queries)
+        except Exception as e:
+            # Anything else (scraper failures, etc.) must still release the job.
+            # Otherwise it stays "running" forever and check_running_job blocks
+            # every later attempt for this project with a 409.
+            logger.exception(f"❌ Error generating URLs for project {project_id}")
+            job_service.mark_job_as_failed(job.id, str(e))
+            raise
 
     def get_queries(self, project_id: int) -> list[dict]:
         """
@@ -794,6 +803,9 @@ class LeadsSerpService:
             DatabaseFailureError: If database operation fails
             JobAlreadyRunningError: If a job is already running
         """
+        # Stays None until the job row exists, so the handlers below know whether
+        # there is anything to mark as failed.
+        job = None
         try:
             with db_service.get_session() as session:
                 # Step 0: Get project to retrieve lead_minimum_criteria
@@ -1005,8 +1017,16 @@ class LeadsSerpService:
                 }
         except SQLAlchemyError as e:
             logger.exception(f"❌ Error extracting leads from URLs")
-            job_service.mark_job_as_failed(job.id, str(e))
+            if job is not None:
+                job_service.mark_job_as_failed(job.id, str(e))
             raise DatabaseFailureError("Failed to extract leads from URLs") from e
+        except Exception as e:
+            # Same reasoning as generate_urls: release the job on any failure so
+            # it doesn't stay "running" and block every later attempt.
+            logger.exception(f"❌ Error generating leads for project {project_id}")
+            if job is not None:
+                job_service.mark_job_as_failed(job.id, str(e))
+            raise
 
     def _transform_leads_to_aggregated(self, project_id: int) -> dict:
         """

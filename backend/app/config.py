@@ -27,10 +27,20 @@ class Settings(BaseSettings):
     jina_api_key: Optional[str] = None
 
     debug: bool = Field(default=False)
-    
+
     # App settings
     log_level: str = Field(default="INFO") # Only log level has a default
-    
+
+    # CORS: comma-separated list of allowed origins for the browser SPA.
+    # Defaults to "*" for local dev; in production set this to the deployed
+    # frontend origin(s), e.g. "https://your-app.vercel.app".
+    cors_allow_origins: str = Field(default="*")
+
+    @property
+    def cors_allow_origins_list(self) -> list[str]:
+        """Parse the comma-separated origins into a clean list."""
+        return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
     def configure_logging(self):
         """Configure logging based on settings."""
         logging.basicConfig(
