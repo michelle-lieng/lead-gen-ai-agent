@@ -107,7 +107,9 @@ class LeadsSerpService:
                 {"role": "user", "content": prompt},
             ],
             text_format=QueryListRequest,
-            temperature=0.7,  # Higher temperature for more creative and varied queries
+            # No temperature: gpt-5-class models reject the parameter outright
+            # ("Unsupported parameter: 'temperature'"), so the variety this once
+            # asked for has to come from the prompt rather than from sampling.
         )
 
         # Parse the response

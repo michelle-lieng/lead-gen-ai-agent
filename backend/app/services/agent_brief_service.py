@@ -14,10 +14,13 @@ Two entry points:
 
 import logging
 import re
+from contextlib import contextmanager
 from typing import Literal, Optional
 
+import openai
 from pydantic import BaseModel, Field
 
+from .. import exceptions
 from ..models.tables import Enrichment
 from ..prompts.agent_briefs import ENRICHMENT_DRAFT_PROMPT, LEAD_BRIEF_PROMPT
 from ..utils.ai_clients import build_openai_client
@@ -27,6 +30,11 @@ from .project_service import project_service
 logger = logging.getLogger(__name__)
 
 MODEL = "gpt-5-mini"
+
+# No sampling parameters are passed with it. gpt-5-class models reject
+# `temperature` outright — "Unsupported parameter: 'temperature' is not
+# supported with this model" — and a 400 here fails the whole run at its first
+# step. Shape these drafts through the prompts instead.
 
 # Reserved so a drafted column can never collide with the merged_results base
 # columns or the reasoning/evidence siblings the execution service appends.
@@ -82,6 +90,45 @@ def _uniquify(value: str, taken: set[str], *, limit: int) -> str:
     raise ValueError(f"Could not find a free name based on '{value}'")
 
 
+@contextmanager
+def _openai_errors(step: str):
+    """
+    Turn an OpenAI failure into an AppError the API can answer with.
+
+    Every other service that calls the model does this; this one did not, so a
+    rejected key or an unsupported parameter escaped as an unhandled exception.
+    That is worse than it sounds: unhandled exceptions are answered outside the
+    CORS layer, so the browser discards the response and the SPA reports a
+    server that is answering perfectly well as unreachable.
+    """
+    try:
+        yield
+    except openai.AuthenticationError as exc:
+        raise exceptions.ApiKeyNotConfiguredError(
+            "OpenAI rejected your API key. Check the key entered via the “API keys” button."
+        ) from exc
+    except openai.PermissionDeniedError as exc:
+        raise exceptions.OpenAIRequestError(
+            f"OpenAI refused this request ({step}): {exc}. "
+            "Your key may not have access to the model this app uses."
+        ) from exc
+    except openai.RateLimitError as exc:
+        raise exceptions.OpenAIRequestError(
+            f"OpenAI is rate-limiting or out of quota ({step}): {exc}"
+        ) from exc
+    except openai.BadRequestError as exc:
+        message = str(exc).lower()
+        if "token" in message and ("limit" in message or "reduce" in message or "maximum" in message):
+            raise exceptions.OpenAITokenLimitExceededError() from exc
+        raise exceptions.OpenAIRequestError(f"OpenAI rejected the request ({step}): {exc}") from exc
+    except openai.APIConnectionError as exc:
+        raise exceptions.OpenAIRequestError(
+            f"Could not reach OpenAI ({step}): {exc}"
+        ) from exc
+    except openai.OpenAIError as exc:
+        raise exceptions.OpenAIRequestError(f"OpenAI call failed ({step}): {exc}") from exc
+
+
 class AgentBriefService:
     """Drafts pipeline configuration from natural-language instructions."""
 
@@ -97,23 +144,23 @@ class AgentBriefService:
         project_service.get_project(project_id)  # raises if the project is gone
 
         client = build_openai_client(openai_api_key)
-        response = client.responses.parse(
-            model=MODEL,
-            input=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You configure a lead-generation pipeline. You translate a "
-                        "user's short instruction into a precise search target and a "
-                        "strict test for what counts as a lead. You never broaden or "
-                        "narrow what the user asked for."
-                    ),
-                },
-                {"role": "user", "content": LEAD_BRIEF_PROMPT.format(instruction=instruction)},
-            ],
-            text_format=LeadBriefDraft,
-            temperature=0.4,
-        )
+        with _openai_errors("drafting the lead brief"):
+            response = client.responses.parse(
+                model=MODEL,
+                input=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You configure a lead-generation pipeline. You translate a "
+                            "user's short instruction into a precise search target and a "
+                            "strict test for what counts as a lead. You never broaden or "
+                            "narrow what the user asked for."
+                        ),
+                    },
+                    {"role": "user", "content": LEAD_BRIEF_PROMPT.format(instruction=instruction)},
+                ],
+                text_format=LeadBriefDraft,
+            )
         draft = response.output_parsed
 
         num_queries = max(3, min(8, draft.num_queries or 4))
@@ -143,26 +190,26 @@ class AgentBriefService:
         project_service.get_project(project_id)  # raises if the project is gone
 
         client = build_openai_client(openai_api_key)
-        response = client.responses.parse(
-            model=MODEL,
-            input=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You configure research tasks for an AI agent that can search "
-                        "the web and read pages. You write precise goals and evidence "
-                        "standards, and you never ask for evidence that could not "
-                        "plausibly exist on the public web."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": ENRICHMENT_DRAFT_PROMPT.format(instruction=instruction),
-                },
-            ],
-            text_format=EnrichmentDraft,
-            temperature=0.3,
-        )
+        with _openai_errors("drafting the field"):
+            response = client.responses.parse(
+                model=MODEL,
+                input=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You configure research tasks for an AI agent that can search "
+                            "the web and read pages. You write precise goals and evidence "
+                            "standards, and you never ask for evidence that could not "
+                            "plausibly exist on the public web."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": ENRICHMENT_DRAFT_PROMPT.format(instruction=instruction),
+                    },
+                ],
+                text_format=EnrichmentDraft,
+            )
         draft = response.output_parsed
 
         existing = enrichment_service.get_enrichments(project_id)

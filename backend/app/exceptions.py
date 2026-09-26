@@ -227,6 +227,30 @@ class ScraperCreditsExhaustedError(ExternalScraperError):
         super().__init__(message, meta=meta)
 
 
+class OpenAIRequestError(AppError):
+    """
+    Raised when an OpenAI call fails for a reason the caller can act on.
+
+    Carries OpenAI's own message rather than a house one: "temperature is not
+    supported with this model" and "you exceeded your current quota" need
+    different things done about them, and a single generic sentence for both
+    tells the user nothing. Without this the error escapes unhandled, and an
+    unhandled error reaches the browser with no CORS headers at all — read as
+    an unreachable server rather than a rejected request.
+    """
+
+    status_code = 502
+    code = "OPENAI_REQUEST_FAILED"
+
+    def __init__(
+        self,
+        message: str = "The AI model rejected the request",
+        *,
+        meta: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, meta=meta)
+
+
 class OpenAITokenLimitExceededError(AppError):
     """Raised when OpenAI request exceeds token limit even after truncation attempts"""
 
