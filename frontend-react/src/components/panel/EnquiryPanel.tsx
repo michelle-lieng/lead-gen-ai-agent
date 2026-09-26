@@ -285,7 +285,7 @@ function PanelIntro({
   pastQueries: QueryRecord[];
   onUseExample: (text: string) => void;
 }) {
-  // Once a base has a history, that history is more useful than three examples.
+  // Once a project has a history, that history is more useful than three examples.
   const showHistory = tab === 'find' && pastQueries.length > 0;
   const showFields = tab === 'enrich' && enrichments.length > 0;
 

@@ -1,11 +1,13 @@
 /**
  * One record, expanded.
  *
- * This is where an AI field's working is read: the answer, then the reasoning
- * and the evidence the agent recorded against it. In the grid those two are
- * folded away, because a table of paragraphs is unreadable; here they are the
- * point, and they are what makes a researched answer checkable rather than
- * something to take on trust.
+ * This is where an AI field's working is read in full: the answer, then the
+ * reasoning and the evidence the agent recorded against it. The grid carries
+ * those two as their own columns, but a cell one line tall can only ever show
+ * the start of a paragraph; here they are set out under the answer they
+ * explain, which is what makes a researched answer checkable rather than
+ * something to take on trust. They are read here as part of their answer, so
+ * they are not repeated as fields of their own.
  *
  * Fields stay editable, as they are in the grid, through the same write path.
  */
@@ -84,16 +86,18 @@ export function ExpandedRecord({
       }
     >
       <div className="rec__fields">
-        {fields.map((field) => (
-          <RecordField
-            key={field.key}
-            field={field}
-            row={row}
-            lead={lead}
-            busy={busy}
-            onEdit={onEdit}
-          />
-        ))}
+        {fields
+          .filter((field) => !field.note)
+          .map((field) => (
+            <RecordField
+              key={field.key}
+              field={field}
+              row={row}
+              lead={lead}
+              busy={busy}
+              onEdit={onEdit}
+            />
+          ))}
       </div>
     </Modal>
   );

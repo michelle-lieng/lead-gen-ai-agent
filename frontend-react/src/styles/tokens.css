@@ -67,7 +67,7 @@
   --shadow-card-up: 0 6px 16px -6px rgba(20, 24, 35, 0.16), 0 2px 4px rgba(20, 24, 35, 0.06);
   --shadow-pop:     0 6px 20px -6px rgba(20, 24, 35, 0.20), 0 1px 3px rgba(20, 24, 35, 0.10);
   --shadow-modal:   0 24px 56px -16px rgba(20, 24, 35, 0.32), 0 2px 8px rgba(20, 24, 35, 0.10);
-  --shadow-cell:    0 4px 12px -3px rgba(20, 24, 35, 0.22);
+  --shadow-cell:    0 6px 16px -4px rgba(20, 24, 35, 0.30), 0 2px 4px rgba(20, 24, 35, 0.12);
   --shadow-frozen:  3px 0 7px -3px rgba(20, 24, 35, 0.12);
 
   /* --- Measure ------------------------------------------------------------ */
@@ -141,7 +141,11 @@ a {
 }
 a:hover { color: var(--accent-hover); }
 
-h1, h2, h3, p, ol, ul { margin: 0; }
+h1, h2, h3, p { margin: 0; }
+
+/* Every list in this app is a layout list with its own markers or none at all,
+   so the browser's marker indent is never wanted. */
+ol, ul { margin: 0; padding: 0; }
 
 .sr-only {
   position: absolute;

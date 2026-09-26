@@ -1,159 +1,219 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-09-26T00:00:00Z",
-  "title": "Design System: Lead Register",
+  "title": "Design System: AI Lead Generator",
   "extensions": {
     "colorMeta": {
-      "navy": {
+      "accent": {
         "role": "primary",
-        "displayName": "Register Navy",
+        "displayName": "Kiyu Navy",
         "canonical": "#12305c",
-        "tonalRamp": ["#07142a", "#0c2244", "#12305c", "#1e4a87", "#2f66ac", "#7c9ccb", "#b6c8e2", "#dde6f4"]
+        "tonalRamp": ["#070f1d", "#0c1c33", "#12305c", "#1c4585", "#2e60ad", "#5b8ad0", "#98b5e2", "#e7edf6"]
       },
-      "navy-deep": {
+      "accent-hover": {
         "role": "primary",
-        "displayName": "Navy Deep",
+        "displayName": "Navy Pressed",
         "canonical": "#0c2244",
-        "tonalRamp": ["#050e1d", "#08182f", "#0c2244", "#153a70", "#215499", "#5c86c0", "#a6bcdc", "#d6e1f1"]
+        "tonalRamp": ["#050c18", "#08172e", "#0c2244", "#123365", "#1a4a90", "#3a72c0", "#86a9dc", "#dfe8f4"]
       },
-      "navy-mid": {
-        "role": "primary",
-        "displayName": "Navy Mid",
-        "canonical": "#1e4a87",
-        "tonalRamp": ["#0a1d36", "#122c51", "#1e4a87", "#2a63b0", "#4480cb", "#7fa4da", "#b4c9e9", "#e0e9f6"]
-      },
-      "navy-wash": {
+      "accent-soft": {
         "role": "primary",
         "displayName": "Navy Wash",
-        "canonical": "#dde6f4",
-        "tonalRamp": ["#20344f", "#2f4d74", "#40699b", "#6d92c0", "#9cb6d8", "#c1d1e9", "#dde6f4", "#f1f5fb"]
+        "canonical": "#e7edf6",
+        "tonalRamp": ["#101b2b", "#1b2f4a", "#2a4770", "#42649a", "#6d8cbc", "#9cb2d4", "#c6d3e8", "#e7edf6"]
       },
-      "navy-tint": {
+      "accent-tint": {
         "role": "primary",
-        "displayName": "Navy Tint",
-        "canonical": "#eef3fa",
-        "tonalRamp": ["#22303f", "#324863", "#456186", "#6d88ad", "#9cb0ca", "#c6d3e4", "#eef3fa", "#f8fafd"]
+        "displayName": "Navy Breath",
+        "canonical": "#f3f6fb",
+        "tonalRamp": ["#141c28", "#223046", "#33486a", "#4d6894", "#7a92b6", "#a8bad2", "#d0dbeb", "#f3f6fb"]
       },
-      "spot": {
-        "role": "secondary",
-        "displayName": "Register Red",
-        "canonical": "#a6371f",
-        "tonalRamp": ["#33110a", "#521b0f", "#7a2917", "#a6371f", "#c9573c", "#dd8a77", "#eeb9ac", "#fbeeea"]
-      },
-      "spot-wash": {
-        "role": "secondary",
-        "displayName": "Red Wash",
-        "canonical": "#fbeeea",
-        "tonalRamp": ["#3d1a12", "#5e2a1e", "#85412f", "#ab6a57", "#c99785", "#e2c0b4", "#fbeeea", "#fdf7f5"]
-      },
-      "success-ink": {
-        "role": "tertiary",
-        "displayName": "Notice Green",
-        "canonical": "#1d5f3f",
-        "tonalRamp": ["#082517", "#113a27", "#1d5f3f", "#2a8058", "#42a375", "#7dc2a2", "#b3dcc8", "#eef6f1"]
-      },
-      "warning-ink": {
-        "role": "tertiary",
-        "displayName": "Notice Amber",
-        "canonical": "#8a5a12",
-        "tonalRamp": ["#2c1c04", "#4a300a", "#6b4310", "#8a5a12", "#b57b25", "#d3a45f", "#e7c89c", "#fbf3e6"]
-      },
-      "paper": {
+      "surface": {
         "role": "neutral",
-        "displayName": "Paper",
+        "displayName": "White Content",
         "canonical": "#ffffff",
-        "tonalRamp": ["#14181f", "#333c48", "#55616f", "#8a97a9", "#b6c1cf", "#dde3ec", "#f6f9fd", "#ffffff"]
+        "tonalRamp": ["#1d1d1f", "#3a3a3e", "#57575d", "#74747c", "#9a9aa2", "#c2c2c8", "#e6e6ea", "#ffffff"]
       },
-      "paper-hover": {
+      "surface-2": {
         "role": "neutral",
-        "displayName": "Paper Hover",
-        "canonical": "#f6f9fd",
-        "tonalRamp": ["#1b222c", "#333e4d", "#4e5d71", "#7a8b9f", "#a9b7c8", "#d3dce7", "#f6f9fd", "#ffffff"]
+        "displayName": "Strip Grey",
+        "canonical": "#fbfbfc",
+        "tonalRamp": ["#1c1c1f", "#38383d", "#55555c", "#72727a", "#98989f", "#c0c0c6", "#e4e4e8", "#fbfbfc"]
       },
-      "ground": {
+      "surface-hover": {
         "role": "neutral",
-        "displayName": "Desk Blue",
-        "canonical": "#e6ecf6",
-        "tonalRamp": ["#1b2532", "#2e3f55", "#44597a", "#6d84a6", "#9aaec8", "#c4d1e3", "#e6ecf6", "#f5f8fc"]
+        "displayName": "Row Hover",
+        "canonical": "#f5f5f7",
+        "tonalRamp": ["#1b1b1e", "#363639", "#525256", "#6e6e74", "#949499", "#bcbcc2", "#dedee2", "#f5f5f7"]
       },
-      "ground-deep": {
+      "chrome": {
         "role": "neutral",
-        "displayName": "Desk Blue Deep",
-        "canonical": "#d8e1ef",
-        "tonalRamp": ["#19222e", "#2b3a4f", "#405473", "#69809f", "#96aac3", "#bdcbe0", "#d8e1ef", "#f0f4fa"]
+        "displayName": "Chrome",
+        "canonical": "#f7f7f8",
+        "tonalRamp": ["#1b1b1c", "#37373a", "#535356", "#6f6f73", "#95959a", "#bdbdc1", "#e0e0e3", "#f7f7f8"]
       },
-      "ink": {
+      "chrome-hover": {
         "role": "neutral",
-        "displayName": "Text Ink",
-        "canonical": "#14181f",
-        "tonalRamp": ["#090b0e", "#14181f", "#262d38", "#3c4653", "#5b6776", "#8a97a9", "#c3ccd8", "#eef1f5"]
+        "displayName": "Chrome Hover",
+        "canonical": "#ececed",
+        "tonalRamp": ["#19191a", "#333335", "#4d4d50", "#69696c", "#8e8e92", "#b5b5b9", "#d5d5d8", "#ececed"]
       },
-      "ink-2": {
+      "line": {
         "role": "neutral",
-        "displayName": "Secondary Ink",
-        "canonical": "#4a5768",
-        "tonalRamp": ["#12161b", "#222932", "#343e4b", "#4a5768", "#6b7a8d", "#97a3b3", "#c3cbd6", "#eaeef3"]
+        "displayName": "Rule",
+        "canonical": "#e3e3e6",
+        "tonalRamp": ["#181819", "#303033", "#49494d", "#636367", "#87878c", "#ababb1", "#cbcbd0", "#e3e3e6"]
       },
-      "ink-3": {
+      "line-2": {
         "role": "neutral",
-        "displayName": "Inactive Ink",
-        "canonical": "#8a97a9",
-        "tonalRamp": ["#1b202a", "#2e3643", "#45505f", "#5f6c7d", "#8a97a9", "#adb8c6", "#cdd5de", "#edf0f4"]
+        "displayName": "Rule Faint",
+        "canonical": "#ededf0",
+        "tonalRamp": ["#191a1b", "#323335", "#4c4d50", "#67686c", "#8c8d92", "#b1b2b8", "#d2d3d8", "#ededf0"]
       },
-      "ink-placeholder": {
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Rule Firm",
+        "canonical": "#d2d2d8",
+        "tonalRamp": ["#161618", "#2c2c30", "#434348", "#5c5c62", "#7f7f87", "#a2a2ab", "#bcbcc4", "#d2d2d8"]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#1d1d1f",
+        "tonalRamp": ["#0b0b0c", "#1d1d1f", "#38383b", "#545458", "#797980", "#a0a0a8", "#c8c8ce", "#eeeef0"]
+      },
+      "text-2": {
+        "role": "neutral",
+        "displayName": "Ink Secondary",
+        "canonical": "#666670",
+        "tonalRamp": ["#141416", "#28282c", "#3d3d43", "#525259", "#666670", "#8d8d96", "#b6b6bd", "#dedee2"]
+      },
+      "placeholder": {
         "role": "neutral",
         "displayName": "Placeholder Ink",
-        "canonical": "#66748a",
-        "tonalRamp": ["#161a21", "#262d38", "#39424f", "#4f5b6c", "#66748a", "#95a0b0", "#c2c9d3", "#eceff3"]
+        "canonical": "#71717a",
+        "tonalRamp": ["#161618", "#2b2b2f", "#404046", "#55555c", "#71717a", "#97979f", "#bdbdc3", "#e2e2e6"]
       },
-      "hairline": {
+      "text-3": {
         "role": "neutral",
-        "displayName": "Hairline",
-        "canonical": "#ccd6e6",
-        "tonalRamp": ["#1d2530", "#31404f", "#485c73", "#6c829d", "#9aabc2", "#ccd6e6", "#e2e9f3", "#f4f7fb"]
+        "displayName": "Ink Faint",
+        "canonical": "#a1a1aa",
+        "tonalRamp": ["#171719", "#2c2c31", "#424248", "#585860", "#7c7c85", "#a1a1aa", "#c4c4cb", "#e6e6ea"]
       },
-      "hairline-2": {
+      "selection-bg": {
         "role": "neutral",
-        "displayName": "Hairline Light",
-        "canonical": "#e2e9f3",
-        "tonalRamp": ["#1f2731", "#344252", "#4b5f77", "#7085a1", "#9dadc4", "#c8d3e3", "#e2e9f3", "#f6f9fd"]
+        "displayName": "Text Selection",
+        "canonical": "#c9d7ec",
+        "tonalRamp": ["#111a26", "#1e2f45", "#2e4867", "#456694", "#6f8db6", "#9cb3d1", "#c9d7ec", "#eef3fa"]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Danger Red",
+        "canonical": "#b3261e",
+        "tonalRamp": ["#2a0906", "#4a100c", "#6c1813", "#8f1e18", "#b3261e", "#d9483f", "#eb8980", "#fdeceb"]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Step Complete Green",
+        "canonical": "#1d6b3f",
+        "tonalRamp": ["#06180d", "#0b2b18", "#123f25", "#175534", "#1d6b3f", "#2f9a5e", "#68c28f", "#d6f0e0"]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Blocked Amber",
+        "canonical": "#8a5a12",
+        "tonalRamp": ["#1d1204", "#33200a", "#4c3010", "#6a4211", "#8a5a12", "#b8801f", "#d8ab5b", "#fdf4e5"]
+      },
+      "chip-yes-bg": {
+        "role": "secondary",
+        "displayName": "Select Chip Mint",
+        "canonical": "#d6f5d9",
+        "tonalRamp": ["#0b2410", "#123a1a", "#17501f", "#1f6f2c", "#2f9a41", "#62c072", "#9fdfaa", "#d6f5d9"]
+      },
+      "chip-no-bg": {
+        "role": "secondary",
+        "displayName": "Select Chip Rose",
+        "canonical": "#ffdedb",
+        "tonalRamp": ["#2a0c07", "#46150e", "#661d13", "#8a2318", "#b03526", "#d4665a", "#eda297", "#ffdedb"]
+      },
+      "chip-flat-bg": {
+        "role": "secondary",
+        "displayName": "Select Chip Neutral",
+        "canonical": "#ebebef",
+        "tonalRamp": ["#141418", "#28282e", "#3b3b43", "#45454f", "#6d6d78", "#96969f", "#c2c2c8", "#ebebef"]
+      },
+      "base-icon-teal": {
+        "role": "tertiary",
+        "displayName": "Base Icon Teal",
+        "canonical": "#0f6f62",
+        "tonalRamp": ["#041a17", "#072d28", "#0a453d", "#0d5a50", "#0f6f62", "#169c8a", "#5cc4b6", "#d3efeb"]
+      },
+      "base-icon-violet": {
+        "role": "tertiary",
+        "displayName": "Base Icon Violet",
+        "canonical": "#5b43b8",
+        "tonalRamp": ["#140e2c", "#211848", "#332568", "#46318f", "#5b43b8", "#8272d0", "#aea3e3", "#e4e0f6"]
+      },
+      "base-icon-amber": {
+        "role": "tertiary",
+        "displayName": "Base Icon Amber",
+        "canonical": "#9c5410",
+        "tonalRamp": ["#221105", "#3b1e08", "#562c0b", "#77400d", "#9c5410", "#c9791f", "#e0a563", "#f8e6d1"]
+      },
+      "base-icon-rose": {
+        "role": "tertiary",
+        "displayName": "Base Icon Rose",
+        "canonical": "#a52c50",
+        "tonalRamp": ["#250a13", "#3f1122", "#5c1a31", "#802341", "#a52c50", "#c95778", "#e096ac", "#f8dee6"]
+      },
+      "base-icon-green": {
+        "role": "tertiary",
+        "displayName": "Base Icon Green",
+        "canonical": "#246b39",
+        "tonalRamp": ["#08170d", "#0e2917", "#163e22", "#1d552d", "#246b39", "#369a54", "#6ec287", "#d8efdf"]
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "The title of an empty page's preface. One per page at most; 18px under 760px." },
-      "headline": { "displayName": "Headline", "purpose": "A contents-page entry name; a modal title (set at wdth 118)." },
-      "title": { "displayName": "Running Head", "purpose": "The running head across the top of the page and the reversed section bar. Never an eyebrow over a heading." },
-      "body": { "displayName": "Body", "purpose": "The interface base. Supporting prose sets at 13.5px or 12.5px, measured 44-78ch." },
-      "listing": { "displayName": "Listing", "purpose": "Every value in the register's rows and in an open cell editor. Narrow width so more columns fit without shrinking the face." },
-      "label": { "displayName": "Spaced Small Caps", "purpose": "Column heads, field labels, the key, the folio, the status control. Thumb tabs use the same treatment at 10.5px." },
-      "mono": { "displayName": "Machine Identifier", "purpose": "Real SQL column identifiers under their human column heads, and the clerk's log timestamps at 10.5px. Never for emphasis." }
+      "title": { "displayName": "Title", "purpose": "Empty-state headings — the largest type in the product." },
+      "heading": { "displayName": "Heading", "purpose": "Base name, expanded-record title, modal headings." },
+      "body": { "displayName": "Body", "purpose": "Cell values, menu items, inputs, sidebar links. The default." },
+      "body-secondary": { "displayName": "Body Secondary", "purpose": "Notes, hints, run steps, modal descriptions." },
+      "meta": { "displayName": "Meta", "purpose": "Row numbers, record counts, tallies, footer bar." },
+      "label": { "displayName": "Label", "purpose": "Uppercase section labels only — BASES, popover groups, the run request header." },
+      "numeric": { "displayName": "Numeric", "purpose": "Number cells and counts. Tabular figures are scoped here, never global." },
+      "identifier": { "displayName": "Identifier", "purpose": "System mono for machine strings: SQL column names in the field menu and expanded record, and log timestamps. Never in a column head." }
     },
     "shadows": [
-      { "name": "lifted-leaf", "value": "0 18px 40px -18px #0c224459", "purpose": "A modal - a sheet laid over the desk. The only full-surface lift in the system." },
-      { "name": "pinned-slip", "value": "0 10px 24px -14px #0c224466", "purpose": "A notice slip pinned to the foot of the desk." },
-      { "name": "the-fold", "value": "-7px 0 8px -7px #0c224459", "purpose": "Cast leftward by the frozen actions edge, only while the sheet really does carry on past it (data-more='true')." },
-      { "name": "focus-rule", "value": "inset 0 -2px 0 -1px var(--navy)", "purpose": "A focused field's thickened navy baseline. Inset - not depth." },
-      { "name": "editable-underline", "value": "inset 0 -1px 0 var(--navy-mid)", "purpose": "A listing cell's editability, shown on hover as the same hairline the page is built from." }
+      { "name": "card", "value": "0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04)", "purpose": "The barely-there lift under a raised control: buttons, the selected segment, the active base pill, a base card at rest. Removed on :active." },
+      { "name": "card-raised", "value": "0 6px 16px -6px rgba(20,24,35,0.16), 0 2px 4px rgba(20,24,35,0.06)", "purpose": "A base card on hover, paired with a 1px upward translate." },
+      { "name": "popover", "value": "0 6px 20px -6px rgba(20,24,35,0.20), 0 1px 3px rgba(20,24,35,0.10)", "purpose": "Menus, field menus and toasts." },
+      { "name": "cell-editor", "value": "0 6px 16px -4px rgba(20,24,35,0.30), 0 2px 4px rgba(20,24,35,0.12)", "purpose": "The cell being typed into, so it reads as lifted off the sheet rather than merely selected." },
+      { "name": "modal", "value": "0 24px 56px -16px rgba(20,24,35,0.32), 0 2px 8px rgba(20,24,35,0.10)", "purpose": "Dialogs, and the panel and sidebar once they become drawers." },
+      { "name": "frozen-edge", "value": "3px 0 7px -3px rgba(20,24,35,0.12)", "purpose": "Cast rightward from the frozen columns, only once the grid is actually scrolled." }
     ],
     "motion": [
-      { "name": "clock", "value": "160ms", "purpose": "The one clock. Every transition and both keyframe animations read it." },
-      { "name": "ease", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "The one easing curve in the system." },
-      { "name": "ink-settle", "value": "@keyframes { from { opacity: 0; transform: translateY(2px) } to { opacity: 1; transform: none } } 160ms", "purpose": "An answer landing, a modal opening, a notice arriving. Staggered per cell via --settle-delay." },
-      { "name": "rule-draw", "value": "@keyframes { from { transform: scaleX(0) } to { transform: scaleX(1) } } 240ms, transform-origin: left center", "purpose": "A new entry ruling in: the hairline draws left to right, then the row sets." },
-      { "name": "setting-rule", "value": "transition: transform 160ms var(--ease), height 160ms var(--ease)", "purpose": "The travelling navy rule in the entry-number gutter, moving to the entry being worked." },
-      { "name": "spinner", "value": "rotate(360deg) 900ms linear infinite", "purpose": "The ruled square spinner - the only indeterminate device and the only motion off the clock." },
-      { "name": "reduced-motion", "value": "@media (prefers-reduced-motion: reduce) { animation-duration: 1ms; transition-duration: 1ms; scroll-behavior: auto }", "purpose": "All motion collapses globally." }
+      { "name": "clock", "value": "140ms", "purpose": "The one duration for every transition and authored animation." },
+      { "name": "ease", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "The one easing curve, for every transition and animation." },
+      { "name": "pop-in", "value": "from { opacity: 0; transform: scale(0.97) translateY(-3px); } to { opacity: 1; transform: none; }", "purpose": "Popovers and menus scale-fading from their own top-left origin." },
+      { "name": "settle", "value": "from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; }", "purpose": "An answer arriving. A batch lands together so it fades together; also used for scrims." },
+      { "name": "modal-in", "value": "from { opacity: 0; transform: translateY(6px) scale(0.99); } to { opacity: 1; transform: none; }", "purpose": "Dialog entry." },
+      { "name": "toast-in", "value": "from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; }", "purpose": "Toast entry from the bottom-right." },
+      { "name": "spin", "value": "720ms linear infinite", "purpose": "The one indeterminate device. Slows to 1200ms rather than stopping under prefers-reduced-motion." },
+      { "name": "sweep", "value": "1.5s cubic-bezier(0.16, 1, 0.3, 1) infinite", "purpose": "The 38%-wide bar on the live run's 2px progress strip. Never a percentage." },
+      { "name": "reduced-motion", "value": "all durations 1ms !important", "purpose": "Everything collapses under prefers-reduced-motion; only the spinner keeps looping." }
     ],
     "breakpoints": [
-      { "name": "desk-narrow", "value": "1400px" },
-      { "name": "fold-to-column", "value": "1100px" },
-      { "name": "phone", "value": "760px" }
+      { "name": "panel-drawer", "value": "1180px" },
+      { "name": "sidebar-slideover", "value": "1000px" },
+      { "name": "phone", "value": "720px" }
     ],
     "measures": [
-      { "name": "row-h", "value": "34px", "purpose": "Minimum height of a register entry; the head is 38px." },
-      { "name": "gutter", "value": "48px", "purpose": "The frozen entry-number column; 34px under 760px." },
-      { "name": "desk-w", "value": "404px", "purpose": "The enquiry desk column; 326px under 1400px, full width under 1100px." },
-      { "name": "sheet-pad", "value": "28px", "purpose": "The sheet's own margin token." }
+      { "name": "sidebar-w", "value": "240px" },
+      { "name": "panel-w", "value": "380px" },
+      { "name": "row-h", "value": "32px" },
+      { "name": "head-h", "value": "32px" },
+      { "name": "gutter-w", "value": "66px" },
+      { "name": "addcol-w", "value": "44px" }
     ]
   },
   "components": [
@@ -161,133 +221,150 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The primary action of a region: navy fill, square corners, pressed with a 1px downward shift.",
-      "html": "<button class=\"ds-btn ds-btn-primary\"><svg class=\"ds-icon\" viewBox=\"0 0 16 16\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.25\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" aria-hidden=\"true\"><circle cx=\"7\" cy=\"7\" r=\"4.5\"/><path d=\"M10.4 10.4 14 14\"/></svg><span>Find leads</span></button>",
-      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid; border-radius: 0; cursor: pointer; white-space: nowrap; font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif; font-size: 12px; font-variation-settings: 'wdth' 100; font-weight: 500; letter-spacing: 0.02em; font-variant-numeric: tabular-nums lining-nums; transition: background 160ms cubic-bezier(0.16,1,0.3,1), color 160ms cubic-bezier(0.16,1,0.3,1), border-color 160ms cubic-bezier(0.16,1,0.3,1); } .ds-icon { display: block; flex: none; } .ds-btn-primary { background: #12305c; border-color: #12305c; color: #fff; } .ds-btn-primary:hover { background: #0c2244; border-color: #0c2244; } .ds-btn-primary:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; } .ds-btn-primary:active { transform: translateY(1px); }"
+      "description": "The single primary action per region — Find leads, Enrich, Create, Save.",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"7.25\" cy=\"7.25\" r=\"4.25\"/><path d=\"M10.5 10.5 13.5 13.5\"/></svg><span>Find leads</span></button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 11px; border: 1px solid transparent; border-radius: 6px; font-family: Inter, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background 140ms cubic-bezier(0.16,1,0.3,1), border-color 140ms cubic-bezier(0.16,1,0.3,1), color 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-primary { background: #12305c; border-color: #12305c; color: #fff; box-shadow: 0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04); } .ds-btn-primary:hover { background: #0c2244; border-color: #0c2244; } .ds-btn-primary:active { box-shadow: none; } .ds-btn-primary:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; }"
     },
     {
       "name": "Plain Button",
       "kind": "button",
       "refersTo": "button-plain",
-      "description": "The default control: white paper inside a hairline, inking navy on hover.",
-      "html": "<button class=\"ds-btn ds-btn-plain\"><svg class=\"ds-icon\" viewBox=\"0 0 16 16\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.25\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" aria-hidden=\"true\"><path d=\"M8 10.5V2\"/><path d=\"M4.75 7.25 8 10.5l3.25-3.25\"/><path d=\"M2.5 11.5v2h11v-2\"/></svg><span>Import</span></button>",
-      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid; border-radius: 0; cursor: pointer; white-space: nowrap; font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif; font-size: 12px; font-variation-settings: 'wdth' 100; font-weight: 500; letter-spacing: 0.02em; transition: background 160ms cubic-bezier(0.16,1,0.3,1), color 160ms cubic-bezier(0.16,1,0.3,1), border-color 160ms cubic-bezier(0.16,1,0.3,1); } .ds-icon { display: block; flex: none; } .ds-btn-plain { background: #ffffff; border-color: #ccd6e6; color: #14181f; } .ds-btn-plain:hover { border-color: #12305c; color: #12305c; } .ds-btn-plain:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; } .ds-btn-plain:active { transform: translateY(1px); } .ds-btn-plain:disabled { opacity: 0.42; cursor: not-allowed; }"
+      "description": "The default control: white, hairline bordered, faintly raised.",
+      "html": "<button class=\"ds-btn2 ds-btn-plain\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 10.5V2.5\"/><path d=\"M5 7.5 8 10.5l3-3\"/><path d=\"M2.75 11v2.5h10.5V11\"/></svg><span>Import</span></button>",
+      "css": ".ds-btn2 { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 11px; border: 1px solid transparent; border-radius: 6px; font-family: Inter, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 140ms cubic-bezier(0.16,1,0.3,1), border-color 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-plain { background: #ffffff; border-color: #e3e3e6; color: #1d1d1f; box-shadow: 0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04); } .ds-btn-plain:hover { background: #f5f5f7; border-color: #d2d2d8; } .ds-btn-plain:active { box-shadow: none; } .ds-btn-plain:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; }"
     },
     {
-      "name": "Danger Button",
+      "name": "Quiet Button",
       "kind": "button",
-      "refersTo": "button-danger",
-      "description": "Destructive intent, and one of only two places the second ink is spent.",
-      "html": "<button class=\"ds-btn ds-btn-danger\"><svg class=\"ds-icon\" viewBox=\"0 0 16 16\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.25\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" aria-hidden=\"true\"><path d=\"M2.5 4h11\"/><path d=\"M6 4V2.5h4V4\"/><path d=\"M3.75 4v9.5h8.5V4\"/><path d=\"M6.5 6.5v5M9.5 6.5v5\"/></svg><span>Delete register</span></button>",
-      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid; border-radius: 0; cursor: pointer; font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif; font-size: 12px; font-variation-settings: 'wdth' 100; font-weight: 500; letter-spacing: 0.02em; transition: background 160ms cubic-bezier(0.16,1,0.3,1), color 160ms cubic-bezier(0.16,1,0.3,1), border-color 160ms cubic-bezier(0.16,1,0.3,1); } .ds-icon { display: block; flex: none; } .ds-btn-danger { background: #ffffff; border-color: #ccd6e6; color: #a6371f; } .ds-btn-danger:hover { border-color: #a6371f; background: #fbeeea; } .ds-btn-danger:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; } .ds-btn-danger:active { transform: translateY(1px); }"
+      "refersTo": "button-quiet",
+      "description": "Every toolbar and chrome control: transparent until hovered.",
+      "html": "<button class=\"ds-btn3 ds-btn-quiet\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M2.75 4.5h10.5M2.75 8h10.5M2.75 11.5h10.5\"/></svg><span>Row height</span></button>",
+      "css": ".ds-btn3 { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border: 1px solid transparent; border-radius: 6px; font-family: Inter, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 140ms cubic-bezier(0.16,1,0.3,1), color 140ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-quiet { background: transparent; color: #666670; } .ds-btn-quiet:hover { background: #ececed; color: #1d1d1f; } .ds-btn-quiet:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; }"
     },
     {
-      "name": "Field",
+      "name": "Text Field",
       "kind": "input",
-      "refersTo": "input-field",
-      "description": "A ruled line, not a box: spaced small-caps label above, hairline all round, navy baseline on focus.",
-      "html": "<label class=\"ds-field\"><span class=\"ds-field__label\">Company column</span><input class=\"ds-field__input\" type=\"text\" placeholder=\"e.g. Practice name\" /><span class=\"ds-field__hint\">The column the register reads entries from.</span></label>",
-      "css": ".ds-field { display: block; font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif; } .ds-field__label { display: block; margin-bottom: 5px; font-variation-settings: 'wdth' 100; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; font-size: 10px; color: #4a5768; } .ds-field__input { display: block; width: 100%; box-sizing: border-box; min-height: 30px; padding: 6px 9px; background: #ffffff; border: 1px solid #ccd6e6; border-radius: 0; color: #14181f; caret-color: #12305c; font-family: inherit; font-size: 13px; font-variant-numeric: tabular-nums lining-nums; transition: border-color 160ms cubic-bezier(0.16,1,0.3,1), background 160ms cubic-bezier(0.16,1,0.3,1); } .ds-field__input::placeholder { color: #66748a; } .ds-field__input:hover:not(:focus) { border-color: #b3c1d6; } .ds-field__input:focus { outline: none; border-color: #12305c; box-shadow: inset 0 -2px 0 -1px #12305c; } .ds-field__hint { display: block; margin-top: 5px; font-size: 11.5px; color: #4a5768; }"
+      "refersTo": "input",
+      "description": "Every typed field: white, 6px, firm hairline, navy halo on focus.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-f1\">Base name</label><input class=\"ds-input\" id=\"ds-f1\" placeholder=\"Sydney dental clinics\" /><span class=\"ds-field-hint\">Shown in the sidebar and on the workspace home.</span></div>",
+      "css": ".ds-field-label { display: block; margin-bottom: 5px; font-family: Inter, -apple-system, sans-serif; font-size: 12px; font-weight: 500; color: #666670; } .ds-input { display: block; width: 100%; box-sizing: border-box; min-height: 32px; padding: 6px 9px; border: 1px solid #d2d2d8; border-radius: 6px; background: #fff; color: #1d1d1f; font-family: Inter, -apple-system, sans-serif; font-size: 13px; caret-color: #12305c; transition: border-color 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms cubic-bezier(0.16,1,0.3,1); } .ds-input::placeholder { color: #71717a; } .ds-input:hover { border-color: #b8b8c0; } .ds-input:focus { outline: none; border-color: #12305c; box-shadow: 0 0 0 3px #e7edf6; } .ds-field-hint { display: block; margin-top: 5px; font-family: Inter, sans-serif; font-size: 12px; line-height: 1.5; color: #666670; }"
     },
     {
-      "name": "Thumb-Index Tabs",
-      "kind": "nav",
-      "refersTo": "thumb-tab",
-      "description": "Tabs cut into the fore-edge of the enquiry desk the way a dictionary's are; the active tab runs into the leaf it opens.",
-      "html": "<div class=\"ds-thumbs\"><button class=\"ds-thumb\" data-active=\"true\"><svg viewBox=\"0 0 16 16\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.25\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" aria-hidden=\"true\" style=\"display:block;flex:none\"><circle cx=\"7\" cy=\"7\" r=\"4.5\"/><path d=\"M10.4 10.4 14 14\"/></svg>Find leads</button><button class=\"ds-thumb\"><svg viewBox=\"0 0 16 16\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.25\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" aria-hidden=\"true\" style=\"display:block;flex:none\"><path d=\"M2 2.5h12v11H2z\"/><path d=\"M9.5 2.5v11M2 6h12\"/></svg>Enrich leads</button></div>",
-      "css": ".ds-thumbs { display: flex; gap: 2px; padding: 6px 8px 0; background: #e6ecf6; border-bottom: 1px solid #12305c; font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif; } .ds-thumb { display: inline-flex; align-items: center; gap: 7px; flex: 1; justify-content: center; min-height: 30px; padding: 0 12px; border: 1px solid #ccd6e6; border-bottom: none; background: #dbe4f2; color: #4a5768; font-family: inherit; font-variation-settings: 'wdth' 100; font-weight: 600; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; border-radius: 2px 2px 0 0; transition: background 160ms cubic-bezier(0.16,1,0.3,1), color 160ms cubic-bezier(0.16,1,0.3,1); } .ds-thumb:hover:not([data-active='true']) { background: #e6ecf7; color: #12305c; } .ds-thumb:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; } .ds-thumb[data-active='true'] { background: #12305c; border-color: #12305c; color: #fff; margin-bottom: -1px; padding-bottom: 1px; }"
-    },
-    {
-      "name": "Running Head",
-      "kind": "nav",
-      "refersTo": "section-bar",
-      "description": "The strip a printed register carries across the top of every page: imprint left, folio centre, keys status right, heavy navy rule beneath.",
-      "html": "<header class=\"ds-runhead\"><a class=\"ds-runhead__mark\" href=\"#\"><span class=\"ds-runhead__rule\"></span><span class=\"ds-head\">Kiyu Labs</span><span class=\"ds-head ds-runhead__title\">Lead Register</span></a><div class=\"ds-runhead__folio\"><span>Sydney dental practices</span><span class=\"ds-runhead__sep\"></span><span>Last run 24 Sep</span></div><div class=\"ds-runhead__actions\"><button class=\"ds-keys\" data-ready=\"true\"><svg viewBox=\"0 0 16 16\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.25\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" aria-hidden=\"true\" style=\"display:block;flex:none\"><circle cx=\"5\" cy=\"6\" r=\"3\"/><path d=\"M7.1 8.1 14 15\"/><path d=\"M11.5 12.5 13 11M9.6 10.6 11 9.2\"/></svg><span class=\"ds-caps\">Keys set</span></button></div></header>",
-      "css": ".ds-runhead { display: flex; align-items: center; gap: 22px; padding: 0 18px; min-height: 48px; background: #e6ecf6; border-bottom: 2px solid #12305c; font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif; } .ds-head { font-variation-settings: 'wdth' 118; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; font-size: 11px; } .ds-caps { font-variation-settings: 'wdth' 100; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; font-size: 10px; color: inherit; } .ds-runhead__mark { display: flex; align-items: center; gap: 9px; flex: none; color: #12305c; text-decoration: none; } .ds-runhead__rule { display: block; width: 18px; height: 3px; background: #12305c; } .ds-runhead__title { color: #4a5768; font-weight: 500; letter-spacing: 0.16em; } .ds-runhead__mark:hover .ds-runhead__title { color: #1e4a87; } .ds-runhead__folio { display: flex; align-items: center; gap: 10px; min-width: 0; color: #4a5768; letter-spacing: 0.09em; font-variation-settings: 'wdth' 100; font-weight: 600; text-transform: uppercase; font-size: 10px; } .ds-runhead__folio > span:first-child { color: #14181f; } .ds-runhead__sep { flex: none; width: 1px; height: 11px; background: #ccd6e6; } .ds-runhead__actions { display: flex; align-items: center; gap: 8px; margin-left: auto; } .ds-keys { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; background: transparent; border: 1px solid #ccd6e6; border-radius: 0; cursor: pointer; color: #4a5768; transition: border-color 160ms cubic-bezier(0.16,1,0.3,1), color 160ms cubic-bezier(0.16,1,0.3,1); } .ds-keys:hover { border-color: #12305c; color: #12305c; } .ds-keys[data-ready='true'] { color: #12305c; border-color: #dde6f4; } .ds-keys[data-ready='false'] { color: #a6371f; border-color: #e7bfb4; background: #fbeeea; } .ds-keys:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; }"
-    },
-    {
-      "name": "Column Picker Chip",
+      "name": "Select Value Chips",
       "kind": "chip",
-      "refersTo": "chip",
-      "description": "The square-cornered selector used on the import sheet; selected fills navy.",
-      "html": "<div class=\"ds-chips\"><button class=\"ds-chip\" data-active=\"true\">Practice name</button><button class=\"ds-chip\">Suburb</button><button class=\"ds-chip\">Website</button></div>",
-      "css": ".ds-chips { display: flex; flex-wrap: wrap; gap: 5px; font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif; } .ds-chip { padding: 4px 9px; border: 1px solid #ccd6e6; border-radius: 0; background: #ffffff; font-family: inherit; font-size: 12px; color: #4a5768; cursor: pointer; transition: background 160ms cubic-bezier(0.16,1,0.3,1), color 160ms cubic-bezier(0.16,1,0.3,1), border-color 160ms cubic-bezier(0.16,1,0.3,1); } .ds-chip:hover { border-color: #12305c; color: #12305c; } .ds-chip:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; } .ds-chip[data-active='true'] { background: #12305c; border-color: #12305c; color: #fff; }"
+      "refersTo": "chip-yes",
+      "description": "The three tones a single-select cell can show. Rose is a distinct token from danger red so a No never reads as an error.",
+      "html": "<span class=\"ds-chip ds-chip-yes\">Yes</span> <span class=\"ds-chip ds-chip-no\">No</span> <span class=\"ds-chip\">Not established</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; max-width: 100%; padding: 2px 8px; border-radius: 3px; background: #ebebef; color: #45454f; font-family: Inter, -apple-system, sans-serif; font-size: 12px; font-weight: 500; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-chip-yes { background: #d6f5d9; color: #17501f; } .ds-chip-no { background: #ffdedb; color: #8a2318; }"
     },
     {
-      "name": "The Ruled Listing",
+      "name": "Segmented Control",
+      "kind": "nav",
+      "refersTo": "segmented-item",
+      "description": "The enquiry panel's two tabs. The selected item is a raised white pill with a navy label.",
+      "html": "<div class=\"ds-seg\"><button class=\"ds-seg-item\" aria-selected=\"true\">Find leads</button><button class=\"ds-seg-item\" aria-selected=\"false\">Enrich leads</button></div>",
+      "css": ".ds-seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: 6px; background: #f7f7f8; border: 1px solid #e3e3e6; } .ds-seg-item { display: inline-flex; align-items: center; justify-content: center; flex: 1; gap: 6px; height: 26px; padding: 0 11px; border: 0; border-radius: 4px; background: transparent; color: #666670; font-family: Inter, -apple-system, sans-serif; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 140ms cubic-bezier(0.16,1,0.3,1), color 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms cubic-bezier(0.16,1,0.3,1); } .ds-seg-item:hover { color: #1d1d1f; } .ds-seg-item[aria-selected=\"true\"] { background: #fff; color: #12305c; box-shadow: 0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04); } .ds-seg-item:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; }"
+    },
+    {
+      "name": "Sidebar Base List",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "The bases list. The active base is a raised white pill with a navy label and count — never an accent bar down its side.",
+      "html": "<div class=\"ds-side\"><span class=\"ds-side-section\">Bases</span><ul class=\"ds-side-list\"><li><button class=\"ds-side-link ds-side-link-active\"><span class=\"ds-side-icon\" style=\"background:#12305c\">SD</span><span class=\"ds-side-name\">Sydney dental clinics</span><span class=\"ds-side-count\">14</span></button></li><li><button class=\"ds-side-link\"><span class=\"ds-side-icon\" style=\"background:#0f6f62\">AM</span><span class=\"ds-side-name\">Australian manufacturers</span><span class=\"ds-side-count\">86</span></button></li><li><button class=\"ds-side-link\"><span class=\"ds-side-icon\" style=\"background:#5b43b8\">RV</span><span class=\"ds-side-name\">Regional Victoria clinics</span><span class=\"ds-side-count\">31</span></button></li></ul></div>",
+      "css": ".ds-side { width: 240px; padding: 0 8px 8px; background: #f7f7f8; font-family: Inter, -apple-system, sans-serif; } .ds-side-section { display: block; padding: 10px 6px 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #666670; } .ds-side-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; } .ds-side-link { display: flex; align-items: center; gap: 9px; width: 100%; box-sizing: border-box; padding: 6px 8px; border: 0; border-radius: 6px; background: none; color: #1d1d1f; font-family: inherit; font-size: 13px; text-align: left; cursor: pointer; transition: background 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms cubic-bezier(0.16,1,0.3,1); } .ds-side-link:hover { background: #ececee; } .ds-side-link-active { background: #fff; font-weight: 500; box-shadow: 0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04); } .ds-side-link-active .ds-side-name, .ds-side-link-active .ds-side-count { color: #12305c; } .ds-side-icon { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 5px; color: #fff; font-size: 10px; font-weight: 600; } .ds-side-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-side-count { margin-left: auto; padding-left: 6px; font-size: 11.5px; color: #666670; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Data Grid",
       "kind": "custom",
-      "refersTo": "register-row",
-      "description": "The signature surface: a reversed section bar, spaced small-caps heads over mono identifiers, hairline-separated entries, drawn boolean marks, and the key at the foot.",
-      "html": "<div class=\"ds-listing\"><div class=\"ds-secbar\"><span class=\"ds-secbar__title\">Register of Leads</span><span class=\"ds-secbar__right\">124 entries · 5 columns</span></div><div class=\"ds-row ds-row--head\"><div class=\"ds-cell ds-cell--gutter\">No.</div><div class=\"ds-cell\" style=\"width:234px\"><span class=\"ds-caps\">Company</span><span class=\"ds-mono\">lead_company</span></div><div class=\"ds-cell\" style=\"width:122px\"><span class=\"ds-caps\">Multi-doctor</span><span class=\"ds-mono\">multi_doctor</span></div><div class=\"ds-cell\" style=\"width:78px;text-align:right\"><span class=\"ds-caps\">Chairs</span><span class=\"ds-mono\">chair_count</span></div></div><div class=\"ds-row\"><div class=\"ds-cell ds-cell--gutter\"><span class=\"ds-entry-no\">001</span></div><div class=\"ds-cell ds-cell--value\" style=\"width:234px\">Harbourside Dental</div><div class=\"ds-cell\" style=\"width:122px\"><span class=\"ds-verdict\"><svg width=\"9\" height=\"9\" viewBox=\"0 0 9 9\" aria-hidden=\"true\" style=\"display:block\"><rect x=\"0.75\" y=\"0.75\" width=\"7.5\" height=\"7.5\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.25\"/></svg><span class=\"ds-verdict__word\">True</span></span></div><div class=\"ds-cell ds-cell--value\" style=\"width:78px;justify-content:flex-end\">6</div></div><div class=\"ds-row ds-row--working\"><div class=\"ds-cell ds-cell--gutter\"><span class=\"ds-entry-no\">002</span></div><div class=\"ds-cell ds-cell--value\" style=\"width:234px\">Bondi Family Dental</div><div class=\"ds-cell\" style=\"width:122px\"><span class=\"ds-verdict\" style=\"color:#12305c\"><svg width=\"9\" height=\"9\" viewBox=\"0 0 9 9\" aria-hidden=\"true\" style=\"display:block\"><rect x=\"0.75\" y=\"0.75\" width=\"7.5\" height=\"7.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.25\"/></svg><span class=\"ds-verdict__word\">False</span></span></div><div class=\"ds-cell ds-cell--value\" style=\"width:78px;justify-content:flex-end;color:#4a5768\"><svg width=\"13\" height=\"9\" viewBox=\"0 0 13 9\" aria-hidden=\"true\" style=\"display:block\"><path d=\"M1 4.5h11\" stroke=\"currentColor\" stroke-width=\"1.25\" stroke-linecap=\"square\"/></svg></div></div><div class=\"ds-key\"><span class=\"ds-caps\" style=\"color:#12305c\">Key</span><span class=\"ds-key__item\"><svg width=\"8\" height=\"8\" viewBox=\"0 0 9 9\" aria-hidden=\"true\" style=\"display:block;color:#12305c\"><rect x=\"0.75\" y=\"0.75\" width=\"7.5\" height=\"7.5\" fill=\"currentColor\" stroke=\"currentColor\" stroke-width=\"1.25\"/></svg>True</span><span class=\"ds-key__item\"><svg width=\"8\" height=\"8\" viewBox=\"0 0 9 9\" aria-hidden=\"true\" style=\"display:block;color:#12305c\"><rect x=\"0.75\" y=\"0.75\" width=\"7.5\" height=\"7.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.25\"/></svg>False</span><span class=\"ds-key__item\"><svg width=\"12\" height=\"8\" viewBox=\"0 0 13 9\" aria-hidden=\"true\" style=\"display:block\"><path d=\"M1 4.5h11\" stroke=\"currentColor\" stroke-width=\"1.25\" stroke-linecap=\"square\"/></svg>Not found</span></div><div class=\"ds-folio\"><span>124 entries</span><span>5 columns</span><span>Last run 24 Sep 2026</span></div></div>",
-      "css": ".ds-listing { background: #ffffff; border: 1px solid #ccd6e6; font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums lining-nums; color: #14181f; } .ds-caps { font-variation-settings: 'wdth' 100; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; font-size: 10px; color: #4a5768; } .ds-mono { display: block; margin-top: 2px; font-family: 'Azeret Mono', ui-monospace, Consolas, monospace; font-size: 10px; letter-spacing: -0.02em; color: #4a5768; } .ds-secbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 26px; padding: 0 10px; background: #12305c; color: #fff; } .ds-secbar__title { font-variation-settings: 'wdth' 118; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; font-size: 11px; } .ds-secbar__right { font-variation-settings: 'wdth' 100; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; font-size: 10px; color: #ffffffc9; } .ds-row { display: flex; align-items: stretch; min-height: 34px; border-bottom: 1px solid #e2e9f3; background: #ffffff; } .ds-row:hover:not(.ds-row--head) { background: #f6f9fd; } .ds-row--head { min-height: 38px; border-bottom: 1px solid #12305c; } .ds-row--working { background: #eef3fa; } .ds-cell { position: relative; display: flex; flex-direction: column; justify-content: center; flex: none; min-width: 0; padding: 4px 12px; box-sizing: border-box; } .ds-cell--gutter { width: 48px; align-items: flex-end; padding-right: 10px; padding-left: 8px; } .ds-cell--value { font-variation-settings: 'wdth' 80; font-size: 13.5px; letter-spacing: 0.002em; flex-direction: row; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-entry-no { font-size: 11px; color: #4a5768; letter-spacing: 0.01em; } .ds-verdict { display: inline-flex; align-items: center; gap: 7px; color: #12305c; font-variation-settings: 'wdth' 80; font-size: 13.5px; } .ds-verdict__word { color: #14181f; } .ds-key { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; padding: 8px 10px; border-top: 1px solid #ccd6e6; background: #eef3fa; } .ds-key__item { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #4a5768; } .ds-folio { display: flex; gap: 18px; flex-wrap: wrap; padding: 9px 10px; border-top: 1px solid #ccd6e6; font-variation-settings: 'wdth' 100; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; font-size: 10px; color: #4a5768; }"
+      "refersTo": "grid-cell",
+      "description": "The signature surface: square cells ruled both ways, a 32px strip-grey header where each field declares its type, a frozen gutter, a selected cell ringed in navy, and a working row tinted navy.",
+      "html": "<div class=\"ds-grid\"><div class=\"ds-grid-head\"><div class=\"ds-cell ds-cell-gut\"></div><div class=\"ds-cell\" style=\"width:200px\"><svg class=\"ds-fi\" width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"><path d=\"M4 4.5h8M8 4.5V12\"/></svg><b>Company</b></div><div class=\"ds-cell ds-cell-num\" style=\"width:100px\"><b>Sources</b></div><div class=\"ds-cell\" style=\"width:150px\"><svg class=\"ds-fi ds-fi-ai\" width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2.2 9.3 6.1 13.2 7.4 9.3 8.7 8 12.6 6.7 8.7 2.8 7.4 6.7 6.1z\"/></svg><b>More than one doctor</b></div></div><div class=\"ds-row\"><div class=\"ds-cell ds-cell-gut\">1</div><div class=\"ds-cell\" style=\"width:200px\">Bondi Junction Dental Care</div><div class=\"ds-cell ds-cell-num\" style=\"width:100px\">7</div><div class=\"ds-cell\" style=\"width:150px\"><span class=\"ds-chip2 ds-chip2-yes\">Yes</span></div></div><div class=\"ds-row ds-row-sel\"><div class=\"ds-cell ds-cell-gut\">2</div><div class=\"ds-cell ds-cell-selected\" style=\"width:200px\">Surry Hills Smile Studio</div><div class=\"ds-cell ds-cell-num\" style=\"width:100px\">4</div><div class=\"ds-cell\" style=\"width:150px\"><span class=\"ds-chip2 ds-chip2-no\">No</span></div></div><div class=\"ds-row ds-row-work\"><div class=\"ds-cell ds-cell-gut\">3</div><div class=\"ds-cell\" style=\"width:200px\">Newtown Family Dentistry</div><div class=\"ds-cell ds-cell-num\" style=\"width:100px\">9</div><div class=\"ds-cell\" style=\"width:150px\"><span class=\"ds-spin\"></span></div></div></div>",
+      "css": ".ds-grid { font-family: Inter, -apple-system, sans-serif; font-size: 13px; color: #1d1d1f; background: #fbfbfc; border: 1px solid #e3e3e6; border-radius: 6px; overflow: hidden; } .ds-grid-head { display: flex; background: #fbfbfc; border-bottom: 1px solid #d2d2d8; } .ds-grid-head b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-row { display: flex; background: #fff; border-bottom: 1px solid #ededf0; transition: background 140ms cubic-bezier(0.16,1,0.3,1); } .ds-row:hover { background: #f5f5f7; } .ds-row-sel { background: #e7edf6; } .ds-row-work { background: #f3f6fb; } .ds-cell { position: relative; display: flex; align-items: center; gap: 6px; box-sizing: border-box; flex: 0 0 auto; min-height: 32px; padding: 0 8px; border-right: 1px solid #ededf0; overflow: hidden; } .ds-cell-gut { width: 66px; flex: 0 0 66px; justify-content: flex-end; padding-right: 10px; border-right: 1px solid #e3e3e6; font-size: 11.5px; color: #666670; font-variant-numeric: tabular-nums; } .ds-cell-num { justify-content: flex-end; font-variant-numeric: tabular-nums; } .ds-cell-selected { outline: 2px solid #12305c; outline-offset: -2px; z-index: 3; } .ds-fi { flex: none; color: #666670; } .ds-fi-ai { color: #12305c; } .ds-chip2 { display: inline-flex; padding: 2px 8px; border-radius: 3px; background: #ebebef; color: #45454f; font-size: 12px; font-weight: 500; } .ds-chip2-yes { background: #d6f5d9; color: #17501f; } .ds-chip2-no { background: #ffdedb; color: #8a2318; } .ds-spin { display: inline-block; width: 13px; height: 13px; border: 2px solid #12305c; border-top-color: transparent; border-radius: 50%; opacity: 0.85; animation: ds-spin 720ms linear infinite; } @keyframes ds-spin { to { transform: rotate(360deg); } }"
     },
     {
-      "name": "Notice Slip",
+      "name": "Field Menu Popover",
+      "kind": "custom",
+      "refersTo": "popover",
+      "description": "The column head's menu. Scale-fades from its own top-left origin and carries the field's real SQL identifier in system mono at its foot — the only place besides the expanded record where an identifier is shown.",
+      "html": "<div class=\"ds-pop\"><span class=\"ds-pop-label\">Field</span><button class=\"ds-pop-item\">Edit field<span class=\"ds-pop-mark\"></span></button><button class=\"ds-pop-item\" aria-checked=\"true\">Single select<span class=\"ds-pop-mark\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 8.5 6.2 11.7 13 5\"/></svg></span></button><hr class=\"ds-pop-rule\" /><button class=\"ds-pop-item ds-pop-danger\">Delete field</button><code class=\"ds-pop-mono\">more_than_one_doctor</code></div>",
+      "css": ".ds-pop { min-width: 220px; padding: 5px; border: 1px solid #e3e3e6; border-radius: 6px; background: #fff; box-shadow: 0 6px 20px -6px rgba(20,24,35,0.20), 0 1px 3px rgba(20,24,35,0.10); font-family: Inter, -apple-system, sans-serif; transform-origin: top left; animation: ds-pop-in 140ms cubic-bezier(0.16,1,0.3,1) both; } @keyframes ds-pop-in { from { opacity: 0; transform: scale(0.97) translateY(-3px); } to { opacity: 1; transform: none; } } .ds-pop-label { display: block; padding: 7px 9px 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #666670; } .ds-pop-item { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 7px 9px; border: 0; border-radius: 4px; background: none; color: #1d1d1f; font-family: inherit; font-size: 13px; text-align: left; cursor: pointer; transition: background 140ms cubic-bezier(0.16,1,0.3,1); } .ds-pop-item:hover { background: #ececed; } .ds-pop-item[aria-checked=\"true\"] { color: #12305c; font-weight: 500; } .ds-pop-mark { margin-left: auto; display: flex; color: #12305c; } .ds-pop-danger { color: #b3261e; } .ds-pop-danger:hover { background: #fdeceb; } .ds-pop-rule { height: 1px; margin: 5px 0; background: #ededf0; border: 0; } .ds-pop-mono { display: block; padding: 4px 9px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; color: #666670; word-break: break-all; }"
+    },
+    {
+      "name": "Base Card",
       "kind": "card",
-      "refersTo": "notice",
-      "description": "Marginalia pinned to the foot of the desk: a 2px rule at the head carries the severity, matching the register's horizontal-rule grammar.",
-      "html": "<div class=\"ds-notice\" data-tone=\"error\"><span class=\"ds-notice__icon\"><svg viewBox=\"0 0 16 16\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.25\" stroke-linecap=\"square\" stroke-linejoin=\"miter\" aria-hidden=\"true\" style=\"display:block\"><path d=\"M8 2 15 14H1z\"/><path d=\"M8 6.5v3.5\"/><path d=\"M8 12h.01\"/></svg></span><div class=\"ds-notice__body\"><span class=\"ds-notice__label\">Error</span><span class=\"ds-notice__text\">Jina returned 402 for 3 of 24 entries. Those rows were left blank.</span></div><button class=\"ds-notice__close\" aria-label=\"Dismiss\"><svg viewBox=\"0 0 16 16\" width=\"11\" height=\"11\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.25\" stroke-linecap=\"square\" aria-hidden=\"true\" style=\"display:block\"><path d=\"M3.5 3.5l9 9M12.5 3.5l-9 9\"/></svg></button></div>",
-      "css": ".ds-notice { display: flex; align-items: flex-start; gap: 9px; width: min(384px, calc(100vw - 36px)); box-sizing: border-box; padding: 9px 10px 10px; border: 1px solid #ccd6e6; border-top: 2px solid; box-shadow: 0 10px 24px -14px #0c224466; font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif; animation: ds-ink-settle 160ms cubic-bezier(0.16,1,0.3,1) both; } @keyframes ds-ink-settle { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } } .ds-notice[data-tone='error'] { background: #fbeeea; border-top-color: #a6371f; } .ds-notice[data-tone='error'] .ds-notice__icon, .ds-notice[data-tone='error'] .ds-notice__label { color: #a6371f; } .ds-notice[data-tone='success'] { background: #eef6f1; border-top-color: #1d5f3f; } .ds-notice[data-tone='warning'] { background: #fbf3e6; border-top-color: #8a5a12; } .ds-notice[data-tone='info'] { background: #eef3fa; border-top-color: #12305c; } .ds-notice__icon { margin-top: 1px; } .ds-notice__body { min-width: 0; flex: 1; } .ds-notice__label { display: block; margin-bottom: 2px; font-variation-settings: 'wdth' 100; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; font-size: 10px; } .ds-notice__text { font-size: 12.5px; line-height: 1.5; color: #14181f; } .ds-notice__close { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 1px solid transparent; border-radius: 0; background: transparent; color: #4a5768; cursor: pointer; transition: background 160ms cubic-bezier(0.16,1,0.3,1), color 160ms cubic-bezier(0.16,1,0.3,1); } .ds-notice__close:hover { color: #12305c; background: #eef3fa; } .ds-notice__close:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; }"
+      "refersTo": "base-card",
+      "description": "The workspace home tile for a base, with its deterministic colour tile.",
+      "html": "<div class=\"ds-base\"><span class=\"ds-base-icon\" style=\"background:#a52c50\">PV</span><span><span class=\"ds-base-name\">Perth veterinary groups</span><span class=\"ds-base-note\">Multi-site veterinary groups across metropolitan Perth.</span></span><span class=\"ds-base-meta\">47 records · 3 researched fields</span></div>",
+      "css": ".ds-base { position: relative; display: flex; flex-direction: column; gap: 10px; width: 232px; padding: 14px; border: 1px solid #e3e3e6; border-radius: 8px; background: #fff; box-shadow: 0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04); font-family: Inter, -apple-system, sans-serif; text-align: left; cursor: pointer; overflow: hidden; transition: box-shadow 140ms cubic-bezier(0.16,1,0.3,1), border-color 140ms cubic-bezier(0.16,1,0.3,1), transform 140ms cubic-bezier(0.16,1,0.3,1); } .ds-base:hover { border-color: #d2d2d8; box-shadow: 0 6px 16px -6px rgba(20,24,35,0.16), 0 2px 4px rgba(20,24,35,0.06); transform: translateY(-1px); } .ds-base-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 6px; color: #fff; font-size: 14px; font-weight: 600; } .ds-base-name { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.4; color: #1d1d1f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-base-note { display: block; margin-top: 2px; font-size: 12px; line-height: 1.5; color: #666670; } .ds-base-meta { margin-top: auto; font-size: 11.5px; color: #666670; font-variant-numeric: tabular-nums; }"
     },
     {
-      "name": "Empty Page Preface",
+      "name": "Run Progress Strip",
       "kind": "custom",
-      "refersTo": "register-row",
-      "description": "An empty register set as the preface of a volume: a short navy rule, a statement of what the page will hold, the one action that fills it, and the numbered sequence.",
-      "html": "<div class=\"ds-empty\"><div class=\"ds-empty__rule\"></div><h2 class=\"ds-empty__title\">This register has no entries yet</h2><p class=\"ds-empty__note\">Describe the kind of organisation you want in one sentence. The register searches, reads the results, and rules in every company it finds.</p><ol class=\"ds-empty__seq\"><li><span class=\"ds-empty__seq-no\">1</span><span><strong>Describe the leads</strong><span>One sentence in the enquiry composer.</span></span></li><li><span class=\"ds-empty__seq-no\">2</span><span><strong>The clerk works</strong><span>Queries, searches and reads pages, logging each real step.</span></span></li><li><span class=\"ds-empty__seq-no\">3</span><span><strong>Entries rule in</strong><span>Each company is added to the listing as it is found.</span></span></li></ol></div>",
-      "css": ".ds-empty { padding: 34px 14px 40px; max-width: 62ch; font-family: 'Archivo', ui-sans-serif, system-ui, sans-serif; background: #ffffff; } .ds-empty__rule { width: 44px; height: 3px; margin-bottom: 15px; background: #12305c; } .ds-empty__title { margin: 0 0 8px; font-size: 20px; font-weight: 600; font-variation-settings: 'wdth' 118; letter-spacing: -0.012em; color: #14181f; } .ds-empty__note { margin: 0; max-width: 56ch; font-size: 13.5px; line-height: 1.6; color: #4a5768; } .ds-empty__seq { list-style: none; margin: 26px 0 0; padding: 0; display: grid; gap: 1px; background: #ccd6e6; border-block: 1px solid #ccd6e6; } .ds-empty__seq li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: baseline; padding: 10px 2px; background: #ffffff; } .ds-empty__seq-no { font-variant-numeric: tabular-nums; font-size: 11px; color: #12305c; text-align: right; font-weight: 600; } .ds-empty__seq strong { display: block; font-size: 13px; font-weight: 600; color: #14181f; margin-bottom: 2px; } .ds-empty__seq strong + span { display: block; font-size: 12.5px; line-height: 1.5; color: #4a5768; max-width: 62ch; }"
+      "refersTo": "segmented-item-selected",
+      "description": "Live work in the enquiry panel: a 2px indeterminate sweep over a navy-wash track, plus real step boundaries. Never a percentage.",
+      "html": "<div class=\"ds-runwrap\"><div class=\"ds-prog\"></div><ol class=\"ds-steps\"><li data-status=\"done\"><span class=\"ds-mark ds-mark-done\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 8.5 6.2 11.7 13 5\"/></svg></span><span>Wrote 5 search queries</span></li><li data-status=\"running\"><span class=\"ds-mark\"><span class=\"ds-spin2\"></span></span><span>Reading sources <span class=\"ds-detail\">· 63 read</span></span></li><li data-status=\"idle\"><span class=\"ds-mark\"><span class=\"ds-dash\"></span></span><span>Adding records to the table</span></li></ol></div>",
+      "css": ".ds-runwrap { font-family: Inter, -apple-system, sans-serif; } .ds-prog { position: relative; height: 2px; overflow: hidden; background: #e7edf6; } .ds-prog::after { content: ''; position: absolute; inset: 0; width: 38%; background: #12305c; animation: ds-sweep 1.5s cubic-bezier(0.16,1,0.3,1) infinite; } @keyframes ds-sweep { from { transform: translateX(-100%); } to { transform: translateX(340%); } } .ds-steps { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 2px; } .ds-steps li { display: grid; grid-template-columns: 16px minmax(0,1fr); gap: 9px; align-items: start; padding: 5px 0; font-size: 12.5px; line-height: 1.5; color: #666670; } .ds-steps li[data-status=\"running\"] { color: #1d1d1f; font-weight: 500; } .ds-steps li[data-status=\"done\"] { color: #1d1d1f; } .ds-mark { display: grid; place-items: center; width: 16px; height: 18px; color: #a1a1aa; } .ds-mark-done { color: #1d6b3f; } .ds-steps li[data-status=\"running\"] .ds-mark { color: #12305c; } .ds-dash { width: 7px; height: 1px; background: currentColor; } .ds-detail { color: #666670; font-weight: 400; } .ds-spin2 { display: inline-block; width: 11px; height: 11px; border: 1.5px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: ds-spin2 720ms linear infinite; } @keyframes ds-spin2 { to { transform: rotate(360deg); } }"
+    },
+    {
+      "name": "Toast",
+      "kind": "custom",
+      "refersTo": "toast",
+      "description": "Bottom-right notice; the only place an 11px uppercase kind label carries status.",
+      "html": "<div class=\"ds-toast\"><span class=\"ds-toast-icon\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"8\" cy=\"8\" r=\"5.75\"/><path d=\"M5.5 8.2 7.2 9.9 10.6 6.3\"/></svg></span><span class=\"ds-toast-body\"><span class=\"ds-toast-label\">Done</span><span class=\"ds-toast-text\">14 records added to Sydney dental clinics.</span></span></div>",
+      "css": ".ds-toast { display: flex; align-items: flex-start; gap: 10px; width: 340px; padding: 11px 11px 11px 13px; border: 1px solid #e3e3e6; border-radius: 6px; background: #fff; box-shadow: 0 6px 20px -6px rgba(20,24,35,0.20), 0 1px 3px rgba(20,24,35,0.10); font-family: Inter, -apple-system, sans-serif; animation: ds-toast-in 140ms cubic-bezier(0.16,1,0.3,1) both; } @keyframes ds-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } } .ds-toast-icon { flex: none; margin-top: 1px; color: #1d6b3f; } .ds-toast-body { flex: 1 1 auto; min-width: 0; } .ds-toast-label { display: block; margin-bottom: 1px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #1d6b3f; } .ds-toast-text { font-size: 12.5px; line-height: 1.55; color: #1d1d1f; }"
     }
   ],
   "narrative": {
-    "northStar": "The Business Register",
-    "overview": "This is a page of a printed business register, not a SaaS data grid. A white sheet sits on a pale blue desk and carries a running head, a reversed-out section bar, a ruled listing, a key and a folio. Nothing is contained in a box. Structure comes from horizontal hairlines and alignment, and where two things must be separated, a rule separates them - never a card, never a radius, never an ambient shadow floating a panel over a grey canvas.\n\nThe density is institutional. Rows are 34px, the listing is set at 13.5px in a narrow width so more columns fit without shrinking the face, figures are tabular everywhere so columns of numbers stack, and the interface tells the truth in counts, dates and named failures rather than in reassurance. Colour is scarce by construction: one institutional navy does rules, reversed bars, focus and primary actions; near-black does text; a single spot red is held back for failure and destructive intent. The confirmed anti-reference is the lead-tool default - grey canvas, rounded cards, boxed cells, drop-shadowed panels, floating icon buttons.\n\nMotion is a grammar of three moves on one 160ms clock: an answer inking in, a rule drawing left to right, and a single navy setting rule travelling down the gutter to the entry being worked. There is no loading skeleton, no pulse, no loop. Everything is suppressed under prefers-reduced-motion.",
+    "northStar": "The Straight Base",
+    "overview": "This is a grid database that admits it is a grid database. The shell is the category standard — a sidebar of bases, one content region behind a rounded seam, one table ruled on both axes, cells that select and edit under the keyboard, fields that declare their type with an icon, records that expand. Nothing is stylised, ironised, or given a private twist. Convention is the commitment: a stranger watching a screen share recognises the arrangement before they read a word, and that borrowed literacy is what buys the product the right to be judged on what it actually does.\n\nDensity is the second commitment. Rows are 32px, body type is 13px, chrome type steps down to 12.5, 12, and 11.5, and the neutral palette is nearly all greys within six points of each other. The screen is quiet so the data is loud. Depth is almost absent: one hairline everywhere, one low card shadow, and heavier shadows reserved for things that genuinely float over the sheet — popovers, the cell editor, modals, the frozen-column edge.\n\nAgainst that grey, one accent does all the work. Kiyu navy #12305c takes every place the category would spend its own blue: the 2px cell selection ring, focus rings, the active base pill's label, the primary button, the active view tab's 2px underline, the run progress strip, the checked checkbox, the AI field's sparkle. Two colour sets earn exceptions — a three-tone select-chip set sized to exactly what a boolean enrichment can return, and a six-colour base-icon set keyed deterministically off base id so a base keeps its colour across the sidebar, the home grid, and reloads. Confirmed anti-reference: the retired \"Lead Register\" world — its ruled paper sheet with no boxes, no radius and no vertical rules — and Airtable's own blue, wordmark and logo, which never appear.",
     "keyCharacteristics": [
-      "One institutional ink (navy #12305c), one text ink, one spot red held for failure",
-      "Structure from horizontal hairlines and alignment; no cell borders, no card borders",
-      "Square corners everywhere (0 radius) except the 2px outer cut of a thumb-index tab",
-      "Archivo across three widths - expanded, regular, narrow - with weight held nearly constant",
-      "Tabular lining figures globally; Azeret Mono reserved for machine column identifiers",
-      "Exactly three motions on one 160ms clock",
-      "Every icon and every boolean mark is drawn for this world, never a library glyph or a Unicode bullet"
+      "Grid-database convention played straight, with no smuggled quirk",
+      "One accent, Kiyu navy, and no second hue competing for it",
+      "13px Inter, 32px rows, hairline rules on both axes",
+      "Near-flat: tonal layering first, shadow only for things that actually float",
+      "Colour only where the data is categorical — chips and base icons — never as decoration",
+      "One 140ms clock and one easing curve for everything that moves"
     ],
     "rules": [
-      { "name": "The Two Inks Rule", "body": "Navy is the institution and near-black is the text. The spot red is the second ink and is spent only on failure and destruction - if a state is merely busy, important or new, it gets navy or navy tint, never red.", "section": "colors" },
-      { "name": "The Three Rule Weights Rule", "body": "Exactly three: #e2e9f3 between entries, #ccd6e6 between regions and around controls, navy at 1-2px to open a head or close a section. A fourth weight is drift.", "section": "colors" },
-      { "name": "The Width-Not-Weight Rule", "body": "Hierarchy comes from Archivo's width axis (118 / 100 / 80). Weight stays in the 400-600 band; nothing is 700 or 300. If a new role needs to feel different, change its width before its weight.", "section": "typography" },
-      { "name": "The Tabular Figures Rule", "body": "tnum and lnum are on at the root and inherited by inputs, buttons and table cells. Every figure column is right-aligned. A proportional numeral anywhere in this system is a bug.", "section": "typography" },
-      { "name": "The Mono Is A Quotation Rule", "body": "Azeret Mono means 'this string belongs to the machine.' It is never used for emphasis, for numbers, or to make something look technical.", "section": "typography" },
-      { "name": "The Horizontal Rule Rule", "body": "Structure is horizontal hairlines and alignment. There are no vertical cell borders and no card borders anywhere in the listing. The only vertical hairlines in the system mark a frozen edge - the divider at the end of the frozen left columns and the fold before the frozen actions column - and they mean 'the sheet continues here,' nothing else.", "section": "layout" },
-      { "name": "The End-On-A-Whole-Row Rule", "body": "A capped scroll region is sized from real row arithmetic, never estimated in vh, so a listing never ends mid-glyph.", "section": "layout" },
-      { "name": "The Lifted-Leaf Rule", "body": "A cast shadow means the element is physically off the sheet - an overlay, a pinned slip, or a fold with paper continuing behind it. Nothing that lives in the page's flow gets one. No card, toolbar, row, desk or section bar has a shadow, and no shadow in this system is hard or offset without blur.", "section": "elevation" },
-      { "name": "The Square-Corner Rule", "body": "Radius is 0. The one licensed curve is the 2px outer top corner of a thumb-index tab. Anything printed has square corners, and everything here is printed.", "section": "shapes" },
-      { "name": "The One Clock Rule", "body": "Every transition and animation in the build reads --clock (160ms) and --ease. A hand-typed duration is drift. The 900ms spinner is the single named exception.", "section": "components" }
+      { "name": "The One Blue Rule", "body": "Kiyu navy is the only accent in the system. Wherever the category would spend its own blue, spend this navy; there is no second accent hue and no decorative use of colour anywhere in the chrome.", "section": "colors" },
+      { "name": "The Reserved Red Rule", "body": "Red means destructive or failed, and nothing else. The rose select chip is a separate token with its own ink precisely so a \"No\" answer never reads as an error.", "section": "colors" },
+      { "name": "The Colour-Is-Data Rule", "body": "Saturated colour appears only where it encodes something: a select value, or a base's identity. A surface, a border, or a piece of chrome never gets colour for interest.", "section": "colors" },
+      { "name": "The Scoped Figures Rule", "body": "Tabular figures are applied to number cells, counts, row numbers and timestamps individually — never globally on body. Prose keeps proportional figures.", "section": "typography" },
+      { "name": "The Mono-Means-Machine Rule", "body": "System mono says \"this string belongs to the database or the machine, not to you.\" It carries SQL identifiers, which live in the field menu and the expanded record, and the log's elapsed timestamps. A mono identifier never appears in a column head — the head carries the human field name.", "section": "typography" },
+      { "name": "The One Face Rule", "body": "Inter carries every human-readable string at every size. There is no display face, no second sans, and no type effect; a size step and a weight step are the only hierarchy devices.", "section": "typography" },
+      { "name": "The Whole-Band Rule", "body": "Sticky and frozen cells carry the row's background explicitly at every state, so a hovered, selected or working row reads as one unbroken band across the freeze line rather than two differently coloured halves.", "section": "layout" },
+      { "name": "The Structural Breakpoint Rule", "body": "At a breakpoint, a region changes what it is — column becomes drawer, bar becomes scroller. Nothing merely shrinks, and no control drops its text label to become an unlabelled icon.", "section": "layout" },
+      { "name": "The Earned Shadow Rule", "body": "A shadow means the element is above the sheet. Flat chrome — bars, rows, cells, the sidebar — never takes one; a pressed button gives its shadow back.", "section": "elevation" },
+      { "name": "The Scrim Rule", "body": "Anything overlaying the whole app sits on rgba(20, 24, 35, 0.32–0.34), never on pure black.", "section": "elevation" },
+      { "name": "The Display-Not-Opacity Rule", "body": "A control that is hidden until hover is removed from the document with display: none, never faded with opacity: 0. A transparent element left in the layer still swallows every click aimed at what is underneath it. Its replacement occupies the same width so nothing shifts.", "section": "components" },
+      { "name": "The One Pending Mark Rule", "body": "A spinner appears only in the one field actually being filled. A blank cell in any other column is a finished empty answer and never borrows the pending mark.", "section": "components" },
+      { "name": "The Honest Progress Rule", "body": "Progress is never a percentage. The pipeline has no percentage to report, so live work is shown as an indeterminate sweep plus real step boundaries, real counts, real elapsed time and named failures.", "section": "components" },
+      { "name": "The One Clock Rule", "body": "Every transition and animation runs at 140ms on cubic-bezier(0.16, 1, 0.3, 1): hover, selection, the popover's scale-fade from its own origin, the settle of an arriving answer, the drawers. The only exceptions are the two loops that must keep looping — the 720ms spinner and the 1.5s progress sweep. Everything collapses to 1ms under prefers-reduced-motion, where the spinner slows rather than stopping.", "section": "components" }
     ],
     "dos": [
-      "Do separate with a horizontal hairline and hold with alignment. Three weights only: #e2e9f3 between entries, #ccd6e6 between regions, navy at 1-2px to open or close.",
-      "Do keep every corner square. The only radius in the system is the 2px outer cut of a thumb-index tab.",
-      "Do reach for the width axis before the weight axis - wdth 118 for heads, 100 for interface, 80 for listing columns.",
-      "Do set every figure tabular and lining, and right-align every figure column.",
-      "Do spend the spot red only on failure and destruction. Running work is navy tint.",
-      "Do run every new transition on var(--clock) and var(--ease), and make sure it survives prefers-reduced-motion.",
-      "Do draw new icons on the 16px grid at 1.25px stroke with square caps and miter joins, matching the existing set.",
-      "Do carry the row's background explicitly into sticky and frozen cells, so a hovered or working entry reads as one unbroken line.",
-      "Do give a boolean its word alongside its mark, and keep the key at the foot of the sheet.",
-      "Do size a capped scroll region from real row arithmetic so it ends on a whole row."
+      "Do spend Kiyu navy (#12305c) wherever the grid-database convention would spend its own blue, and nowhere else.",
+      "Do cut every button, input, chip and empty state from the shared control vocabulary, so the same action never looks like two different things on two surfaces.",
+      "Do scope tabular figures to number cells, counts, row numbers and timestamps individually.",
+      "Do keep system mono for machine strings — SQL identifiers in the field menu and expanded record, and log timestamps.",
+      "Do repaint the row background explicitly on sticky and frozen cells for every row state, so a band never breaks at the freeze line.",
+      "Do remove hover-revealed controls with display: none and give the replacement the same width.",
+      "Do run every transition at 140ms on cubic-bezier(0.16, 1, 0.3, 1) and let prefers-reduced-motion collapse it.",
+      "Do keep grid cells square; reserve the 12px radius for the content region's top-left seam alone.",
+      "Do let a breakpoint change what a region is — column to drawer, bar to horizontal scroller — rather than shrinking it.",
+      "Do use the 11px uppercase label for section headings only (BASES, popover groups, the run's request header)."
     ],
     "donts": [
-      "Don't put a card border or a vertical cell border in a listing. A vertical hairline is licensed only to mark a frozen edge or a fold.",
-      "Don't cast a shadow on anything that lives in the page's flow. Shadows belong to overlays, pinned slips and the fold, and are always soft, downward and negative-spread - never hard, never offset without blur.",
-      "Don't add a fourth rule weight, a fifth control height, or a second easing curve.",
-      "Don't use a Unicode glyph, an icon font, or a library icon set. Every mark in this build is authored SVG; a Unicode bullet will not hold its weight against the page's hairlines.",
-      "Don't set an eyebrow or kicker over a heading. The running head is the page's identity line and the section bar carries the heading; there is no third label stacked above a title.",
-      "Don't introduce a system display face or a second sans. Archivo is the whole voice; Azeret Mono only quotes the machine.",
-      "Don't use spot red to mean 'live', 'new' or 'important'.",
-      "Don't add a loading skeleton, a pulse, a progress loop or a fabricated per-item counter. Progress is the setting rule, the clerk's log and real counts.",
-      "Don't show an illustration on an empty page. Set the preface instead.",
-      "Don't invent a colour outside the palette above; every ground in the build is paper, desk blue, navy tint or a notice wash."
-    ],
-    "knownLimitations": [
-      "At a resting horizontal scroll position the listing's last partially-visible data column is cut at the fold. The fold is a single hairline over opaque paper with a cast shadow, and scroll-snap (x proximity + 80px scroll-padding-right) lands scrolled positions on column boundaries, but the at-rest cut remains. Carried as a known defect, not recorded as a rule."
+      "Don't introduce a second accent hue. The only saturated colour beyond navy is the three-tone select chip set and the six-colour base-icon set, and both encode data.",
+      "Don't use red for anything but destructive actions and failures; the rose \"No\" chip is a separate token for exactly this reason.",
+      "Don't render a percentage, a fake per-item counter, or any progress number the pipeline cannot actually report.",
+      "Don't put a pending spinner in any cell other than the one field being filled.",
+      "Don't hide an interactive control with opacity: 0 while leaving it in the layer.",
+      "Don't put a mono identifier in a column head — the head carries the human field name.",
+      "Don't put an accent bar down the side of a list item; the active item is a raised white pill with a navy label.",
+      "Don't apply tabular figures globally to body.",
+      "Don't give flat chrome a shadow, or use a hard offset shadow anywhere — every shadow in this world is soft-blurred cool black.",
+      "Don't drop a control's text label to an unlabelled icon at a narrow width; let the bar scroll instead.",
+      "Don't ship a control that does nothing to make a bar look fuller."
     ]
   }
 }

@@ -51,7 +51,9 @@ export function FieldMenu({
 
       {field.identifier && <span className="pop__mono">{field.identifier}</span>}
 
-      {field.ai && (
+      {/* Renaming a working column would rename the answer it belongs to,
+          which is not what the control appears to offer. */}
+      {field.ai && !field.note && (
         <PopItem icon="pencil" onClick={() => onRename(field)}>
           Rename field
         </PopItem>
@@ -78,7 +80,17 @@ export function FieldMenu({
         </>
       )}
 
-      {!field.ai && !goal && (
+      {field.note && (
+        <>
+          <PopRule />
+          <PopNote>
+            The agent’s {field.note} behind its answer, written at the same time as the
+            answer was. Read here rather than edited.
+          </PopNote>
+        </>
+      )}
+
+      {!field.ai && !field.note && !goal && (
         <PopNote>
           {field.key === 'lead'
             ? 'The company name every record is matched on. Editing it renames the record.'

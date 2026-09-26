@@ -2,9 +2,10 @@
  * The app frame: sidebar, content region, and the enquiry panel.
  *
  * The content region carries the rounded seam where it meets the sidebar, so
- * both surfaces — the workspace home and a base — sit in the same shell and the
- * sidebar never reloads between them. Base creation, renaming and deletion live
- * here because the sidebar can start any of them from either surface.
+ * both surfaces — the workspace home and a project — sit in the same shell and
+ * the sidebar never reloads between them. Project creation, renaming and
+ * deletion live here because the sidebar can start any of them from either
+ * surface.
  */
 
 import {
@@ -17,7 +18,7 @@ import {
 } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { deleteProject } from '../../api/projects';
+import { deleteProject as deleteProjectRequest } from '../../api/projects';
 import { Project } from '../../api/types';
 import { useApiKeysDialog } from '../apiKeys/ApiKeys';
 import { queryKeys } from '../../hooks/queryKeys';
@@ -26,14 +27,14 @@ import { Confirm } from '../ui/Modal';
 import { PopItem, PopRule, Popover } from '../ui/Popover';
 import { IconButton } from '../ui/Primitives';
 import { useNotify } from '../ui/Toasts';
-import { BaseDialog } from './BaseDialog';
+import { ProjectDialog } from './ProjectDialog';
 import { Sidebar } from './Sidebar';
 
 interface ShellApi {
   openSidebar: () => void;
-  createBase: () => void;
-  renameBase: (project: Project) => void;
-  deleteBase: (project: Project) => void;
+  createProject: () => void;
+  renameProject: (project: Project) => void;
+  deleteProject: (project: Project) => void;
 }
 
 const ShellContext = createContext<ShellApi | null>(null);
@@ -46,7 +47,7 @@ export function SidebarToggle() {
     <span className="side__toggle">
       <IconButton
         icon="sidebar"
-        label="Show bases"
+        label="Show projects"
         compact
         onClick={shell.openSidebar}
       />
@@ -61,12 +62,12 @@ export function useShell(): ShellApi {
 }
 
 /**
- * The open base's own menu, in the base bar. It lives here so that renaming and
- * deleting a base run through the shell's one set of dialogs wherever they are
- * started from.
+ * The open project's own menu, in the project bar. It lives here so that
+ * renaming and deleting a project run through the shell's one set of dialogs
+ * wherever they are started from.
  */
-export function BaseMenuButton({ project }: { project: Project }) {
-  const { renameBase, deleteBase } = useShell();
+export function ProjectMenuButton({ project }: { project: Project }) {
+  const { renameProject, deleteProject } = useShell();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
   return (
@@ -89,10 +90,10 @@ export function BaseMenuButton({ project }: { project: Project }) {
             icon="pencil"
             onClick={() => {
               setAnchor(null);
-              renameBase(project);
+              renameProject(project);
             }}
           >
-            Rename base
+            Rename project
           </PopItem>
           <PopRule />
           <PopItem
@@ -100,10 +101,10 @@ export function BaseMenuButton({ project }: { project: Project }) {
             tone="danger"
             onClick={() => {
               setAnchor(null);
-              deleteBase(project);
+              deleteProject(project);
             }}
           >
-            Delete base
+            Delete project
           </PopItem>
         </Popover>
       )}
@@ -115,11 +116,14 @@ export function AppShell({
   activeId,
   children,
   panel,
+  onClosePanel,
 }: {
   activeId?: number;
   /** The content region: its own bars, body and footer. */
   children: ReactNode;
   panel?: ReactNode;
+  /** Required for the panel to be dismissable once it overlays the table. */
+  onClosePanel?: () => void;
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -136,24 +140,24 @@ export function AppShell({
     queryClient.invalidateQueries({ queryKey: queryKeys.projects });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteProject(id),
+    mutationFn: (id: number) => deleteProjectRequest(id),
     onSuccess: (_data, id) => {
-      notify('Base deleted.', 'success');
+      notify('Project deleted.', 'success');
       setDeleting(null);
       invalidate();
-      // Leaving the base that was just deleted open would show a dead record.
+      // Leaving the project that was just deleted open would show a dead record.
       if (id === activeId) navigate('/');
     },
     onError: notifyError,
   });
 
   const openSidebar = useCallback(() => setDrawerOpen(true), []);
-  const createBase = useCallback(() => setCreating(true), []);
-  const renameBase = useCallback((project: Project) => setRenaming(project), []);
-  const deleteBase = useCallback((project: Project) => setDeleting(project), []);
+  const createProject = useCallback(() => setCreating(true), []);
+  const renameProject = useCallback((project: Project) => setRenaming(project), []);
+  const deleteProject = useCallback((project: Project) => setDeleting(project), []);
   const api = useMemo(
-    () => ({ openSidebar, createBase, renameBase, deleteBase }),
-    [openSidebar, createBase, renameBase, deleteBase],
+    () => ({ openSidebar, createProject, renameProject, deleteProject }),
+    [openSidebar, createProject, renameProject, deleteProject],
   );
 
   return (
@@ -181,10 +185,14 @@ export function AppShell({
 
         {children}
 
+        {/* Only ever visible at the widths where the panel overlays the table. */}
+        {panel && onClosePanel && (
+          <div className="panel__scrim" onClick={onClosePanel} aria-hidden="true" />
+        )}
         {panel}
       </div>
 
-      <BaseDialog
+      <ProjectDialog
         open={creating}
         onClose={() => setCreating(false)}
         onSaved={(project) => {
@@ -194,7 +202,7 @@ export function AppShell({
         }}
       />
 
-      <BaseDialog
+      <ProjectDialog
         open={renaming !== null}
         project={renaming}
         onClose={() => setRenaming(null)}
@@ -207,9 +215,9 @@ export function AppShell({
 
       <Confirm
         open={deleting !== null}
-        title="Delete this base?"
+        title="Delete this project?"
         message={`“${deleting?.project_name}” and every record, field and source in it will be removed. This cannot be undone.`}
-        confirmLabel="Delete base"
+        confirmLabel="Delete project"
         destructive
         loading={deleteMutation.isPending}
         onConfirm={() => deleting && deleteMutation.mutate(deleting.id)}

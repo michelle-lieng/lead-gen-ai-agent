@@ -2,11 +2,11 @@
  * Fields: what each column of the table holds, and how it is set.
  *
  * The backend returns a flat list of column names. Each AI field arrives as
- * three of them — the answer, its reasoning, and its evidence — and only the
- * answer earns a column; the other two belong to the expanded record, which is
- * where the working is read. A field's *type* is derived from the enrichment
- * that defined it, falling back to what the values actually look like, so an
- * imported column still declares itself correctly.
+ * three of them — the answer, its reasoning, and its evidence — and all three
+ * earn a column, the working sitting immediately to the right of the answer it
+ * explains rather than only in the expanded record. A field's *type* is derived
+ * from the enrichment that defined it, falling back to what the values actually
+ * look like, so an imported column still declares itself correctly.
  */
 
 import { Enrichment } from '../../api/types';
@@ -32,7 +32,17 @@ export interface GridField {
   enrichment?: Enrichment;
   /** The reasoning and evidence keys, when the field has them. */
   noteKeys?: [string, string];
+  /** Set on the agent's working columns, which stand beside their answer. */
+  note?: NoteKind;
+  /** For a working column, the key of the answer it explains. */
+  parentKey?: string;
 }
+
+export type NoteKind = 'reasoning' | 'evidence';
+
+const NOTE_KINDS: NoteKind[] = ['reasoning', 'evidence'];
+
+const NOTE_SUFFIX = /_(reasoning|evidence)$/;
 
 /** Keys the table never shows: primary keys and bookkeeping. */
 const HIDDEN = new Set(['id', 'project_id']);
@@ -40,11 +50,13 @@ const HIDDEN = new Set(['id', 'project_id']);
 /** Collected rather than entered, so never typed into. */
 const READ_ONLY = new Set(['serp_count']);
 
+/* Wide enough that a real field name — "More than one doctor", "Sources" —
+   reads in the column head without being cut to two syllables. */
 const WIDTH: Record<FieldType, number> = {
   text: 184,
-  longtext: 208,
-  number: 96,
-  select: 148,
+  longtext: 216,
+  number: 112,
+  select: 164,
 };
 
 const ICON: Record<FieldType, IconName> = {
@@ -93,14 +105,29 @@ export function buildFields(columns: string[], rows: GridRow[], enrichments: Enr
   );
   const present = new Set(columns);
 
-  const visible = columns.filter((key) => {
-    if (HIDDEN.has(key)) return false;
-    // Fold reasoning/evidence into the answer they belong to.
-    const base = key.replace(/_(reasoning|evidence)$/, '');
-    return base === key || !present.has(base);
-  });
+  /* Answers keep the backend's order; each one pulls its own reasoning and
+     evidence along behind it, so the working is always read beside the answer
+     it explains however the columns arrived. A working column whose answer is
+     missing is nobody's working, and stands as an ordinary column. */
+  const ordered: string[] = [];
+  const placed = new Set<string>();
+  for (const key of columns) {
+    if (HIDDEN.has(key) || placed.has(key)) continue;
+    const parent = key.replace(NOTE_SUFFIX, '');
+    if (parent !== key && present.has(parent) && !HIDDEN.has(parent)) continue;
 
-  return visible.map<GridField>((key) => {
+    ordered.push(key);
+    placed.add(key);
+    for (const kind of NOTE_KINDS) {
+      const noteKey = `${key}_${kind}`;
+      if (present.has(noteKey) && !placed.has(noteKey)) {
+        ordered.push(noteKey);
+        placed.add(noteKey);
+      }
+    }
+  }
+
+  return ordered.map<GridField>((key) => {
     if (key === 'lead') {
       return {
         key,
@@ -125,6 +152,32 @@ export function buildFields(columns: string[], rows: GridRow[], enrichments: Enr
         align: 'right',
         editable: false,
         ai: false,
+      };
+    }
+
+    /* The agent's working: long prose or a list of sources, never typed into,
+       and named after the answer it belongs to so it still says what it is
+       once the answer has been scrolled off the left edge. */
+    const noteMatch = NOTE_SUFFIX.exec(key);
+    const parentKey = noteMatch ? key.slice(0, key.length - noteMatch[0].length) : null;
+    if (parentKey && present.has(parentKey)) {
+      const parent = byColumnName.get(parentKey);
+      const kind = noteMatch![1] as NoteKind;
+      return {
+        key,
+        name: `${parent?.enrichment_name ?? humanise(parentKey)} ${kind}`,
+        identifier: key,
+        type: 'longtext',
+        // The type glyph, not the sparkle: the sparkle marks the answer, and
+        // the working is told apart from it at a glance.
+        icon: ICON.longtext,
+        width: WIDTH.longtext,
+        align: 'left',
+        editable: false,
+        ai: Boolean(parent),
+        enrichment: parent,
+        note: kind,
+        parentKey,
       };
     }
 

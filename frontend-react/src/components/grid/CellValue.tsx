@@ -4,7 +4,9 @@
  * A yes/no answer is a select chip carrying its own word, so nothing depends on
  * decoding a colour. A blank is an en-rule in quiet ink rather than an empty
  * cell, because "not established" and "not asked" have to look different from
- * each other. Numbers are tabular and right-aligned; nothing else is.
+ * each other. Numbers are tabular and right-aligned; nothing else is. An AI
+ * field's reasoning and evidence are set in quieter ink than the answer they
+ * stand beside, so a row still reads as its answers first.
  */
 
 import { GridField, isBlank, readVerdict } from './fields';
@@ -36,9 +38,9 @@ export function CellValue({
   working?: boolean;
 }) {
   if (isBlank(value)) {
-    // A field being filled right now says so, rather than showing a blank that
-    // looks like a finished empty answer.
-    if (working && field.ai) {
+    // Only the field actually being filled says so. A blank elsewhere is a
+    // finished empty answer and must not borrow the pending mark.
+    if (working) {
       return (
         <span className="cell__spinner" title="Researching this record">
           <Spinner size={11} />
@@ -56,6 +58,7 @@ export function CellValue({
     'cell__value',
     field.key === 'lead' ? 'cell__value--lead' : '',
     field.type === 'number' ? 'cell__value--num' : '',
+    field.note ? 'cell__value--note' : '',
     settling ? 'settle' : '',
   ]
     .filter(Boolean)

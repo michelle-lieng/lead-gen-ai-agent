@@ -1,5 +1,5 @@
 /**
- * One base: the grid, and the enquiry panel that fills it.
+ * One project: the grid, and the enquiry panel that fills it.
  *
  * Everything the product does happens on this screen. The page owns the writes
  * — cell edits, record deletion, field renaming, import and export — and hands
@@ -17,11 +17,11 @@ import { ExpandedRecord } from '../components/grid/ExpandedRecord';
 import { GridField, buildFields } from '../components/grid/fields';
 import { ImportSheet } from '../components/imports/ImportSheet';
 import { EnquiryPanel, PanelTab } from '../components/panel/EnquiryPanel';
-import { AppShell, BaseMenuButton, SidebarToggle } from '../components/shell/AppShell';
+import { AppShell, ProjectMenuButton, SidebarToggle } from '../components/shell/AppShell';
 import { Icon } from '../components/ui/Icon';
 import { Confirm, Modal } from '../components/ui/Modal';
 import { PopItem, PopLabel, Popover } from '../components/ui/Popover';
-import { Button, EmptyState, Field } from '../components/ui/Primitives';
+import { Button, EmptyState, Field, IconButton } from '../components/ui/Primitives';
 import { useNotify } from '../components/ui/Toasts';
 import { useEnrichments } from '../hooks/useEnrichments';
 import { useMergedResults } from '../hooks/useMergedResults';
@@ -57,7 +57,11 @@ export function Project() {
   const run = useRegisterRun(id);
 
   const [tab, setTab] = useState<PanelTab>('find');
-  const [panelOpen, setPanelOpen] = useState(true);
+  // Below 1181px the panel stops being a column and becomes an overlay, so
+  // opening it by default there would hide the table the visitor came for.
+  const [panelOpen, setPanelOpen] = useState(
+    () => typeof window === 'undefined' || window.matchMedia('(min-width: 1181px)').matches,
+  );
   const [focusToken, setFocusToken] = useState(0);
   const [filter, setFilter] = useState('');
   const [rowHeight, setRowHeight] = useState<RowHeight>(
@@ -113,7 +117,9 @@ export function Project() {
     return new Set([...selected].filter((lead) => present.has(lead)));
   }, [rows, selected]);
 
-  const aiFieldCount = fields.filter((field) => field.ai).length;
+  // The answers only: a field's reasoning and evidence are the same field's
+  // working, and counting them would treble the tally the footer reports.
+  const aiFieldCount = fields.filter((field) => field.ai && !field.note).length;
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.mergedResults(id) });
@@ -201,13 +207,13 @@ export function Project() {
     return (
       <AppShell activeId={id}>
         <main className="main main--plain">
-          <div className="basebar">
+          <div className="projectbar">
             <SidebarToggle />
-            <span className="basebar__title">
+            <span className="projectbar__title">
               <h1>Opening…</h1>
             </span>
           </div>
-          <p className="quiet">Loading this base…</p>
+          <p className="quiet">Loading this project…</p>
         </main>
       </AppShell>
     );
@@ -217,15 +223,15 @@ export function Project() {
     return (
       <AppShell activeId={id}>
         <main className="main main--plain">
-          <div className="basebar">
+          <div className="projectbar">
             <SidebarToggle />
-            <span className="basebar__title">
-              <h1>Base not found</h1>
+            <span className="projectbar__title">
+              <h1>Project not found</h1>
             </span>
           </div>
           <EmptyState
             icon="alert"
-            title="This base is not here"
+            title="This project is not here"
             body="It may have been deleted, or the link may be wrong."
             actions={
               <Button tone="primary" onClick={() => navigate('/')}>
@@ -263,6 +269,7 @@ export function Project() {
   return (
     <AppShell
       activeId={id}
+      onClosePanel={() => setPanelOpen(false)}
       panel={
         panelOpen ? (
           <EnquiryPanel
@@ -287,18 +294,13 @@ export function Project() {
       }
     >
       <main className="main">
-        <div className="basebar">
+        <div className="projectbar">
           <SidebarToggle />
-          <span className="basebar__title">
+          <span className="projectbar__title">
             <h1 title={project.project_name}>{project.project_name}</h1>
-            <BaseMenuButton project={project} />
+            <ProjectMenuButton project={project} />
           </span>
-          <span className="basebar__spacer" />
-          {!panelOpen && (
-            <Button icon="panel" compact onClick={() => setPanelOpen(true)}>
-              Ask the agent
-            </Button>
-          )}
+          <span className="projectbar__spacer" />
         </div>
 
         <div className="toolbar">
@@ -373,6 +375,32 @@ export function Project() {
           >
             Export
           </Button>
+
+          <span className="toolbar__rule" aria-hidden="true" />
+
+          {/* Labelled while the panel is hidden, because that is when the
+              product's primary affordance has to be findable; icon-only while
+              it is open, where the panel itself is the label and the view bar
+              has 380px less room to give. */}
+          {panelOpen ? (
+            <IconButton
+              icon="panel"
+              label="Hide the agent panel"
+              compact
+              aria-pressed
+              onClick={() => setPanelOpen(false)}
+            />
+          ) : (
+            <Button
+              icon="panel"
+              compact
+              tone="primary"
+              aria-pressed={false}
+              onClick={() => setPanelOpen(true)}
+            >
+              Ask the agent
+            </Button>
+          )}
         </div>
 
         {loadingResults && rows.length === 0 ? (
@@ -430,6 +458,7 @@ export function Project() {
             rowHeight={rowHeight}
             settling={run.settling}
             workingLeads={run.workingLeads}
+            workingField={run.workingField}
             busy={editMutation.isPending || deleteMutation.isPending}
             selected={liveSelection}
             onSelect={(lead, isSelected) =>
@@ -479,7 +508,9 @@ export function Project() {
 
           <span className="foot__spacer" />
 
-          <span>
+          {/* The tallies are why the table is believable, so they survive onto a
+              phone — abbreviated to hold one line, never dropped. */}
+          <span className="foot__meta">
             {aiFieldCount} researched {aiFieldCount === 1 ? 'field' : 'fields'}
             {project.datasets_added > 0 &&
               ` · ${project.datasets_added} imported ${
@@ -487,6 +518,12 @@ export function Project() {
               }`}
             {project.urls_processed > 0 &&
               ` · ${project.urls_processed.toLocaleString()} sources read`}
+          </span>
+
+          <span className="foot__meta--short">
+            {aiFieldCount} {aiFieldCount === 1 ? 'field' : 'fields'}
+            {project.urls_processed > 0 &&
+              ` · ${project.urls_processed.toLocaleString()} sources`}
           </span>
         </div>
       </main>

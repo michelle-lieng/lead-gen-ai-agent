@@ -8,6 +8,12 @@
         "value": "inter",
         "createdAt": "2026-09-26T07:23:42.844Z",
         "reason": "user pinned Airtable as the visual authority and confirmed the craft bar (Airtable + Notion databases); Inter is that shell's UI face. Outgoing DESIGN.md documents the replaced Lead Register world and is rewritten at finish by the documenter."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-09-26T12:45:12.491Z",
+        "reason": "user pinned Airtable as the visual authority and confirmed Airtable + Notion databases as the craft bar; an Inter-class grotesque is that shell's own face, and Operate mode's product slop test rewards earned familiarity over a distinctive display face here."
       }
     ]
   }

@@ -1,7 +1,7 @@
 /**
- * The sidebar: the workspace, its bases, and the account slot.
+ * The sidebar: the workspace, its projects, and the account slot.
  *
- * Every project is a base, carrying the coloured square it is recognised by.
+ * Every project carries the coloured square it is recognised by.
  * The key status sits at the very bottom, where a workspace puts the account —
  * nothing in this product runs without the user's own keys, so that state is
  * permanently on screen rather than behind a menu.
@@ -11,7 +11,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Project } from '../../api/types';
 import { useApiKeys } from '../../store/apiKeys';
-import { baseColor, baseInitials } from '../../utils/base';
+import { projectColor, projectInitials } from '../../utils/project';
 import { Icon } from '../ui/Icon';
 import { PopItem, PopRule, Popover } from '../ui/Popover';
 import { IconButton } from '../ui/Primitives';
@@ -70,16 +70,16 @@ export function Sidebar({
       </div>
 
       <div className="side__section">
-        <span>Bases</span>
+        <span>Projects</span>
         <span>{projects.length > 0 ? projects.length : ''}</span>
       </div>
 
       <ul className="side__list">
-        {loading && <li className="side__empty">Loading bases…</li>}
+        {loading && <li className="side__empty">Loading projects…</li>}
 
         {!loading && projects.length === 0 && (
           <li className="side__empty">
-            No bases yet. Create one to start finding leads.
+            No projects yet. Create one to start finding leads.
           </li>
         )}
 
@@ -97,10 +97,10 @@ export function Sidebar({
             >
               <span
                 className="side__icon"
-                style={{ background: baseColor(project.id) }}
+                style={{ background: projectColor(project.id) }}
                 aria-hidden="true"
               >
-                {baseInitials(project.project_name)}
+                {projectInitials(project.project_name)}
               </span>
               <span className="side__name">{project.project_name}</span>
               {project.leads_collected > 0 && (
@@ -130,7 +130,7 @@ export function Sidebar({
       <div className="side__foot">
         <button type="button" className="side__create" onClick={onCreate}>
           <Icon name="plus" size={14} />
-          Create a base
+          Create a project
         </button>
 
         <button
@@ -163,7 +163,7 @@ export function Sidebar({
               setMenuFor(null);
             }}
           >
-            Rename base
+            Rename project
           </PopItem>
           <PopRule />
           <PopItem
@@ -174,7 +174,7 @@ export function Sidebar({
               setMenuFor(null);
             }}
           >
-            Delete base
+            Delete project
           </PopItem>
         </Popover>
       )}

@@ -39,6 +39,33 @@ app = FastAPI(
 # Middleware
 # =========================
 
+# Unhandled exceptions are turned into JSON *here*, inside the CORS layer,
+# rather than by the `Exception` handler further down. Starlette runs that
+# handler in ServerErrorMiddleware, which wraps every user middleware — so its
+# 500 never passes back out through CORSMiddleware, reaches the browser with no
+# Access-Control-Allow-Origin, and is discarded before the SPA can read it. The
+# SPA sees a request with no response and reports it as "can't reach the
+# backend", sending the user to check a server that was answering all along.
+#
+# Registered BEFORE CORSMiddleware on purpose: Starlette inserts each new
+# middleware at the top of the stack, so the last one added is the outermost.
+# Adding this one first leaves it inside CORS, where its response still gets
+# the headers.
+@app.middleware("http")
+async def unhandled_errors_as_json(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as exc:
+        logger.error("UNEXPECTED ERROR on %s: %r", request.url, exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": "An unexpected error occurred",
+                "code": "UNEXPECTED_INTERNAL_ERROR",
+            },
+        )
+
+
 # Add CORS middleware for frontend communication.
 # The React SPA calls this API directly from the browser and sends the user's
 # API keys via custom headers (X-OpenAI-Key / X-Jina-Key). We must therefore
@@ -101,6 +128,12 @@ async def generic_exception_handler(request: Request, exc: Exception):
     """
     Last-resort fallback for unexpected exceptions.
     Logs full traceback, returns generic error to client.
+
+    Anything raised by a route is caught by `unhandled_errors_as_json` above,
+    which answers from inside the CORS layer. This stays as the backstop for
+    the narrow case that middleware cannot reach — a failure in the middleware
+    stack itself — and its response carries no CORS headers, which is why it is
+    not where route errors should land.
     """
     logger.error("UNEXPECTED ERROR on %s: %r", request.url, exc, exc_info=True)
     return JSONResponse(

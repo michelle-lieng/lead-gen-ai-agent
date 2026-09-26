@@ -4,9 +4,14 @@
  * Ruled both ways, 32px rows, the row-number gutter and the company field
  * frozen to the left, and a `+` closing the header row. Cells behave the way a
  * grid database's cells behave: click selects, arrow keys move, Enter or a
- * double-click edits, typing replaces, Escape cancels, Delete clears. That
+ * double-click opens, typing replaces, Escape cancels, Delete clears. That
  * keyboard model is most of the difference between a table of styled divs and
  * something a category-fluent user can trust on sight.
+ *
+ * A column is never wide enough for every value in it, so no value is only ever
+ * a truncation: a selected cell whose text is cut off says so with a mark, and
+ * opening it shows the whole thing over its neighbours — as an editor where the
+ * field can be written to, and as a reader where it cannot.
  *
  * Presentation only: every write is handed back to the caller, which owns the
  * mutations.
@@ -21,7 +26,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { GridField, GridRow, hasNotes } from './fields';
+import { GridField, GridRow, hasNotes, isBlank } from './fields';
 import { CellValue } from './CellValue';
 import { FieldMenu } from './FieldMenu';
 import { Icon } from '../ui/Icon';
@@ -29,6 +34,9 @@ import { Icon } from '../ui/Icon';
 export type RowHeight = 'short' | 'medium' | 'tall';
 
 export const ROW_HEIGHT_PX: Record<RowHeight, number> = { short: 32, medium: 56, tall: 88 };
+
+/** Matches `--editor-min-w` in the stylesheet. */
+const EDITOR_MIN_W = 232;
 
 interface DataGridProps {
   fields: GridField[];
@@ -38,6 +46,8 @@ interface DataGridProps {
   settling?: Set<string>;
   /** Records the run is working now. */
   workingLeads?: Set<string>;
+  /** The one field being filled, if any. Nothing else shows a pending mark. */
+  workingField?: string | null;
   /** A write is in flight; editing is held off until it lands. */
   busy?: boolean;
   selected: Set<string>;
@@ -55,6 +65,7 @@ export function DataGrid({
   rowHeight,
   settling,
   workingLeads,
+  workingField,
   busy = false,
   selected,
   onSelect,
@@ -68,8 +79,15 @@ export function DataGrid({
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
   const [cursor, setCursor] = useState<{ r: number; c: number } | null>(null);
-  const [editing, setEditing] = useState<{ r: number; c: number } | null>(null);
+  const [editing, setEditing] = useState<{ r: number; c: number; flip: boolean } | null>(
+    null,
+  );
+  const [reading, setReading] = useState<{ r: number; c: number; flip: boolean } | null>(
+    null,
+  );
   const [draft, setDraft] = useState('');
+  /** Whether the selected cell's value is cut off by its column. */
+  const [clipped, setClipped] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [fieldMenu, setFieldMenu] = useState<{ field: GridField; anchor: HTMLElement } | null>(
     null,
@@ -92,6 +110,28 @@ export function DataGrid({
     scroller.addEventListener('scroll', measure, { passive: true });
     return () => scroller.removeEventListener('scroll', measure);
   }, []);
+
+  // A field that has just been created is the thing the visitor asked for, so
+  // the grid scrolls to it rather than filling a column off the right edge.
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || !workingField) return;
+    const index = fields.findIndex((field) => field.key === workingField);
+    if (index < 1) return;
+
+    const left = 66 + fields.slice(0, index).reduce((sum, f) => sum + f.width, 0);
+    const right = left + fields[index].width;
+    const frozen = 66 + (fields[0]?.width ?? 0);
+    const target = right - scroller.clientWidth + 24;
+    if (target <= scroller.scrollLeft && left - frozen >= scroller.scrollLeft) return;
+
+    scroller.scrollTo({
+      left: Math.max(0, target),
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : 'smooth',
+    });
+  }, [workingField, fields]);
 
   /* --------------------------------------------------------------- the cursor */
 
@@ -124,17 +164,79 @@ export function DataGrid({
     });
   }, [rows.length, fields.length]);
 
+  // The reader belongs to the cell it was opened on: moving off it closes it,
+  // whether the cursor was moved by the keyboard or by a click elsewhere.
+  useEffect(() => {
+    setReading((current) => {
+      if (!current) return null;
+      return cursor && cursor.r === current.r && cursor.c === current.c ? current : null;
+    });
+  }, [cursor]);
+
+  /* Whether the selected cell is cut off has to be measured rather than
+     guessed: it turns on the value, the column's width and the row height at
+     once, and only the browser knows all three. */
+  useLayoutEffect(() => {
+    if (!cursor) {
+      setClipped(false);
+      return;
+    }
+    const node = scrollerRef.current?.querySelector<HTMLElement>(
+      `[data-r="${cursor.r}"][data-c="${cursor.c}"] .cell__value`,
+    );
+    setClipped(
+      node
+        ? node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1
+        : false,
+    );
+  }, [cursor, rowHeight, rows, fields]);
+
+  // An overlay grown past a narrow column would be clipped at the content
+  // region's edge, so on the right-hand columns it opens leftward instead.
+  const overlayFlip = useCallback((r: number, c: number) => {
+    const scroller = scrollerRef.current;
+    const cell = scroller?.querySelector<HTMLElement>(`[data-r="${r}"][data-c="${c}"]`);
+    if (!scroller || !cell) return false;
+    const cellRect = cell.getBoundingClientRect();
+    const width = Math.max(cellRect.width + 2, EDITOR_MIN_W);
+    return cellRect.left + width > scroller.getBoundingClientRect().right - 4;
+  }, []);
+
   const startEdit = useCallback(
     (r: number, c: number, initial?: string) => {
       const field = fields[c];
       const row = rows[r];
       if (!field || !row || !field.editable || busy) return;
       const current = row[field.key];
+
       setCursor({ r, c });
       setDraft(initial ?? (current === null || current === undefined ? '' : String(current)));
-      setEditing({ r, c });
+      setEditing({ r, c, flip: overlayFlip(r, c) });
     },
-    [fields, rows, busy],
+    [fields, rows, busy, overlayFlip],
+  );
+
+  /* A field that cannot be typed into — the agent's working, a collected count
+     — still has to be readable in full. It opens as a reader: the same overlay
+     the editor uses, without the caret. */
+  const openReader = useCallback(
+    (r: number, c: number) => {
+      if (!fields[c] || !rows[r]) return;
+      setCursor({ r, c });
+      setReading({ r, c, flip: overlayFlip(r, c) });
+    },
+    [fields, rows, overlayFlip],
+  );
+
+  /** Opening a cell shows all of it, whichever of the two it turns out to be. */
+  const openCell = useCallback(
+    (r: number, c: number) => {
+      const field = fields[c];
+      if (!field) return;
+      if (field.editable && !busy) startEdit(r, c);
+      else openReader(r, c);
+    },
+    [fields, busy, startEdit, openReader],
   );
 
   const commit = useCallback(() => {
@@ -199,10 +301,15 @@ export function DataGrid({
       case 'Enter':
         if (!cursor) return;
         event.preventDefault();
-        startEdit(cursor.r, cursor.c);
+        // Enter on an open reader closes it again, the way it commits an editor.
+        if (reading) setReading(null);
+        else openCell(cursor.r, cursor.c);
         return;
       case 'Escape':
-        setCursor(null);
+        // The reader is the innermost thing open, so it goes first and the
+        // selection survives — Escape twice clears the cursor.
+        if (reading) setReading(null);
+        else setCursor(null);
         return;
       case 'Backspace':
       case 'Delete': {
@@ -252,6 +359,7 @@ export function DataGrid({
         {
           '--row-h': `${ROW_HEIGHT_PX[rowHeight]}px`,
           '--frozen-w': `${frozenWidth}px`,
+          '--grid-w': `${totalWidth}px`,
         } as React.CSSProperties
       }
       onKeyDown={onGridKeyDown}
@@ -262,7 +370,6 @@ export function DataGrid({
         aria-label="Records"
         aria-rowcount={rows.length + 1}
         aria-colcount={fields.length + 1}
-        style={{ minWidth: totalWidth }}
       >
         {/* ---------------------------------------------------- column heads */}
         <div className="grid__head" role="row" aria-rowindex={1}>
@@ -293,6 +400,7 @@ export function DataGrid({
                 .join(' ')}
               role="columnheader"
               aria-colindex={index + 2}
+              data-note={field.note || undefined}
               style={{ '--cw': `${field.width}px` } as React.CSSProperties}
             >
               <span className="head">
@@ -384,6 +492,7 @@ export function DataGrid({
                 {fields.map((field, c) => {
                   const isCursor = cursor?.r === r && cursor.c === c;
                   const isEditing = editing?.r === r && editing.c === c;
+                  const isReading = reading?.r === r && reading.c === c;
                   const value = row[field.key];
 
                   return (
@@ -395,6 +504,7 @@ export function DataGrid({
                         c === 0 ? 'cell--sticky cell--first cell--frozen-edge' : '',
                         isCursor && !isEditing ? 'cell--selected' : '',
                         isEditing ? 'cell--editing' : '',
+                        isReading ? 'cell--reading' : '',
                       ]
                         .filter(Boolean)
                         .join(' ')}
@@ -414,12 +524,13 @@ export function DataGrid({
                       onMouseDown={() => {
                         if (!isEditing) setCursor({ r, c });
                       }}
-                      onDoubleClick={() => startEdit(r, c)}
+                      onDoubleClick={() => openCell(r, c)}
                     >
                       {isEditing ? (
                         <textarea
                           ref={editorRef}
                           className="cell__editor"
+                          data-flip={editing.flip || undefined}
                           value={draft}
                           rows={1}
                           spellCheck={false}
@@ -442,8 +553,44 @@ export function DataGrid({
                           field={field}
                           value={value}
                           settling={isSettling}
-                          working={isWorking}
+                          // A field's working lands with its answer, so those
+                          // columns wait under the same mark.
+                          working={
+                            isWorking &&
+                            (field.key === workingField || field.parentKey === workingField)
+                          }
                         />
+                      )}
+
+                      {/* Only on the selected cell, and only when there is
+                          actually more to see: a mark on every long value
+                          would be a column of chevrons. */}
+                      {isCursor && !isEditing && !isReading && clipped && (
+                        <button
+                          type="button"
+                          className="cell__peek"
+                          aria-label={`Show all of ${field.name} for ${lead}`}
+                          title="Show the whole value"
+                          /* The keyboard opens a cell with Enter on the cell
+                             itself, so the mark never takes focus off it —
+                             taking it would hand the same Enter to both. */
+                          tabIndex={-1}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => openCell(r, c)}
+                        >
+                          <Icon name="expand" size={10} />
+                        </button>
+                      )}
+
+                      {isReading && (
+                        <div
+                          className="cell__reader"
+                          data-flip={reading.flip || undefined}
+                          role="note"
+                          aria-label={`${field.name} for ${lead}`}
+                        >
+                          {isBlank(value) ? '—' : String(value)}
+                        </div>
                       )}
                     </div>
                   );

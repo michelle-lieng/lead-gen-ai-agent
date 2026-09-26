@@ -1,5 +1,5 @@
 /**
- * Creating and renaming a base. One form serves both, because the fields are
+ * Creating and renaming a project. One form serves both, because the fields are
  * the same and only the verb changes.
  */
 
@@ -11,7 +11,7 @@ import { Modal } from '../ui/Modal';
 import { Button, Field, TextArea } from '../ui/Primitives';
 import { useNotify } from '../ui/Toasts';
 
-export function BaseDialog({
+export function ProjectDialog({
   open,
   project,
   onClose,
@@ -43,7 +43,10 @@ export function BaseDialog({
           })
         : createProject({ project_name: name.trim(), description: note.trim() || null }),
     onSuccess: (saved) => {
-      notify(project ? 'Base renamed.' : `Base “${saved.project_name}” created.`, 'success');
+      notify(
+        project ? 'Project renamed.' : `Project “${saved.project_name}” created.`,
+        'success',
+      );
       onSaved(saved, !project);
     },
     onError: notifyError,
@@ -57,11 +60,11 @@ export function BaseDialog({
   return (
     <Modal
       open={open}
-      title={project ? 'Rename base' : 'Create a base'}
+      title={project ? 'Rename project' : 'Create a project'}
       note={
         project
           ? undefined
-          : 'A base holds one search: the companies you find, and every field you ask about them.'
+          : 'A project holds one search: the companies you find, and every field you ask about them.'
       }
       onClose={onClose}
       width={470}
@@ -77,7 +80,7 @@ export function BaseDialog({
             disabled={!name.trim()}
             onClick={() => mutation.mutate()}
           >
-            {project ? 'Save' : 'Create base'}
+            {project ? 'Save' : 'Create project'}
           </Button>
         </>
       }

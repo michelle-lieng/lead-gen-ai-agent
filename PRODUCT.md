@@ -69,6 +69,8 @@ Product name in the UI today is **AI Lead Generator**; the company behind it is 
 
 The user supplied the Kiyu Labs marketing site as a binding colour reference: deep navy as the primary and button colour, a pale blue-grey section tint, near-black body text, white surfaces, and navy used for links and eyebrow labels. Type on the site is a geometric sans with a tall x-height. These are colour and identity constraints carried over from the brand, not a design direction for this product.
 
+**Standing preference: the product UI follows the grid-database convention, played straight.** The user pinned Airtable as the visual authority in plain words and confirmed Airtable and Notion databases as the craft bar. The product's surfaces are expected to read as a base — sidebar of bases, one ruled grid, field-type icons, expanded records — rather than as an own-world interpretation. Kiyu navy `#12305c` is the single accent and takes every place that category spends its own blue; Airtable's blue, wordmark and logo never appear. Treat this as durable unless the user says otherwise: it is a decision about the product's register, not one cycle's styling.
+
 ## Evidence on Hand
 
 - A working backend with real endpoints and a real database schema; nothing about the pipeline needs to be faked.

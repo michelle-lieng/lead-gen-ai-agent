@@ -1,391 +1,440 @@
 ---
-name: Lead Register
-description: A printed business register on a pale blue desk — ruled listings, one institutional ink, nothing in a box.
+name: AI Lead Generator
+description: A grid database played straight — Airtable's structure in Kiyu navy, where one sentence becomes a column.
 colors:
-  navy: "#12305c"
-  navy-deep: "#0c2244"
-  navy-mid: "#1e4a87"
-  navy-wash: "#dde6f4"
-  navy-tint: "#eef3fa"
-  ink: "#14181f"
-  ink-2: "#4a5768"
-  ink-3: "#8a97a9"
-  ink-placeholder: "#66748a"
-  spot: "#a6371f"
-  spot-wash: "#fbeeea"
-  paper: "#ffffff"
-  paper-hover: "#f6f9fd"
-  ground: "#e6ecf6"
-  ground-deep: "#d8e1ef"
-  hairline: "#ccd6e6"
-  hairline-2: "#e2e9f3"
-  success-ink: "#1d5f3f"
-  success-wash: "#eef6f1"
-  warning-ink: "#8a5a12"
-  warning-wash: "#fbf3e6"
+  accent: "#12305c"
+  accent-hover: "#0c2244"
+  accent-soft: "#e7edf6"
+  accent-tint: "#f3f6fb"
+  surface: "#ffffff"
+  surface-2: "#fbfbfc"
+  surface-hover: "#f5f5f7"
+  chrome: "#f7f7f8"
+  chrome-hover: "#ececed"
+  line: "#e3e3e6"
+  line-2: "#ededf0"
+  line-strong: "#d2d2d8"
+  text: "#1d1d1f"
+  text-2: "#666670"
+  placeholder: "#71717a"
+  text-3: "#a1a1aa"
+  danger: "#b3261e"
+  danger-hover: "#8f1e18"
+  danger-soft: "#fdeceb"
+  success: "#1d6b3f"
+  warning: "#8a5a12"
+  warning-soft: "#fdf4e5"
+  chip-yes-bg: "#d6f5d9"
+  chip-yes-ink: "#17501f"
+  chip-no-bg: "#ffdedb"
+  chip-no-ink: "#8a2318"
+  chip-flat-bg: "#ebebef"
+  chip-flat-ink: "#45454f"
+  base-icon-navy: "#12305c"
+  base-icon-teal: "#0f6f62"
+  base-icon-violet: "#5b43b8"
+  base-icon-amber: "#9c5410"
+  base-icon-rose: "#a52c50"
+  base-icon-green: "#246b39"
+  selection-bg: "#c9d7ec"
 typography:
-  display:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
-    fontSize: "20px"
+  title:
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    fontSize: "16px"
     fontWeight: 600
-    lineHeight: 1.45
-    letterSpacing: "-0.012em"
-    fontVariation: "'wdth' 118"
-  headline:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
+    lineHeight: 1.4
+    letterSpacing: "-0.008em"
+  heading:
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
     fontSize: "15px"
     fontWeight: 600
-    lineHeight: 1.45
-    letterSpacing: "-0.008em"
-    fontVariation: "'wdth' 100"
-  title:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
+    lineHeight: 1.4
+    letterSpacing: "-0.006em"
+  body:
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: "normal"
+  body-secondary:
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    fontSize: "12.5px"
+    fontWeight: 400
+    lineHeight: 1.55
+    letterSpacing: "normal"
+  meta:
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    fontSize: "11.5px"
+    fontWeight: 400
+    lineHeight: 1.3
+    letterSpacing: "normal"
+  label:
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
     fontSize: "11px"
     fontWeight: 600
-    lineHeight: 1.45
-    letterSpacing: "0.14em"
-    fontVariation: "'wdth' 118"
-  body:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
-    fontSize: "14px"
+    lineHeight: 1.4
+    letterSpacing: "0.05em"
+  numeric:
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    fontSize: "13px"
     fontWeight: 400
-    lineHeight: 1.45
+    lineHeight: 1.5
+    fontFeature: "tabular-nums"
+  identifier:
+    fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace"
+    fontSize: "11.5px"
+    fontWeight: 400
+    lineHeight: 1.5
     letterSpacing: "normal"
-    fontVariation: "'wdth' 100"
-    fontFeature: "'tnum' 1, 'lnum' 1"
-  listing:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
-    fontSize: "13.5px"
-    fontWeight: 400
-    lineHeight: 1.45
-    letterSpacing: "0.002em"
-    fontVariation: "'wdth' 80"
-    fontFeature: "'tnum' 1, 'lnum' 1"
-  label:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif"
-    fontSize: "10px"
-    fontWeight: 600
-    lineHeight: 1.45
-    letterSpacing: "0.1em"
-    fontVariation: "'wdth' 100"
-  mono:
-    fontFamily: "Azeret Mono, ui-monospace, Cascadia Mono, Consolas, monospace"
-    fontSize: "10px"
-    fontWeight: 400
-    lineHeight: 1.45
-    letterSpacing: "-0.02em"
 rounded:
-  none: "0"
-  tab: "2px 2px 0 0"
+  sm: "3px"
+  md: "6px"
+  lg: "8px"
+  seam: "12px"
+  square: "0px"
 spacing:
-  hair: "2px"
-  xs: "4px"
-  sm: "6px"
-  md: "8px"
-  lg: "10px"
-  xl: "12px"
-  xxl: "14px"
-  sheet: "18px"
-  section: "22px"
-  margin: "28px"
+  "2": "2px"
+  "4": "4px"
+  "6": "6px"
+  "8": "8px"
+  "10": "10px"
+  "12": "12px"
+  "14": "14px"
+  "16": "16px"
+  "24": "24px"
 components:
   button-primary:
-    backgroundColor: "{colors.navy}"
+    backgroundColor: "{colors.accent}"
     textColor: "#ffffff"
-    rounded: "{rounded.none}"
-    padding: "0 12px"
-    height: "30px"
     typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: "0 11px"
+    height: "30px"
   button-primary-hover:
-    backgroundColor: "{colors.navy-deep}"
+    backgroundColor: "{colors.accent-hover}"
     textColor: "#ffffff"
   button-plain:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    padding: "0 12px"
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: "0 11px"
     height: "30px"
   button-plain-hover:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.navy}"
+    backgroundColor: "{colors.surface-hover}"
   button-quiet:
     backgroundColor: "transparent"
-    textColor: "{colors.ink-2}"
-    rounded: "{rounded.none}"
-    padding: "0 12px"
+    textColor: "{colors.text-2}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: "0 11px"
     height: "30px"
   button-quiet-hover:
-    backgroundColor: "{colors.navy-tint}"
-    textColor: "{colors.navy}"
-  button-danger:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.spot}"
-    rounded: "{rounded.none}"
-    padding: "0 12px"
+    backgroundColor: "{colors.chrome-hover}"
+    textColor: "{colors.text}"
+  button-danger-solid:
+    backgroundColor: "{colors.danger}"
+    textColor: "#ffffff"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: "0 11px"
     height: "30px"
-  button-danger-hover:
-    backgroundColor: "{colors.spot-wash}"
-    textColor: "{colors.spot}"
-  button-compact:
-    height: "24px"
-    padding: "0 8px"
-  input-field:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
+  input:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
     padding: "6px 9px"
-    height: "30px"
-  input-field-disabled:
-    backgroundColor: "{colors.navy-tint}"
-    textColor: "{colors.ink-2}"
-  chip:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink-2}"
-    rounded: "{rounded.none}"
-    padding: "4px 9px"
-  chip-active:
-    backgroundColor: "{colors.navy}"
-    textColor: "#ffffff"
-    rounded: "{rounded.none}"
-    padding: "4px 9px"
-  thumb-tab:
-    backgroundColor: "#dbe4f2"
-    textColor: "{colors.ink-2}"
-    rounded: "{rounded.tab}"
-    padding: "0 12px"
-    height: "30px"
-    typography: "{typography.label}"
-  thumb-tab-active:
-    backgroundColor: "{colors.navy}"
-    textColor: "#ffffff"
-    rounded: "{rounded.tab}"
-  section-bar:
-    backgroundColor: "{colors.navy}"
-    textColor: "#ffffff"
-    rounded: "{rounded.none}"
-    padding: "0 10px"
+    height: "32px"
+  chip-yes:
+    backgroundColor: "{colors.chip-yes-bg}"
+    textColor: "{colors.chip-yes-ink}"
+    rounded: "{rounded.sm}"
+    padding: "2px 8px"
+  chip-no:
+    backgroundColor: "{colors.chip-no-bg}"
+    textColor: "{colors.chip-no-ink}"
+    rounded: "{rounded.sm}"
+    padding: "2px 8px"
+  chip-neutral:
+    backgroundColor: "{colors.chip-flat-bg}"
+    textColor: "{colors.chip-flat-ink}"
+    rounded: "{rounded.sm}"
+    padding: "2px 8px"
+  segmented-item:
+    backgroundColor: "transparent"
+    textColor: "{colors.text-2}"
+    rounded: "4px"
+    padding: "0 11px"
     height: "26px"
-    typography: "{typography.title}"
-  register-row:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink}"
-    padding: "4px 12px"
-    height: "34px"
-    typography: "{typography.listing}"
-  register-row-working:
-    backgroundColor: "{colors.navy-tint}"
-  register-row-head:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink-2}"
-    height: "38px"
-    typography: "{typography.label}"
-  notice:
-    backgroundColor: "{colors.navy-tint}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    padding: "9px 10px 10px"
-    width: "min(384px, calc(100vw - 36px))"
+  segmented-item-selected:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.accent}"
+  grid-cell:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    rounded: "{rounded.square}"
+    padding: "0 8px"
+    height: "32px"
+  grid-cell-selected:
+    backgroundColor: "{colors.accent-soft}"
+  grid-head-cell:
+    backgroundColor: "{colors.surface-2}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.square}"
+    padding: "0 8px"
+    height: "32px"
+  nav-item:
+    backgroundColor: "transparent"
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: "6px 30px 6px 8px"
+  nav-item-active:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.accent}"
+  base-card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.lg}"
+    padding: "14px"
+  popover:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.md}"
+    padding: "5px"
+  toast:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.md}"
+    padding: "11px 11px 11px 13px"
 ---
 
-# Design System: Lead Register
+# Design System: AI Lead Generator
 
 ## Overview
 
-**Creative North Star: "The Business Register"**
+**Creative North Star: "The Straight Base"**
 
-This is a page of a printed business register, not a SaaS data grid. A white sheet sits on a pale blue desk and carries a running head, a reversed-out section bar, a ruled listing, a key and a folio. Nothing is contained in a box. Structure comes from horizontal hairlines and alignment, and where two things must be separated, a rule separates them — never a card, never a radius, never an ambient shadow floating a panel over a grey canvas.
+This is a grid database that admits it is a grid database. The shell is the category standard — a sidebar of bases, one content region behind a rounded seam, one table ruled on both axes, cells that select and edit under the keyboard, fields that declare their type with an icon, records that expand. Nothing is stylised, ironised, or given a private twist. Convention is the commitment: a stranger watching a screen share recognises the arrangement before they read a word, and that borrowed literacy is what buys the product the right to be judged on what it actually does.
 
-The density is institutional. Rows are 34px, the listing is set at 13.5px in a narrow width so more columns fit without shrinking the face, figures are tabular everywhere so columns of numbers stack, and the interface tells the truth in counts, dates and named failures rather than in reassurance. Colour is scarce by construction: one institutional navy does rules, reversed bars, focus and primary actions; near-black does text; a single spot red is held back for failure and destructive intent. The confirmed anti-reference is the lead-tool default — grey canvas, rounded cards, boxed cells, drop-shadowed panels, floating icon buttons.
+Density is the second commitment. Rows are 32px, body type is 13px, chrome type steps down to 12.5, 12, and 11.5, and the neutral palette is nearly all greys within six points of each other. The screen is quiet so the data is loud. Depth is almost absent: one hairline everywhere, one low card shadow, and heavier shadows reserved for things that genuinely float over the sheet — popovers, the cell editor, modals, the frozen-column edge.
 
-Motion is a grammar of three moves on one 160ms clock: an answer inking in, a rule drawing left to right, and a single navy setting rule travelling down the gutter to the entry being worked. There is no loading skeleton, no pulse, no loop. Everything is suppressed under `prefers-reduced-motion`.
+Against that grey, one accent does all the work. Kiyu navy `#12305c` takes every place the category would spend its own blue: the 2px cell selection ring, focus rings, the active base pill's label, the primary button, the active view tab's 2px underline, the run progress strip, the checked checkbox, the AI field's sparkle. Two colour sets earn exceptions — a three-tone select-chip set sized to exactly what a boolean enrichment can return, and a six-colour base-icon set keyed deterministically off base id so a base keeps its colour across the sidebar, the home grid, and reloads. Confirmed anti-reference: the retired "Lead Register" world — its ruled paper sheet with no boxes, no radius and no vertical rules — and Airtable's own blue, wordmark and logo, which never appear.
 
 **Key Characteristics:**
-- One institutional ink (navy #12305c), one text ink, one spot red held for failure
-- Structure from horizontal hairlines and alignment; no cell borders, no card borders
-- Square corners everywhere (0 radius) except the 2px outer cut of a thumb-index tab
-- Archivo across three widths — expanded, regular, narrow — with weight held nearly constant
-- Tabular lining figures globally; Azeret Mono reserved for machine column identifiers
-- Exactly three motions on one 160ms clock
-- Every icon and every boolean mark is drawn for this world, never a library glyph or a Unicode bullet
+- Grid-database convention played straight, with no smuggled quirk
+- One accent, Kiyu navy, and no second hue competing for it
+- 13px Inter, 32px rows, hairline rules on both axes
+- Near-flat: tonal layering first, shadow only for things that actually float
+- Colour only where the data is categorical — chips and base icons — never as decoration
+- One 140ms clock and one easing curve for everything that moves
 
 ## Colors
 
-A single navy institutional ink on white paper over a pale blue desk, with one earthen red as the second ink and nothing else.
+A near-monochrome grey chrome carrying one deep navy accent, with saturated colour admitted only where it encodes a value.
 
 ### Primary
-- **Register Navy** (`{colors.navy}`): The institutional ink. Heavy rules under the running head and the column head, reversed section bars, primary action fills, focus outlines, the travelling setting rule, the caret, the selection highlight, the key marks and the browser theme colour.
-- **Navy Deep** (`{colors.navy-deep}`): The pressed state of a primary action, and the base of every translucent overlay and cast shadow (`#0c2244` at 33–40% alpha).
-- **Navy Mid** (`{colors.navy-mid}`): Links at rest, the editable-cell hover underline, and the right-hand counts on a reversed bar's quiet variant.
-- **Navy Wash / Navy Tint** (`{colors.navy-wash}` / `{colors.navy-tint}`): The two navy papers. Tint backs the enquiry desk, the working entry, the footnote under an entry, the key strip, the modal footer and inline notes. Wash is a softened border for a satisfied status control.
+- **Kiyu Navy** (`{colors.accent}`): The single accent. It is the 2px inset cell selection ring, the focus outline, the primary button fill, the active view tab's 2px underline, the active base's label in the sidebar, the checked checkbox, the caret in every input and editor, the AI field's sparkle icon, and the progress strip. Nothing else is ever accented.
+- **Navy Pressed** (`{colors.accent-hover}`): Hover on solid navy surfaces and on links; also the ink inside a text selection.
+- **Navy Wash** (`{colors.accent-soft}`): The 3px focus halo around inputs, the ground of a selected row, the progress strip's track, and the empty-state glyph plate.
+- **Navy Breath** (`{colors.accent-tint}`): The tint on a row the run is working now, on a hovered example prompt, and behind the expanded record's working note.
 
 ### Secondary
-- **Register Red** (`{colors.spot}`): The second ink. It appears only on failure and destructive intent — a failed step in the clerk's log, an error line, a destructive action's label, a missing-keys status. It never marks "live" or "in progress"; running work is navy tint.
-- **Red Wash** (`{colors.spot-wash}`): The ground behind a red-inked notice or a hovered destructive control.
+- **Select Chip, Yes** (`{colors.chip-yes-bg}` on `{colors.chip-yes-ink}`): A pastel mint plate with its own dark ink, for a True answer in a single-select field.
+- **Select Chip, No** (`{colors.chip-no-bg}` on `{colors.chip-no-ink}`): A pastel rose plate, deliberately a different token from danger red.
+- **Select Chip, Neutral** (`{colors.chip-flat-bg}` on `{colors.chip-flat-ink}`): Every other select value, including the one an enrichment could not establish.
 
 ### Tertiary
-- **Notice Green / Notice Amber** (`{colors.success-ink}` / `{colors.warning-ink}` with their washes): Used nowhere but the notice slips, where severity has to read at a glance from the 2px rule at the slip's head.
+- **Base Icons** (`{colors.base-icon-navy}`, `{colors.base-icon-teal}`, `{colors.base-icon-violet}`, `{colors.base-icon-amber}`, `{colors.base-icon-rose}`, `{colors.base-icon-green}`): Six saturated grounds for the rounded-square initials tile that identifies a base. Assigned deterministically from the base id, so a base keeps its colour in the sidebar, on the home grid, and across reloads. These are identity marks, never status.
 
 ### Neutral
-- **Paper** (`{colors.paper}`): The sheet. Every listing, toolbar, modal and composer sits on it.
-- **Paper Hover** (`{colors.paper-hover}`): The only row-hover tone, carried into the sticky and frozen cells so a hovered entry reads as one unbroken line.
-- **Desk Blue / Desk Blue Deep** (`{colors.ground}` / `{colors.ground-deep}`): The desk the sheet lies on — the page background, the running head strip and the thumb-tab rail.
-- **Text Ink** (`{colors.ink}`): Body and listing values.
-- **Secondary Ink** (`{colors.ink-2}`): Column heads, labels, folio, timestamps, supporting prose, quiet controls.
-- **Inactive Ink** (`{colors.ink-3}`): Inactive rules and empty-cell marks.
-- **Placeholder Ink** (`{colors.ink-placeholder}`): Placeholders only, held at 4.7:1 on paper because placeholders in this world are read, not decoration.
-- **Hairline / Hairline Light** (`{colors.hairline}` / `{colors.hairline-2}`): Three rule weights and only three — hairline-light separates entries, hairline separates regions and outlines controls, a 1–2px navy rule opens a column head or closes a running head or section.
+- **White Content** (`{colors.surface}`): The content region, the grid's rows, cards, popovers, modals, toasts.
+- **Strip Grey** (`{colors.surface-2}`): Header and footer strips — the view bar, the grid's header row, the footer tally bar, the modal foot, and the ground below the last record so the table has a visible end.
+- **Row Hover** (`{colors.surface-hover}`): A hovered grid row.
+- **Chrome** (`{colors.chrome}`): The sidebar and the ground the whole app sits on.
+- **Chrome Hover** (`{colors.chrome-hover}`): Hover on quiet buttons, popover items and header-cell affordances.
+- **Rule** (`{colors.line}`): The standard hairline — bar edges, card and popover borders, the frozen column's neighbours.
+- **Rule Faint** (`{colors.line-2}`): Gridlines between cells and between rows; the quietest divider in the system.
+- **Rule Firm** (`{colors.line-strong}`): Input borders, the header row's bottom edge, the frozen column's right edge, dashed new-base cards.
+- **Ink** (`{colors.text}`): All primary reading text and cell values.
+- **Ink Secondary** (`{colors.text-2}`): Labels, meta counts, hints, field labels, icons in chrome.
+- **Placeholder Ink** (`{colors.placeholder}`): Input placeholders, held lighter than secondary ink but still at reading contrast because a placeholder is read.
+- **Ink Faint** (`{colors.text-3}`): Empty-cell em dashes, disabled glyphs, log timestamps. Nothing a user must read.
+- **Text Selection** (`{colors.selection-bg}`): The browser's own selection ground, themed to the accent family rather than left at system blue.
+
+### Status
+- **Danger** (`{colors.danger}` / `{colors.danger-hover}` / `{colors.danger-soft}`): Destructive actions and failures only — delete items, failed pipeline steps, error log lines, the missing-keys state.
+- **Success** (`{colors.success}`): The completed-step mark in the run checklist.
+- **Warning** (`{colors.warning}` / `{colors.warning-soft}`): The blocked-composer notice when a run cannot start.
 
 ### Named Rules
-**The Two Inks Rule.** Navy is the institution and near-black is the text. The spot red is the second ink and is spent only on failure and destruction — if a state is merely busy, important or new, it gets navy or navy tint, never red.
 
-**The Three Rule Weights Rule.** Exactly three: `#e2e9f3` between entries, `#ccd6e6` between regions and around controls, navy at 1–2px to open a head or close a section. A fourth weight is drift.
+**The One Blue Rule.** Kiyu navy is the only accent in the system. Wherever the category would spend its own blue, spend this navy; there is no second accent hue and no decorative use of colour anywhere in the chrome.
+
+**The Reserved Red Rule.** Red means destructive or failed, and nothing else. The rose select chip is a separate token with its own ink precisely so a "No" answer never reads as an error.
+
+**The Colour-Is-Data Rule.** Saturated colour appears only where it encodes something: a select value, or a base's identity. A surface, a border, or a piece of chrome never gets colour for interest.
 
 ## Typography
 
-**Display Font:** Archivo variable (with `ui-sans-serif`, `system-ui`, `-apple-system`, `Segoe UI`)
-**Body Font:** Archivo variable — the same superfamily
-**Label/Mono Font:** Azeret Mono (with `ui-monospace`, `Cascadia Mono`, `Consolas`)
+**UI Font:** Inter (with `-apple-system`, `BlinkMacSystemFont`, `Segoe UI`, Roboto, sans-serif), at weights 400 / 500 / 600
+**Identifier Font:** System mono (`ui-monospace`, SFMono-Regular, SF Mono, Menlo, Consolas)
 
-**Character:** One superfamily set across three optical widths. A register differentiates by width, not weight: expanded for the running head and section bars, regular for interface chrome, narrow for the listing so more researched columns fit without shrinking the face. Azeret Mono appears only where the page is quoting a machine — a real SQL column identifier under its human column head.
+**Character:** One neutral grotesque carrying the entire interface, set small and tight. There is no display face and no type contrast for drama; hierarchy is carried by half-point size steps, three weights, and grey. The only second face is system mono, and it is a signal rather than a style.
 
 ### Hierarchy
-- **Display** (600, 20px, `wdth 118`, -0.012em): The title of an empty page's preface. One per page at most; it drops to 18px under 760px.
-- **Headline** (600, 15px, `wdth 100`, -0.008em): A contents-page entry name; a modal's title (set at `wdth 118`).
-- **Title** (600, 11px, `wdth 118`, 0.14em, uppercase): The running head across the top of the page and the reversed section bar. This is the page's own identity line, not an eyebrow over a heading.
-- **Body** (400, 14px/1.45, `wdth 100`): The base. Supporting prose sets at 13.5px or 12.5px and is measured at 44–78ch depending on the region.
-- **Listing** (400, 13.5px, `wdth 80`, 0.002em): Every value in the register's rows and in an open cell editor.
-- **Label** (600, 10px, `wdth 100`, 0.1em, uppercase): Column heads, field labels, the key, the folio, the status chip in the running head. Thumb-index tabs use the same treatment at 10.5px.
-- **Mono** (400, 10px, -0.02em): Machine column identifiers, and the 10.5px timestamp column of the clerk's log.
+- **Title** (600, 16px, 1.4, `-0.008em`): Empty-state headings — the largest type in the product.
+- **Heading** (600, 15px, 1.4, `-0.006em`): The base name in the base bar, the expanded record's title, modal headings.
+- **Subhead** (600, 13–13.5px): Base card names, the workspace name, the panel heading, the active view tab.
+- **Body** (400, 13px, 1.5): Cell values, popover items, input text, sidebar links, button labels (500). The system's default.
+- **Body Secondary** (400, 12.5px, 1.55): Notes, hints, run steps, modal descriptions, empty-state bodies.
+- **Meta** (400, 11.5–12px): Row numbers, record counts, source tallies, timestamps, the footer bar.
+- **Label** (600, 11px, `0.05em`, uppercase): Section labels only — `BASES` in the sidebar, popover group headings, the run's request header, the expanded record's working note, the toast kind. Never a headline's companion.
+- **Numeric** (tabular figures, 13px): Number cells, row numbers, and counts.
+- **Identifier** (system mono, 11–11.5px): The real database column name in the field menu and the expanded record, and the log's timestamps.
 
 ### Named Rules
-**The Width-Not-Weight Rule.** Hierarchy comes from Archivo's width axis (118 / 100 / 80). Weight stays in the 400–600 band; nothing is 700 or 300. If a new role needs to feel different, change its width before its weight.
 
-**The Tabular Figures Rule.** `tnum` and `lnum` are on at the root and inherited by inputs, buttons and table cells. Every figure column is right-aligned. A proportional numeral anywhere in this system is a bug.
+**The Scoped Figures Rule.** Tabular figures are applied to number cells, counts, row numbers and timestamps individually — never globally on `body`. Prose keeps proportional figures.
 
-**The Mono Is A Quotation Rule.** Azeret Mono means "this string belongs to the machine." It is never used for emphasis, for numbers, or to make something look technical.
+**The Mono-Means-Machine Rule.** System mono says "this string belongs to the database or the machine, not to you." It carries SQL identifiers, which live in the field menu and the expanded record, and the log's elapsed timestamps. A mono identifier never appears in a column head — the head carries the human field name.
+
+**The One Face Rule.** Inter carries every human-readable string at every size. There is no display face, no second sans, and no type effect; a size step and a weight step are the only hierarchy devices.
 
 ## Layout
 
-The page is a vertical stack: a full-width running head (48px, 2px navy rule beneath) over a spread padded 14px from the desk. The spread is a white sheet that flexes to fill and an enquiry desk column fixed at 404px on its right; the two share a rule, so the spread reads as one sheet rather than two panels. Inside the sheet: a reversed section bar, a toolbar (8px/10px, hairline beneath), the scrolling listing, then a key strip and a folio at the foot.
+The app is a CSS grid of full-viewport height (`100dvh`) with no page scroll: a fixed 240px sidebar, a flexible content region, and — when open — a fixed 380px enquiry panel. The content region is itself a four-row grid: base bar (47px), view bar (40px), scrolling grid, footer tally bar (33px). Every region scrolls inside itself.
 
-The listing is a flex-row grid, not a table of boxes. A 48px entry-number gutter and the company column are frozen to the left; a 56px actions column is frozen to the right behind a single hairline fold. Data columns are fixed-width (234px for the lead, 158px for a text enrichment, 122px for a boolean, 78px for a figure) and the last one keeps a 22px right gutter so its values never run flush into the fold. Rows are 34px minimum with a 38px head. Horizontal scroll uses `scroll-snap-type: x proximity` with `scroll-padding-right: 80px` so a scrolled position lands on a column boundary.
+The content region meets the sidebar at a 12px rounded top-left seam over a 1px rule on its left and top edges — the shell's signature, and the only place a large radius appears.
 
-The spacing rhythm is fine and even: 2, 4, 6, 8, 10, 12, 14 for interior padding and gaps; 18, 22, 28 for sheet margins and section separation. There is no 4px-multiple dogma — the values are register-tight and chosen per region.
+**The view bar folds the tab strip in.** With exactly one real table and no saved views, the table tab sits in the same 40px bar as search, row height, import, export and the panel toggle, rather than claiming a third bar of its own.
 
-**Responsive.** At 1400px the enquiry desk narrows to 326px and the spread padding drops to 10px, giving the listing back width on a 1280 laptop. At 1100px the spread folds to one column, the enquiry desk moves above the listing (the visitor's whole job is to type one sentence into it), the page takes over the scroll, and the listing keeps a 58vh scroller so the column heads still hold. At 760px the running head wraps and the folio drops to its own full-width line; the gutter narrows to 34px, the company column to 170px, row actions un-freeze and scroll with the row; the contents page drops its statistic columns and each entry prints its own summary line instead; and the listing scroller is capped at exactly `57px + (34px + 1px) × 8` so it ends on a whole row rather than slicing one through its type.
+**The grid** rules both axes: a 32px sticky header row on strip grey over a firm rule; a 66px gutter frozen left carrying the row number at rest; the Company field frozen beside it behind a heavier divider that casts a shadow once scrolled; 32px rows separated by the faintest rule; a `+` closing the header row; and strip grey below the last record so the table visibly ends. Column widths are set per field type (number 112px, select 164px, text 184px, long text 216px, Company 248px) so a real field name reads in its head. Row height is user-switchable — Default clips to one line, Medium clamps to two, Tall to four, and at Medium and Tall the cell content and the gutter both top-align together.
+
+**Spacing rhythm** is a 2px ladder; 6, 8, 12 and 14 do nearly all the work. Control heights are 26px (compact), 28px (search, chips), 30px (buttons) and 32px (inputs, rows, header).
+
+**Responsive behaviour is structural, not fluid.** At 1180px the enquiry panel stops being a column and becomes an overlay drawer over a scrim. At 1000px the sidebar becomes a slide-over with its own scrim and the seam flattens to square. At 720px the view bar keeps every control's text label and scrolls horizontally behind a 26px trailing mask, the primary "Ask the agent" toggle is reordered to lead that bar, the footer tallies switch to abbreviated strings, the expanded record's field rows stack, and the panel goes full width.
 
 ### Named Rules
-**The Horizontal Rule Rule.** Structure is horizontal hairlines and alignment. There are no vertical cell borders and no card borders anywhere in the listing. The only vertical hairlines in the system mark a frozen edge — the divider at the end of the frozen left columns and the fold before the frozen actions column — and they mean "the sheet continues here," nothing else.
 
-**The End-On-A-Whole-Row Rule.** A capped scroll region is sized from real row arithmetic, never estimated in vh, so a listing never ends mid-glyph.
+**The Whole-Band Rule.** Sticky and frozen cells carry the row's background explicitly at every state, so a hovered, selected or working row reads as one unbroken band across the freeze line rather than two differently coloured halves.
+
+**The Structural Breakpoint Rule.** At a breakpoint, a region changes what it *is* — column becomes drawer, bar becomes scroller. Nothing merely shrinks, and no control drops its text label to become an unlabelled icon.
 
 ## Elevation & Depth
 
-The sheet itself is flat: no surface on the page is lifted. Depth is tonal and material — white paper on a pale blue desk, navy tint for a working or secondary region, hairlines for separation. Cast shadows exist, but only for things that are genuinely off the sheet, and all three derive from navy-deep at low alpha with a large negative spread, so they read as soft paper shadow rather than as a UI elevation ramp. Two additional shadows are inset and are not depth at all: they are ruled underlines drawn with `box-shadow` because a border would change the element's box.
+Near-flat, tonal first. Depth is normally carried by three greys and a hairline: chrome behind, white content in front, strip grey for headers and footers. Shadow is not decoration here — it appears only when something genuinely sits above the sheet, and every shadow is soft-blurred with a small downward offset in a single cool-black (`rgba(20, 24, 35, …)`). There are no hard offset shadows anywhere in this world.
 
 ### Shadow Vocabulary
-- **Lifted leaf** (`box-shadow: 0 18px 40px -18px #0c224459`): A modal — a sheet laid over the desk. The only full-surface lift in the system.
-- **Pinned slip** (`box-shadow: 0 10px 24px -14px #0c224466`): A notice at the foot of the desk.
-- **The fold** (`box-shadow: -7px 0 8px -7px #0c224459`): Cast leftward by the frozen actions edge, and only while `data-more="true"` — the sheet really does carry on past it.
-- **Focus rule** (`box-shadow: inset 0 -2px 0 -1px var(--navy)`): A focused field's thickened baseline.
-- **Editable underline** (`box-shadow: inset 0 -1px 0 var(--navy-mid)`): A cell's editability, shown on hover as the same hairline the page is built from.
+- **Card** (`0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04)`): The barely-there lift under a raised control — the plain and primary buttons, the selected segment, the active base pill, a base card at rest. Removed entirely on `:active`, which is the press.
+- **Card Raised** (`0 6px 16px -6px rgba(20,24,35,0.16), 0 2px 4px rgba(20,24,35,0.06)`): A base card on hover, paired with a 1px lift.
+- **Popover** (`0 6px 20px -6px rgba(20,24,35,0.20), 0 1px 3px rgba(20,24,35,0.10)`): Menus, field menus, toasts.
+- **Cell Editor** (`0 6px 16px -4px rgba(20,24,35,0.30), 0 2px 4px rgba(20,24,35,0.12)`): The cell being typed into, which must read as lifted off the sheet rather than merely selected.
+- **Modal** (`0 24px 56px -16px rgba(20,24,35,0.32), 0 2px 8px rgba(20,24,35,0.10)`): Dialogs, and the panel and sidebar when they become drawers.
+- **Frozen Edge** (`3px 0 7px -3px rgba(20,24,35,0.12)`): Cast rightward from the frozen columns, and only once the grid is actually scrolled horizontally.
 
 ### Named Rules
-**The Lifted-Leaf Rule.** A cast shadow means the element is physically off the sheet — an overlay, a pinned slip, or a fold with paper continuing behind it. Nothing that lives in the page's flow gets one. No card, toolbar, row, desk or section bar has a shadow, and no shadow in this system is hard or offset without blur.
+
+**The Earned Shadow Rule.** A shadow means the element is above the sheet. Flat chrome — bars, rows, cells, the sidebar — never takes one; a pressed button gives its shadow back.
+
+**The Scrim Rule.** Anything overlaying the whole app sits on `rgba(20, 24, 35, 0.32–0.34)`, never on pure black.
 
 ## Shapes
 
-Square-cornered throughout. Buttons, fields, chips, modals, notices, the search box and the status control all declare `border-radius: 0` explicitly rather than inheriting it. The single exception in the whole build is the thumb-index tab, cut `2px 2px 0 0` on its outer top corners only — the cut of a tab in a dictionary's fore-edge — and the active tab runs into the leaf it opens with `margin-bottom: -1px` so there is no edge between them.
+Four radii and a square. Buttons, inputs, popovers, menus, the search field, the sidebar's pills and the composer take 6px. Select chips take 3px. Cards, modals, the empty-state glyph plate and the empty-state step list take 8px. The content region's top-left seam takes 12px and is the only large radius in the system. **Grid cells are square** — that is what makes the table read as a table, and the cell editor's 2px navy border keeps a near-square 2px radius for the same reason.
 
-The recurring silhouette is the rectangle-with-a-hairline: a 1px border in `{colors.hairline}` on white, filling navy when it is the primary action of its region. Controls come in three heights — 30px standard, 26px for head-level and search controls, 24px compact — and icon-only controls are square (26px, or 22px small) so the glyph sits on the button's own axis.
+Small internal squares follow the same logic at reduced scale: 4px on popover items, header-cell affordances and small icon buttons; 5px on the sidebar's 22px base tile; 3px on the checkbox; full circles only for the account-slot dot and the numbered step markers.
 
-Marks are drawn, not typed. A boolean answer is a 9px square: filled for true, hollow for false, and an en-rule for not established — with the word riding alongside the mark and a permanent key at the foot of the sheet decoding all three.
+Borders are a single hairline, never doubled and never thicker than 1px — with three deliberate exceptions, all of them state: the 2px inset navy ring on a selected cell, the 2px navy border on an open cell editor, and the 2px navy underline on the active view tab. The one dashed border in the system marks the "create a base" card as a slot rather than an object.
 
-### Named Rules
-**The Square-Corner Rule.** Radius is 0. The one licensed curve is the 2px outer top corner of a thumb-index tab. Anything printed has square corners, and everything here is printed.
+Icons are a single inline SVG set on a 16px grid at 1.5px stroke with round caps and joins. Field-type glyphs carry the most weight: they are how a column declares what it holds before anyone reads a value, and an AI-written field swaps its type glyph for a navy sparkle.
 
 ## Components
 
 ### Buttons
-- **Shape:** Square (0 radius), 30px tall, 12px horizontal padding, 6px gap to an icon, 1px border on every tone so tones swap without the box resizing. Compact is 24px / 8px / 11px; icon-only is a 26px (or 22px) square.
-- **Primary:** Navy fill, navy border, white label. Hover deepens to navy-deep.
-- **Plain (default):** White paper, hairline border, text ink. Hover swaps border and label to navy.
-- **Quiet:** Transparent with a transparent border. Hover fills navy-tint and inks navy. Used for row actions, dismissals and secondary run controls.
-- **Danger:** White paper, hairline border, spot-red label. Hover takes a spot border and spot wash.
-- **Active:** Every tone shifts `translateY(1px)` — the press of a stamp. Disabled is 0.42 opacity.
-- **Loading:** The label stays and the icon is replaced by the ruled square spinner; the button reports `aria-busy`.
-- Tones are declared on the stylesheet, not the component, so a bare `.reg-btn` element (a file-picker label, a row action) is identical to a rendered `<Button>`.
+- **Shape:** Softly rounded (6px), 30px tall, 11px side padding, 6px gap to an icon. A compact variant drops to 26px / 9px / 12.5px; an icon-only button becomes a square of the same height.
+- **Primary:** Navy fill, white label, card shadow. The single primary action per region — Find leads, Enrich, Create, Save.
+- **Plain:** White fill, hairline border, ink label, card shadow. The default.
+- **Quiet:** Transparent with secondary ink; picks up chrome-hover grey and full ink on hover. Every toolbar and chrome control.
+- **Danger / Danger Solid:** White with red ink and a red-wash hover for a menu-level destructive action; solid red with white label for the confirmed one.
+- **Hover / Focus / Press:** Background, border and shadow cross-fade on the one 140ms clock; `:active` removes the shadow; focus is the global 2px navy outline at 1px offset. Disabled drops to 45% opacity and loses its shadow.
+- **Loading:** The button's own icon slot becomes a spinner and the control disables itself — the label never changes.
 
 ### Chips
-- **Style:** White paper, hairline border, 0 radius, 4px/9px padding, secondary ink at 12px.
-- **State:** Hover takes navy border and navy label. Selected fills navy with a white label. Used for the column pickers on the import sheet.
+- **Select value chip:** A pastel plate with matching dark ink at 3px radius, 2px/8px padding, 12px/500 type, ellipsised at the cell width. Three tones only: yes (mint), no (rose), neutral (grey).
+- **Picker chip:** A 28px, 6px-radius white pill with a hairline border used for column selection on the import sheet; when active it inverts to solid navy with a white label.
 
 ### Cards / Containers
-There are no cards. A region is a white sheet (`{colors.paper}`) inside a 1px hairline, opened by a reversed navy section bar and closed by a folio over a hairline. Interior padding runs 8–18px depending on density. Shadow strategy: none (see Elevation & Depth). The one surface that is not paper is the enquiry desk, which sits in navy tint behind a left hairline.
+- **Corner Style:** 8px.
+- **Background:** White on the chrome ground; the "create a base" slot is transparent with a dashed firm-grey border that turns navy over a navy-breath wash on hover.
+- **Shadow Strategy:** Card at rest, Card Raised plus a 1px translate on hover (see Elevation).
+- **Border:** One hairline, firming to `line-strong` on hover.
+- **Internal Padding:** 14px, with a 38px coloured base tile, the name, an optional two-line clamped note, and a meta line pinned to the foot.
 
 ### Inputs / Fields
-- **Style:** White paper, 1px hairline all round, 0 radius, 6px/9px padding, 30px minimum height, 13px text. A field is a ruled line, not a box. Labels sit above in spaced small caps; hints sit below at 11.5px in secondary ink.
-- **Focus:** Border goes navy and an inset 2px navy baseline thickens under the field. The caret is navy. No glow, no ring offset on the field itself.
-- **Hover:** Border darkens one step to `#b3c1d6`.
-- **Disabled:** Navy-tint ground, secondary ink, not-allowed cursor.
-- **TextArea:** Same field, vertically resizable, 64px minimum, 1.5 line-height. The composer's textarea is 62px and non-resizable.
-- **Inline cell editor:** No box at all — a bottom 2px navy rule under the narrow listing face.
-- **Global focus-visible:** 2px navy outline at 1px offset, everywhere else.
+- **Style:** White, 6px radius, a firm-grey 1px border, 32px minimum height, 13px text, navy caret. Labels sit above at 12px/500 secondary ink; hints below at 12px.
+- **Focus:** Border turns navy and a 3px navy-wash halo appears — no outline, no glow, no movement.
+- **Search:** A borderless 28px control that fills with chrome-hover on hover and becomes a bordered white field with the same navy halo on focus-within; its input widens from 96px to 130px on phones when focused.
+- **Disabled:** Chrome fill, secondary ink, not-allowed cursor.
 
 ### Navigation
-- **Running head:** A 48px desk-blue strip under a 2px navy rule. A short 18px × 3px navy rule is the publication's mark, followed by "KIYU LABS" in expanded caps and the title in secondary ink at 0.16em. The folio — what page of the register this is — sits centre-left in spaced small caps with 1px × 11px hairline separators. The keys status control sits right: 26px, hairline outline, navy when satisfied, spot red on spot wash when not. Under 760px the folio drops to its own full-width line.
-- **Thumb-index tabs:** Cut into the fore-edge of the enquiry desk on a desk-blue rail with a navy rule beneath. Inactive tabs are `#dbe4f2` with secondary-ink caps; hover lightens and inks navy; the active tab fills navy with white caps and merges into the leaf it opens.
+- **Sidebar:** 240px on chrome grey. A workspace mark (navy rounded square with initials) over the workspace name and role line; an uppercase 11px `BASES` section label with a count; then the base list. Each item is a 6px-radius row with a 22px coloured initials tile, an ellipsised name, and a right-aligned tabular record count.
+- **Active state:** The item becomes a **raised white pill** (white fill plus card shadow) with its name and count in navy. There is no accent bar down its side — that reads as a mark placed beside the item rather than as the item's own state.
+- **Hover:** A flat `#ececee` wash; the `…` overflow control appears at the right.
+- **Foot:** `+ Create a base`, then the API-keys status control in the account slot — a navy-wash dot when satisfied, red-wash with red ink when keys are missing.
+- **Mobile:** Below 1000px the sidebar becomes a slide-over with a modal shadow over a scrim, revealed by a toggle in the base bar.
 
-### The Ruled Listing (signature)
-A flex listing where horizontal hairlines and alignment do all the work. A sticky 38px head sits under a 1px navy rule with spaced small-caps column heads over their mono identifiers. The entry-number gutter and the company column freeze left; the actions column freezes right behind a 24px band of opaque paper cut by a single hairline — a clean cut reads as a sheet continuing, a half-glyph reads as broken rendering. Hover tints the row `{colors.paper-hover}`, carried explicitly into every frozen cell. A working entry takes navy tint. An editable cell shows its affordance as a hairline underline on hover. Row actions are invisible until the entry is hovered or the control is focused. Under an entry, the agent's working prints as a footnote on navy tint, pinned to the left edge so sideways scrolling never carries it off the page.
+### The Grid
+The product's centre of gravity. A sticky strip-grey 32px header row where each field shows its type icon (or a navy sparkle if an agent wrote it) beside its name, with a chevron to its field menu absolutely positioned at the right so it costs the name no width. A 66px gutter frozen at the left shows the tabular row number at rest and swaps it — via `display`, not opacity — for a checkbox plus an expand button on hover, on focus-within, when the row is selected, or for every row while any selection exists. The Company field is frozen beside the gutter behind a firm rule that casts a rightward shadow once scrolled. Cells are square, 8px padded, divided by the faintest rule on both axes; number cells are right-aligned and tabular; an empty cell shows a faint em dash.
 
-### The Travelling Setting Rule (signature)
-One 3px navy rule in the entry-number gutter, with a 9px × 3px nib at its head, that travels to the entries being worked by transitioning `transform` and `height` on the one clock. It is not a per-row spinner and not a loop. Answers ink in behind it with a staggered 160ms opacity rise and a 2px settle.
+- **Selected cell:** A 2px navy ring drawn inside the cell, over the gridlines.
+- **Editing cell:** An absolutely positioned editor with a 2px navy border and the cell-editor shadow, growing to at least 232px wide and flipping to open leftward in the rightmost columns.
+- **Row states:** hover grey, navy-soft when selected, navy-tint while the run is working that row — each carried across the frozen cells too.
 
-### The Key and the Folio
-Every register carries a key. The key strip sits on navy tint over a hairline at the foot of the sheet and decodes all three boolean marks in words. Below it, the folio counts what the page contains in spaced small caps over a hairline. Both are permanent page furniture, not conditional help.
+### Enquiry Panel
+380px behind a hairline on the right: a 47px head, two segmented tabs, the scrolling run feed, and the composer pinned at the foot with its textarea, status line and primary button. When a run is live, a 2px navy strip sits under the tabs with a 38% bar sweeping across a navy-wash track. The feed is a step checklist — a faint dash at rest, a navy spinner while running, a green check when done, red when failed — over a timestamped log in mono time and 12px text.
 
-### Notices
-Marginalia pinned bottom-right, max 384px, stacked three deep, 7s life. A 1px hairline all round and a 2px rule at the head carrying the severity ink, over the matching wash. A drawn icon, a small-caps severity label, the message at 12.5px, and a quiet icon-only dismiss.
+### Field Menu
+A 6px-radius popover that scale-fades in from its own top-left origin. Uppercase 11px group labels, 13px items with a 4px radius and a chrome-hover wash, a navy check mark on the current choice, faint rules between groups, and — at the foot — the field's real database column name in system mono, which is the only place besides the expanded record where an identifier is shown.
 
-### Modals
-An inserted leaf: white paper, 1px hairline, square corners, a 14px/18px header closed by a 2px navy rule, a scrolling body, and a navy-tint footer over a hairline with actions right-aligned. Default width 520px (430px for a confirm), 86vh maximum, over a `#0c224466` scrim with a 1.5px blur. It enters on the ink-settle move, traps focus, restores focus on close, and is used only where the task genuinely needs protected focus.
+### Toasts
+Bottom-right, up to 376px, white with a hairline and the popover shadow, sliding up 8px on entry. An 11px uppercase kind label over 12.5px pre-wrapped text.
 
-### Empty Pages
-An empty region is set as the preface of a volume, never as blank paper and never as an illustration: a 44px × 3px navy rule, an expanded-width title, one sentence of what the page will hold at 56ch, the single action that fills it, and — where the sequence matters — a numbered list of what happens next, hairline-separated on a hairline ground.
+### Named Rules
 
-### Motion
-- **Clock:** 160ms, `cubic-bezier(0.16, 1, 0.3, 1)`, for every transition and both keyframe animations. Rule-draw runs at 1.5× the clock (240ms).
-- **The three moves:** ink-settle (2px rise from 0 opacity), rule-draw (scaleX from the left edge), and the travelling setting rule.
-- **The one exception:** the spinner, a ruled square sweeping its own border at 900ms linear — the only indeterminate device and the only motion off the clock, because an indeterminate wait has no duration to borrow.
-- All motion collapses to 1ms under `prefers-reduced-motion: reduce`.
+**The Display-Not-Opacity Rule.** A control that is hidden until hover is removed from the document with `display: none`, never faded with `opacity: 0`. A transparent element left in the layer still swallows every click aimed at what is underneath it. Its replacement occupies the same width so nothing shifts.
 
-**The One Clock Rule.** Every transition and animation in the build reads `--clock` (160ms) and `--ease`. A hand-typed duration is drift. The 900ms spinner is the single named exception.
+**The One Pending Mark Rule.** A spinner appears only in the one field actually being filled. A blank cell in any other column is a finished empty answer and never borrows the pending mark.
+
+**The Honest Progress Rule.** Progress is never a percentage. The pipeline has no percentage to report, so live work is shown as an indeterminate sweep plus real step boundaries, real counts, real elapsed time and named failures.
+
+**The One Clock Rule.** Every transition and animation runs at 140ms on `cubic-bezier(0.16, 1, 0.3, 1)`: hover, selection, the popover's scale-fade from its own origin, the settle of an arriving answer, the drawers. The only exceptions are the two loops that must keep looping — the 720ms spinner and the 1.5s progress sweep. Everything collapses to 1ms under `prefers-reduced-motion`, where the spinner slows rather than stopping.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** separate with a horizontal hairline and hold with alignment. Three weights only: `#e2e9f3` between entries, `#ccd6e6` between regions, navy at 1–2px to open or close.
-- **Do** keep every corner square. The only radius in the system is the 2px outer cut of a thumb-index tab.
-- **Do** reach for the width axis before the weight axis — `wdth 118` for heads, `100` for interface, `80` for listing columns.
-- **Do** set every figure tabular and lining, and right-align every figure column.
-- **Do** spend the spot red only on failure and destruction. Running work is navy tint.
-- **Do** run every new transition on `var(--clock)` and `var(--ease)`, and make sure it survives `prefers-reduced-motion`.
-- **Do** draw new icons on the 16px grid at 1.25px stroke with square caps and miter joins, matching the existing set.
-- **Do** carry the row's background explicitly into sticky and frozen cells, so a hovered or working entry reads as one unbroken line.
-- **Do** give a boolean its word alongside its mark, and keep the key at the foot of the sheet.
-- **Do** size a capped scroll region from real row arithmetic so it ends on a whole row.
+- **Do** spend Kiyu navy (`{colors.accent}`) wherever the grid-database convention would spend its own blue, and nowhere else.
+- **Do** cut every button, input, chip and empty state from the shared control vocabulary, so the same action never looks like two different things on two surfaces.
+- **Do** scope tabular figures to number cells, counts, row numbers and timestamps individually.
+- **Do** keep system mono for machine strings — SQL identifiers in the field menu and expanded record, and log timestamps.
+- **Do** repaint the row background explicitly on sticky and frozen cells for every row state, so a band never breaks at the freeze line.
+- **Do** remove hover-revealed controls with `display: none` and give the replacement the same width.
+- **Do** run every transition at 140ms on `cubic-bezier(0.16, 1, 0.3, 1)` and let `prefers-reduced-motion` collapse it.
+- **Do** keep grid cells square; reserve the 12px radius for the content region's top-left seam alone.
+- **Do** let a breakpoint change what a region is — column to drawer, bar to horizontal scroller — rather than shrinking it.
+- **Do** use the 11px uppercase label for section headings only (`BASES`, popover groups, the run's request header).
 
 ### Don't:
-- **Don't** put a card border or a vertical cell border in a listing. A vertical hairline is licensed only to mark a frozen edge or a fold.
-- **Don't** cast a shadow on anything that lives in the page's flow. Shadows belong to overlays, pinned slips and the fold, and are always soft, downward and negative-spread — never hard, never offset without blur.
-- **Don't** add a fourth rule weight, a fifth control height, or a second easing curve.
-- **Don't** use a Unicode glyph, an icon font, or a library icon set. Every mark in this build is authored SVG; a Unicode bullet will not hold its weight against the page's hairlines.
-- **Don't** set an eyebrow or kicker over a heading. The running head is the page's identity line and the section bar carries the heading; there is no third label stacked above a title.
-- **Don't** introduce a system display face or a second sans. Archivo is the whole voice; Azeret Mono only quotes the machine.
-- **Don't** use spot red to mean "live", "new" or "important".
-- **Don't** add a loading skeleton, a pulse, a progress loop or a fabricated per-item counter. Progress is the setting rule, the clerk's log and real counts.
-- **Don't** show an illustration on an empty page. Set the preface instead.
-- **Don't** invent a colour outside the palette above; every ground in the build is paper, desk blue, navy tint or a notice wash.
-
-<!-- Known limitation, carried not canonized: at a resting horizontal scroll position the listing's last partially-visible data column is cut at the fold. The fold is a single hairline over opaque paper with a cast shadow, and scroll-snap lands scrolled positions on column boundaries, but the at-rest cut remains. This is a defect the build carries, not a rule for future surfaces. -->
+- **Don't** introduce a second accent hue. The only saturated colour beyond navy is the three-tone select chip set and the six-colour base-icon set, and both encode data.
+- **Don't** use red for anything but destructive actions and failures; the rose "No" chip is a separate token for exactly this reason.
+- **Don't** render a percentage, a fake per-item counter, or any progress number the pipeline cannot actually report.
+- **Don't** put a pending spinner in any cell other than the one field being filled.
+- **Don't** hide an interactive control with `opacity: 0` while leaving it in the layer.
+- **Don't** put a mono identifier in a column head — the head carries the human field name.
+- **Don't** put an accent bar down the side of a list item; the active item is a raised white pill with a navy label.
+- **Don't** apply tabular figures globally to `body`.
+- **Don't** give flat chrome a shadow, or use a hard offset shadow anywhere — every shadow in this world is soft-blurred cool black.
+- **Don't** drop a control's text label to an unlabelled icon at a narrow width; let the bar scroll instead.
+- **Don't** ship a control that does nothing to make a bar look fuller.

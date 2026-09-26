@@ -61,6 +61,12 @@ export interface RunState {
   workingLeads: Set<string>;
   /** Entries whose answers just landed, so their cells ink in. */
   settling: Set<string>;
+  /**
+   * The column being filled right now. Only cells in this field may show a
+   * pending mark: without it, a blank cell in some unrelated column reads as
+   * though the agent were researching that instead.
+   */
+  workingField: string | null;
 }
 
 /** Leads sent per enrichment call. Small enough that progress is frequent,
@@ -76,6 +82,7 @@ const EMPTY: RunState = {
   startedAt: null,
   workingLeads: new Set(),
   settling: new Set(),
+  workingField: null,
 };
 
 export function useRegisterRun(projectId: number) {
@@ -129,6 +136,7 @@ export function useRegisterRun(projectId: number) {
       ...current,
       running: false,
       workingLeads: new Set(),
+      workingField: null,
       steps: current.steps.map((step) => {
         if (step.id === failedStepId) return { ...step, status: 'failed', detail: message };
         if (step.status === 'pending' || step.status === 'running') {
@@ -275,9 +283,13 @@ export function useRegisterRun(projectId: number) {
         setStep('draft', { status: 'running' });
         enrichment = await draftEnrichment(projectId, instruction);
         setStep('draft', { status: 'done', detail: enrichment.column_name ?? undefined });
+        setState((current) => ({ ...current, workingField: enrichment?.column_name ?? null }));
         write(`Column “${enrichment.enrichment_name}” · ${enrichment.result_format}`, 'result');
         if (enrichment.goal) write(`Looking for: ${enrichment.goal}`);
         queryClient.invalidateQueries({ queryKey: queryKeys.enrichments(projectId) });
+        // Pull the results too: the new column should appear in the table as
+        // soon as it exists, not only once its first answers land.
+        queryClient.invalidateQueries({ queryKey: queryKeys.mergedResults(projectId) });
         if (abortRef.current) return finish();
 
         stepId = 'research';

@@ -1,8 +1,8 @@
 /**
- * A base's identity: the coloured square and the initials inside it.
+ * A project's identity: the coloured square and the initials inside it.
  *
- * Derived from the record's own id so a base keeps the same colour in the
- * sidebar, on the home grid, and across reloads — recognising a base by its
+ * Derived from the record's own id so a project keeps the same colour in the
+ * sidebar, on the home grid, and across reloads — recognising a project by its
  * colour only works if the colour never moves.
  */
 
@@ -16,17 +16,17 @@ const COLORS = [
   '#246b39', // green
 ];
 
-export function baseColor(id: number): string {
+export function projectColor(id: number): string {
   return COLORS[Math.abs(id) % COLORS.length];
 }
 
-/** Up to two initials from the base's name, falling back to a letter. */
-export function baseInitials(name: string): string {
+/** Up to two initials from the project's name, falling back to a letter. */
+export function projectInitials(name: string): string {
   const words = name
     .trim()
     .split(/[\s\-_/]+/)
     .filter(Boolean);
-  if (words.length === 0) return 'B';
+  if (words.length === 0) return 'P';
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return (words[0][0] + words[1][0]).toUpperCase();
 }
