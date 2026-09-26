@@ -1,6 +1,7 @@
 import { http, parseFilename } from './client';
 import {
   DownloadedFile,
+  LeadBrief,
   LeadExtractionResponse,
   QueryRecord,
   SerpUrl,
@@ -85,4 +86,20 @@ export async function fetchLatestRunZip(
       `project_${projectId}_leads.zip`,
     ),
   };
+}
+
+/**
+ * Expand one plain-English instruction into the project's search target and
+ * lead criteria, saving both to the project. This is what lets the chat take a
+ * single sentence instead of a configuration form.
+ */
+export async function draftLeadBrief(
+  projectId: number,
+  instruction: string,
+): Promise<LeadBrief> {
+  const { data } = await http.post<LeadBrief>(
+    `/api/projects/${projectId}/lead-brief`,
+    { instruction },
+  );
+  return data;
 }

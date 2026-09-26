@@ -14,19 +14,42 @@ logger = logging.getLogger(__name__)
 from ...models.schemas import QueryListRequest, QueryGenerationRequest, UrlCreate, UrlUpdate
 from fastapi import APIRouter, Response
 
+from ...services.agent_brief_service import agent_brief_service
 from ...services.leads_serp_service import leads_serp_service
 from ...models.schemas import (
-    QueryListRequest, 
-    QueryGenerationRequest, 
+    QueryListRequest,
+    QueryGenerationRequest,
     QueryResponse,
-    UrlCreate, 
-    UrlUpdate, 
+    UrlCreate,
+    UrlUpdate,
     UrlResponse,
     UrlGenerationResponse,
-    LeadExtractionResponse
+    LeadExtractionResponse,
+    InstructionRequest,
+    LeadBriefResponse,
 )
 
 router = APIRouter()
+
+@router.post("/projects/{project_id}/lead-brief", response_model=LeadBriefResponse)
+async def draft_lead_brief(
+    project_id: int,
+    request: InstructionRequest,
+    keys: ApiKeys = Depends(get_api_keys),
+):
+    """
+    Expand one plain-English instruction into the project's search configuration.
+
+    The caller sends something like "dental clinics in Sydney" and gets back
+    the search target, the minimum criteria a name must meet to count as a
+    lead, and how many queries this target deserves. Both fields are saved to
+    the project, so query generation can run immediately afterwards.
+    """
+    return agent_brief_service.draft_lead_brief(
+        project_id,
+        request.instruction,
+        openai_api_key=keys.require_openai(),
+    )
 
 @router.post("/projects/{project_id}/queries", response_model=list[str])
 async def generate_queries(

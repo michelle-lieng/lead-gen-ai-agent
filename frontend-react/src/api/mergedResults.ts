@@ -1,5 +1,9 @@
 import { http, parseFilename } from './client';
-import { DownloadedFile, MergedResultsResponse } from './types';
+import {
+  DownloadedFile,
+  MergedResultsResponse,
+  MergedRowUpdateResponse,
+} from './types';
 
 export async function getMergedResults(
   projectId: number,
@@ -24,4 +28,25 @@ export async function fetchMergedResultsZip(
       `project_${projectId}_merged_results.zip`,
     ),
   };
+}
+
+/** Edit one entry in the register, addressed by its current lead name. */
+export async function updateMergedRow(
+  projectId: number,
+  lead: string,
+  updates: Record<string, unknown>,
+): Promise<MergedRowUpdateResponse> {
+  const { data } = await http.patch<MergedRowUpdateResponse>(
+    `/api/projects/${projectId}/results/row`,
+    { lead, updates },
+  );
+  return data;
+}
+
+/** Remove one entry from the register. */
+export async function deleteMergedRow(
+  projectId: number,
+  lead: string,
+): Promise<void> {
+  await http.delete(`/api/projects/${projectId}/results/row`, { params: { lead } });
 }

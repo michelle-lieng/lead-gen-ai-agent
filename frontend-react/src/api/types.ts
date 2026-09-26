@@ -156,3 +156,16 @@ export interface DownloadedFile {
   blob: Blob;
   filename: string;
 }
+
+/** What the backend drafts from a "find me leads like this" instruction. */
+export interface LeadBrief {
+  query_search_target: string;
+  lead_minimum_criteria: string;
+  num_queries: number;
+}
+
+/** Result of editing one row of the register. */
+export interface MergedRowUpdateResponse {
+  lead: string;
+  updated: string[];
+}

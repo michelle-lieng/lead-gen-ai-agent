@@ -6,6 +6,7 @@ import logging
 from fastapi import APIRouter, Depends
 
 from ..deps import ApiKeys, get_api_keys
+from ...services.agent_brief_service import agent_brief_service
 from ...services.enrichment_execution_service import enrichment_execution_service
 from ...services.enrichment_service import enrichment_service
 from ...services.merged_results_service import merged_results_service
@@ -14,7 +15,8 @@ from ...models.schemas import (
     EnrichmentCreate,
     EnrichmentUpdate,
     EnrichmentResponse,
-    EnrichLeadsRequest
+    EnrichLeadsRequest,
+    InstructionRequest,
 )
 from ...services.project_service import project_service
 from ...exceptions import (
@@ -46,6 +48,33 @@ async def create_enrichment(project_id: int, request: EnrichmentCreate):
         project_id=project_id,
         enrichment_name=request.enrichment_name,
         enrichment_description=request.enrichment_description,
+    )
+
+
+@router.post(
+    "/projects/{project_id}/enrichments/draft", response_model=EnrichmentResponse
+)
+async def draft_enrichment(
+    project_id: int,
+    request: InstructionRequest,
+    keys: ApiKeys = Depends(get_api_keys),
+):
+    """
+    Create a fully configured enrichment from one plain-English instruction.
+
+    The caller sends something like "does this clinic have more than one
+    doctor?" and gets back an enrichment with its column name, goal, evidence
+    standard and result format already filled in, ready to run. The stored
+    shape is identical to a hand-configured enrichment.
+    """
+    project = project_service.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundError(project_id)
+
+    return agent_brief_service.draft_enrichment(
+        project_id,
+        request.instruction,
+        openai_api_key=keys.require_openai(),
     )
 
 

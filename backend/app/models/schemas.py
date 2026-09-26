@@ -332,3 +332,44 @@ class MergedResultsResponse(BaseModel):
     data: list[dict]  # List of result rows with dynamic columns
     columns: list[str]  # List of column names (base columns + enrichment columns)
     count: int  # Total number of results
+
+
+class InstructionRequest(BaseModel):
+    """One plain-English instruction typed into the chat"""
+
+    instruction: str
+
+    @field_validator("instruction")
+    @classmethod
+    def validate_not_empty(cls, v: str) -> str:
+        """Ensure the instruction is not empty or just whitespace"""
+        return validate_not_empty_string(v)
+
+
+class LeadBriefResponse(BaseModel):
+    """The search configuration drafted from a 'find me leads like this' instruction"""
+
+    query_search_target: str
+    lead_minimum_criteria: str
+    num_queries: int
+
+
+class MergedRowUpdate(BaseModel):
+    """Schema for editing one row of the merged results table"""
+
+    lead: str  # The row's current lead name (its key within the project)
+    updates: dict  # Column name -> new value
+
+    @field_validator("lead")
+    @classmethod
+    def validate_lead(cls, v: str) -> str:
+        """Ensure the row key is not empty or just whitespace"""
+        return validate_not_empty_string(v)
+
+    @field_validator("updates")
+    @classmethod
+    def validate_updates(cls, v: dict) -> dict:
+        """Ensure at least one column is being written"""
+        if not v:
+            raise ValueError("At least one column must be provided")
+        return v

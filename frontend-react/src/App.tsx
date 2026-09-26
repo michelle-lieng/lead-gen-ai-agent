@@ -1,10 +1,10 @@
-import { CssBaseline, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router-dom';
-import { ApiKeysProvider } from './components/apiKeys/ApiKeysProvider';
-import { NotificationsProvider } from './components/common/Notifications';
+import { ApiKeysProvider } from './components/apiKeys/ApiKeys';
+import { NotificationsProvider } from './components/ui/Toasts';
 import { router } from './routes';
-import { theme } from './theme';
+import './styles/tokens.css';
+import './styles/app.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,15 +18,12 @@ const queryClient = new QueryClient({
 
 export function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <QueryClientProvider client={queryClient}>
-        <NotificationsProvider>
-          <ApiKeysProvider>
-            <RouterProvider router={router} />
-          </ApiKeysProvider>
-        </NotificationsProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <NotificationsProvider>
+        <ApiKeysProvider>
+          <RouterProvider router={router} />
+        </ApiKeysProvider>
+      </NotificationsProvider>
+    </QueryClientProvider>
   );
 }

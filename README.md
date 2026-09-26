@@ -1,6 +1,8 @@
 # Lead Gen AI Agent
 
-An AI-powered lead generation platform that discovers and enriches potential corporate partners through intelligent search and analysis. Built with FastAPI, React + Vite (TypeScript, MUI), and OpenAI.
+An AI-powered lead generation platform that discovers and enriches potential corporate partners through intelligent search and analysis. Built with FastAPI, React + Vite (TypeScript), and OpenAI.
+
+The interface is a **register**: a projects page listing your registers, and a project page holding one ruled table of companies beside an enquiry desk. You type one sentence — the kind of companies you want, or one question you want answered about every company — and the agent does the rest.
 
 ## 🎬 Demo
 
@@ -8,11 +10,13 @@ View demo here: https://www.youtube.com/watch?v=GLnULm-Nle4
 
 ## 🚀 Features
 
-- **AI-Powered Search**: Automatically generates search queries and extracts company names
-- **Lead Enrichment**: Analyzes companies for specific attributes (e.g., environmental reports, sustainability)
-- **Dataset Management**: Upload and merge CSV/Excel datasets with discovered leads
-- **Project Organization**: Organize leads by projects with stats
-- **Bring-your-own API keys**: Enter your OpenAI and Jina keys in the UI — no server-side `.env` keys required
+- **One sentence in, leads out**: describe the companies you want; the agent writes the search queries, runs them, reads every source, and rules the companies it finds into the register.
+- **One sentence in, a column out**: ask a question about every entry ("does this clinic have more than one doctor?"); the agent drafts the full enrichment configuration — column name, goal, evidence standard, result format — researches each company, and writes the answers in.
+- **A table you can correct**: cells are edited in place and entries can be struck from the register.
+- **Visible working**: each answer keeps the agent's reasoning and the source it came from, readable per entry.
+- **Honest progress**: long runs report real step boundaries, real counts, and real elapsed time. Enrichment is sent in small batches so the progress shown is the progress made.
+- **Dataset import**: merge a CSV or Excel list into the same register, matched on company name.
+- **Bring-your-own API keys**: enter your OpenAI and Jina keys in the UI — no server-side `.env` keys required.
 
 ## 🔑 API Keys
 
@@ -119,7 +123,7 @@ Best for: Team collaboration, consistent environments, production-like testing
    - Build Docker images for backend and frontend
    - Start PostgreSQL database container
    - Start backend API (FastAPI)
-   - Start frontend UI (Streamlit)
+   - Start frontend UI (static React build served by nginx)
 
 3. **Access the application:**
    - Frontend Dashboard: http://localhost:8501
@@ -226,11 +230,13 @@ docker-compose up --build
 
 ## 📖 Usage
 
-1. **Create a Project** - Open the dashboard and create a new project
-2. **Generate Queries** - AI generates search queries based on your goals
-3. **Extract Leads** - System automatically extracts company names from search results
-4. **Upload Datasets** (Optional) - Merge CSV files with discovered leads
-5. **Enrich Leads** - Analyze companies and export enriched data
+1. **Enter your keys** — click the key status in the top right and paste your OpenAI and Jina keys. Nothing runs without them.
+2. **Open a register** — "New register" on the projects page. One register holds one search and every column you ask about it.
+3. **Find leads** — in the Find leads tab, describe the companies you want in a sentence ("Dental clinics in Sydney"). The agent expands that into search queries, runs them, reads the sources, and adds every company it finds. This takes a few minutes; the panel reports each step as it completes.
+4. **Add a column** — switch to the Enrich leads tab and ask one question about every entry. The agent defines the column and researches each company in batches, filling the table as it goes.
+5. **Correct and export** — double-click any cell to fix it, strike bad entries, and export the whole register as CSV. Click an entry's chevron to read the agent's reasoning and the source it used.
+
+**Import instead**: the Import button above the table merges a CSV or Excel list into the register, matched on company name.
 
 ## 🚢 Production Deployment
 

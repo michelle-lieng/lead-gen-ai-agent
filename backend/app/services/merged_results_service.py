@@ -812,6 +812,167 @@ class MergedResultsService:
             logger.exception("❌ Database error exporting merged results as ZIP")
             raise DatabaseFailureError("Failed to export merged results as ZIP") from e
 
+    ####################################
+    # PART 4: EDIT ROWS IN THE TABLE   #
+    ####################################
+    def _editable_columns(self, session, project_id: int) -> set[str]:
+        """
+        Columns a user is allowed to write to for this project.
+
+        `serp_count` is derived from the SERP aggregation and would be
+        overwritten by the next run, so it stays read-only. Everything else the
+        project owns — the lead name and its enrichment columns — is editable.
+        """
+        return {"lead", *self._get_project_enrichment_columns(session, project_id)}
+
+    def update_merged_row(self, project_id: int, lead: str, updates: dict) -> dict:
+        """
+        Update one row of the register, addressed by its lead name.
+
+        Args:
+            project_id: Project the row belongs to
+            lead: Current lead name (the row's key within the project)
+            updates: Column name -> new value. Values are stored as text;
+                None clears the cell.
+
+        Returns:
+            dict: The row as it now stands.
+
+        Raises:
+            InvalidEnrichmentColumnError: A column is not writable for this project.
+            ProjectDatasetNotFoundError: No row with that lead name exists.
+        """
+        if not updates:
+            raise InvalidEnrichmentColumnError("No columns supplied to update")
+
+        try:
+            with db_service.get_session() as session:
+                allowed = self._editable_columns(session, project_id)
+                # Only columns that really exist on the table can be written.
+                existing_columns = {
+                    row[0]
+                    for row in session.execute(
+                        text(
+                            "SELECT column_name FROM information_schema.columns "
+                            "WHERE table_name = 'merged_results'"
+                        )
+                    ).fetchall()
+                }
+
+                invalid = [
+                    col
+                    for col in updates
+                    if col not in allowed or col not in existing_columns
+                ]
+                if invalid:
+                    raise InvalidEnrichmentColumnError(
+                        f"Not editable in this project: {', '.join(sorted(invalid))}"
+                    )
+
+                row = (
+                    session.query(MergedResult)
+                    .filter(
+                        MergedResult.project_id == project_id,
+                        MergedResult.lead == lead,
+                    )
+                    .first()
+                )
+                if not row:
+                    raise ProjectDatasetNotFoundError(
+                        f"No entry named '{lead}' in this project"
+                    )
+
+                params = {"project_id": project_id, "lead": lead}
+                assignments = []
+                for index, (column, value) in enumerate(updates.items()):
+                    if column == "lead":
+                        new_lead = normalize_lead_name(str(value or "").strip())
+                        if not new_lead:
+                            raise InvalidEnrichmentColumnError(
+                                "A company name cannot be empty"
+                            )
+                        if new_lead != lead:
+                            clash = (
+                                session.query(MergedResult)
+                                .filter(
+                                    MergedResult.project_id == project_id,
+                                    MergedResult.lead == new_lead,
+                                )
+                                .first()
+                            )
+                            if clash:
+                                raise InvalidEnrichmentColumnError(
+                                    f"'{new_lead}' is already in this register"
+                                )
+                        value = new_lead
+                    elif value is not None:
+                        # Enrichment columns are TEXT and every value is bound as
+                        # a parameter, so the cell keeps exactly what the user
+                        # typed. (`sanitize_value` is for column identifiers and
+                        # would destroy a real answer.)
+                        value = str(value).strip()
+                        if value == "":
+                            value = None
+
+                    key = f"v{index}"
+                    # Column names are validated against the allow-list above,
+                    # values are always bound parameters.
+                    assignments.append(f'"{column}" = :{key}')
+                    params[key] = value
+
+                session.execute(
+                    text(
+                        f"UPDATE merged_results SET {', '.join(assignments)} "
+                        "WHERE project_id = :project_id AND lead = :lead"
+                    ),
+                    params,
+                )
+                session.commit()
+
+                final_lead = updates.get("lead")
+                final_lead = (
+                    normalize_lead_name(str(final_lead).strip())
+                    if final_lead is not None
+                    else lead
+                )
+                logger.info(
+                    f"✅ Updated entry '{lead}' in project {project_id} "
+                    f"({', '.join(updates)})"
+                )
+                return {"lead": final_lead, "updated": list(updates)}
+
+        except SQLAlchemyError as e:
+            logger.exception("❌ Database error updating a merged result row")
+            raise DatabaseFailureError("Failed to update the entry") from e
+
+    def delete_merged_row(self, project_id: int, lead: str) -> None:
+        """
+        Remove one entry from the register.
+
+        The lead stays in the underlying SERP aggregation, so a later
+        collection run can reintroduce it; this removes it from the table the
+        user is looking at and exports.
+        """
+        try:
+            with db_service.get_session() as session:
+                deleted = (
+                    session.query(MergedResult)
+                    .filter(
+                        MergedResult.project_id == project_id,
+                        MergedResult.lead == lead,
+                    )
+                    .delete()
+                )
+                if not deleted:
+                    raise ProjectDatasetNotFoundError(
+                        f"No entry named '{lead}' in this project"
+                    )
+                session.commit()
+                logger.info(f"✅ Deleted entry '{lead}' from project {project_id}")
+        except SQLAlchemyError as e:
+            logger.exception("❌ Database error deleting a merged result row")
+            raise DatabaseFailureError("Failed to delete the entry") from e
+
 
 # Global service instance
 merged_results_service = MergedResultsService()

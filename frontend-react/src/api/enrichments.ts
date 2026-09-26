@@ -60,3 +60,19 @@ export async function testEnrichLeads(
   );
   return data;
 }
+
+/**
+ * Create a fully configured enrichment from one plain-English instruction.
+ * The stored shape is identical to a hand-configured enrichment — the agent
+ * just fills in the column name, goal, evidence standard and result format.
+ */
+export async function draftEnrichment(
+  projectId: number,
+  instruction: string,
+): Promise<Enrichment> {
+  const { data } = await http.post<Enrichment>(
+    `/api/projects/${projectId}/enrichments/draft`,
+    { instruction },
+  );
+  return data;
+}
