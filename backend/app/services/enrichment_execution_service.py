@@ -418,9 +418,9 @@ In {enrichment_name} return None if you do not find any information at all, OR i
             model=build_agent_model(openai_api_key),
             model_settings=ModelSettings(
                 reasoning=Reasoning(
-                    effort="minimal"
-                ),  # Lower latency - custom function tools work with minimal effort
-                verbosity="low",
+                    effort="low"
+                ),  # The lowest effort both gpt-5-mini and gpt-6-luna accept;
+                # gpt-6-luna rejects "minimal" and doesn't document verbosity.
             ),
         )
 

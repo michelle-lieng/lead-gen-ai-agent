@@ -604,9 +604,9 @@ class LeadsSerpService:
                 model=build_agent_model(openai_api_key),
                 model_settings=ModelSettings(
                     reasoning=Reasoning(
-                        effort="minimal"
-                    ),  # Lower latency for faster responses
-                    verbosity="low",
+                        effort="low"
+                    ),  # The lowest effort both gpt-5-mini and gpt-6-luna accept;
+                    # gpt-6-luna rejects "minimal" and doesn't document verbosity.
                 ),
             )
 
