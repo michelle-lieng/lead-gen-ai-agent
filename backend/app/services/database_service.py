@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ..exceptions import DatabaseFailureError
 from ..config import settings
-from ..models.tables import PLACES_ADDRESS_COLUMN, Base
+from ..models.tables import Base
 
 import logging
 
@@ -78,16 +78,6 @@ class DatabaseService:
         """Create all tables ONLY if they don't exist. Fail fast if error"""
         try:
             Base.metadata.create_all(bind=self.engine)
-            # merged_results is extended with ALTER TABLE rather than the
-            # model; the Google Places address is a fixed column every
-            # project's results read, so it must exist before the first read.
-            with self.engine.begin() as connection:
-                connection.execute(
-                    text(
-                        "ALTER TABLE merged_results ADD COLUMN IF NOT EXISTS "
-                        f"{PLACES_ADDRESS_COLUMN} TEXT"
-                    )
-                )
         except SQLAlchemyError as e:
             logger.exception(f"❌ SQLAlchemy error creating tables: {e}")
             raise DatabaseFailureError("Database initialization failed") from e

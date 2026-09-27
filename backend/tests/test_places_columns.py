@@ -1,15 +1,15 @@
 import pytest
 
 from app.models.schemas import EnrichmentCreate
-from app.services.places_service import PLACES_ADDRESS_COLUMN, places_query
+from app.models.tables import BUILT_IN_RESULT_COLUMNS
+from app.services.places_service import places_query
 
 
-def test_address_column_cannot_collide_with_a_research_column():
-    # A research column the user names "Address" is slugged to "address"; the
-    # Google address must live somewhere no research column can.
-    assert PLACES_ADDRESS_COLUMN != "address"
-    with pytest.raises(ValueError):
-        EnrichmentCreate(enrichment_name="X", column_name=PLACES_ADDRESS_COLUMN)
+def test_no_address_column_is_built_in():
+    # Google addresses are not stored; a research column may be called anything
+    # address-like, including "address".
+    assert not any("address" in name for name in BUILT_IN_RESULT_COLUMNS)
+    assert EnrichmentCreate(enrichment_name="Address", column_name="address").column_name == "address"
 
 
 @pytest.mark.parametrize("name", ["lead", "serp_count", "id", "project_id"])

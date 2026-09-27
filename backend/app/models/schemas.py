@@ -375,7 +375,8 @@ class PlacesSearchRequest(BaseModel):
 class PlacesSearchResponse(BaseModel):
     """What one Google Places search added to the table"""
 
-    found: int  # Distinct businesses Google returned
+    found: int  # Distinct businesses kept after the business check
+    not_businesses: int = 0  # Google results the AI check judged to be plain places
     new: int  # Of those, how many were not in the table before
     existing: int  # found - new
     leads: list[str]  # Normalized names of every business found

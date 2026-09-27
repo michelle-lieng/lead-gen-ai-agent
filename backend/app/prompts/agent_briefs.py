@@ -151,3 +151,23 @@ Return:
    starting, resuming or will do any work, because a reply alone runs nothing. If the
    user wants work done, put it in the fields above instead.
 """
+
+
+BUSINESS_CHECK_PROMPT = """
+A lead-generation tool searched Google Maps for: {query}
+
+Google returned the places below, each with the types Google gave it. Some are
+businesses or organisations that could be contacted as a lead; others are just
+places: landmarks, monuments, natural features, suburbs, streets, squares,
+public parks, lookouts, wharves or precincts.
+
+Return `business_indices`: the numbers of the places that are an operating
+business or organisation (a company, shop, restaurant, venue run by a business,
+agency, practice, studio, operator, association or charity). Judge by the name
+and the types together. When a name is a place but the types show a business
+operates there under that name (e.g. a marina company, a tour operator), keep
+it. Leave out anything that is only a place.
+
+Places:
+{places}
+"""

@@ -15,6 +15,7 @@ from ...models.schemas import QueryListRequest, QueryGenerationRequest, UrlCreat
 from fastapi import APIRouter, Response
 
 from ...services.agent_brief_service import agent_brief_service
+from ...services.business_check import check_businesses
 from ...services.places_service import places_query, save_places, search_places
 from ...services.project_service import project_service
 from ...services.leads_serp_service import leads_serp_service
@@ -174,14 +175,18 @@ async def search_google_places(
 ):
     """
     Find businesses for a location search on Google Places and add them to the
-    table as leads, with their address. Runs before the web search when a chat
-    message names a place.
+    table as leads. An AI check drops results that are only places (landmarks,
+    precincts, wharves) before anything is saved. Runs before the web search
+    when a chat message names a place.
     """
     google_key = keys.require_google()
+    openai_key = keys.require_openai()
     project_service.get_project(project_id)  # raises if the project is gone
     query = places_query(request.query, request.location)
     places = await search_places(query, google_key)
-    return save_places(project_id, query, places)
+    businesses = check_businesses(places, query, openai_api_key=openai_key)
+    result = save_places(project_id, query, businesses)
+    return {**result, "not_businesses": len(places) - len(businesses)}
 
 @router.get("/projects/{project_id}/leads/download")
 async def get_latest_run_results(project_id: int):
