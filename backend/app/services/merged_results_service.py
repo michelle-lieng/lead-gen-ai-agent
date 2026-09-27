@@ -15,6 +15,7 @@ import json
 from .database_service import db_service
 from .project_service import project_service
 from ..models.tables import (
+    PLACES_ADDRESS_COLUMN,
     SerpLeadAggregated,
     Dataset,
     ProjectDataset,
@@ -597,7 +598,7 @@ class MergedResultsService:
         try:
             with db_service.get_session() as session:
                 # Base columns that always exist
-                base_columns = ["lead", "serp_count"]
+                base_columns = ["lead", "serp_count", PLACES_ADDRESS_COLUMN]
 
                 # Get enrichment columns that belong to this project
                 enrichment_columns = self._get_project_enrichment_columns(
@@ -679,7 +680,7 @@ class MergedResultsService:
         try:
             with db_service.get_session() as session:
                 # Base columns (exclude id and project_id for export)
-                base_columns = ["lead", "serp_count"]
+                base_columns = ["lead", "serp_count", PLACES_ADDRESS_COLUMN]
 
                 # Get enrichment columns that belong to this project
                 enrichment_columns = self._get_project_enrichment_columns(

@@ -124,6 +124,15 @@ class Dataset(Base):
     # Relationships
     project_dataset = relationship("ProjectDataset", back_populates="datasets")
 
+# The Google Places address. Deliberately not "address": a research column the
+# user names "Address" is slugged to that, and the two must never share a column.
+PLACES_ADDRESS_COLUMN = "places_address"
+
+# Columns merged_results always has; no research or imported column may take
+# one of these names.
+BUILT_IN_RESULT_COLUMNS = frozenset({"id", "project_id", "lead", "serp_count", PLACES_ADDRESS_COLUMN})
+
+
 class MergedResult(Base):
     """PostgreSQL table: merged_results - for storing merged leads from SERP and datasets with enrichment columns"""
     __tablename__ = "merged_results"

@@ -3,6 +3,8 @@ Pydantic models for API request/response validation
 """
 
 from pydantic import BaseModel, Field, field_validator
+
+from .tables import BUILT_IN_RESULT_COLUMNS
 from typing import Optional, Literal
 
 
@@ -161,6 +163,8 @@ def validate_column_name(v: str) -> str:
         raise ValueError("Column name must be lowercase")
     if v[0].isdigit():
         raise ValueError("Column name cannot start with a number")
+    if v in BUILT_IN_RESULT_COLUMNS:
+        raise ValueError(f"Column name '{v}' is reserved for a built-in column")
     return v
 
 
@@ -351,6 +355,30 @@ class EnrichmentDraftRequest(InstructionRequest):
 
     # Criteria columns pass "True/False"; omitted, the drafter picks the format.
     result_format: Optional[Literal["True/False", "Number", "Text"]] = None
+
+
+class PlacesSearchRequest(BaseModel):
+    """One Google Places text search, e.g. 'Companies based around Sydney Harbour'"""
+
+    query: str
+    # The place the message names. Added to the query when the query leaves it
+    # out, so Google never runs an unanchored, nationwide search.
+    location: str = ""
+
+    @field_validator("query")
+    @classmethod
+    def validate_not_empty(cls, v: str) -> str:
+        """Ensure the query is not empty or just whitespace"""
+        return validate_not_empty_string(v)
+
+
+class PlacesSearchResponse(BaseModel):
+    """What one Google Places search added to the table"""
+
+    found: int  # Distinct businesses Google returned
+    new: int  # Of those, how many were not in the table before
+    existing: int  # found - new
+    leads: list[str]  # Normalized names of every business found
 
 
 class LeadBriefResponse(BaseModel):

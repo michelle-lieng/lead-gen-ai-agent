@@ -24,7 +24,7 @@ import openai
 from pydantic import BaseModel, Field
 
 from .. import exceptions
-from ..models.tables import Enrichment
+from ..models.tables import BUILT_IN_RESULT_COLUMNS, Enrichment
 from ..prompts.agent_briefs import (
     ENRICHMENT_DRAFT_PROMPT,
     INTERPRET_PROMPT,
@@ -48,7 +48,7 @@ MODEL = "gpt-5-mini"
 
 # Reserved so a drafted column can never collide with the merged_results base
 # columns or the reasoning/evidence siblings the execution service appends.
-RESERVED_COLUMNS = {"id", "project_id", "lead", "serp_count", "address"}
+RESERVED_COLUMNS = BUILT_IN_RESULT_COLUMNS
 
 
 class LeadBriefDraft(BaseModel):

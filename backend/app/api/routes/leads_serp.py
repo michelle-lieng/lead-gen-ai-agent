@@ -15,6 +15,8 @@ from ...models.schemas import QueryListRequest, QueryGenerationRequest, UrlCreat
 from fastapi import APIRouter, Response
 
 from ...services.agent_brief_service import agent_brief_service
+from ...services.places_service import places_query, save_places, search_places
+from ...services.project_service import project_service
 from ...services.leads_serp_service import leads_serp_service
 from ...models.schemas import (
     QueryListRequest,
@@ -27,6 +29,8 @@ from ...models.schemas import (
     LeadExtractionResponse,
     InstructionRequest,
     LeadBriefResponse,
+    PlacesSearchRequest,
+    PlacesSearchResponse,
 )
 
 router = APIRouter()
@@ -161,6 +165,23 @@ async def generate_leads(project_id: int, keys: ApiKeys = Depends(get_api_keys))
         openai_api_key=keys.require_openai(),
         jina_api_key=keys.require_jina(),
     )
+
+@router.post("/projects/{project_id}/places", response_model=PlacesSearchResponse)
+async def search_google_places(
+    project_id: int,
+    request: PlacesSearchRequest,
+    keys: ApiKeys = Depends(get_api_keys),
+):
+    """
+    Find businesses for a location search on Google Places and add them to the
+    table as leads, with their address. Runs before the web search when a chat
+    message names a place.
+    """
+    google_key = keys.require_google()
+    project_service.get_project(project_id)  # raises if the project is gone
+    query = places_query(request.query, request.location)
+    places = await search_places(query, google_key)
+    return save_places(project_id, query, places)
 
 @router.get("/projects/{project_id}/leads/download")
 async def get_latest_run_results(project_id: int):
