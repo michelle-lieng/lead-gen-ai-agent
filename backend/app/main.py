@@ -17,7 +17,9 @@ from .api.routes import (
     enrichments,
     jobs,
     chat,
+    auth,
 )
+from .api.auth_guard import require_session
 from .services.database_service import db_service
 from .services.job_service import job_service
 from .config import settings
@@ -67,12 +69,18 @@ async def unhandled_errors_as_json(request: Request, call_next):
         )
 
 
+# Every /api route needs a session from POST /api/auth/login (see
+# auth_guard.py). Registered before CORSMiddleware for the same reason as the
+# error middleware above: its 401/503 answers must still carry CORS headers.
+app.middleware("http")(require_session)
+
+
 # Add CORS middleware for frontend communication.
-# The React SPA calls this API directly from the browser and sends the user's
-# API keys via custom headers (X-OpenAI-Key / X-Jina-Key). We must therefore
-# allow those headers through preflight. `allow_credentials` is False because we
-# use header-based keys (no cookies); a wildcard origin with credentials would
-# be rejected by browsers and would also invalidate the `*` header allowance.
+# The React SPA calls this API directly from the browser and sends its session
+# token in the Authorization header, which preflight must let through.
+# `allow_credentials` is False because nothing uses cookies; a wildcard origin
+# with credentials would be rejected by browsers and would also invalidate the
+# `*` header allowance.
 # Origins are configurable via CORS_ALLOW_ORIGINS (comma-separated); in
 # production set it to the deployed frontend origin, e.g. the Vercel URL.
 app.add_middleware(
@@ -215,3 +223,7 @@ app.include_router(jobs.router, prefix="/api", tags=["jobs"])
 ########## CHAT ENDPOINTS
 
 app.include_router(chat.router, prefix="/api", tags=["chat"])
+
+########## ACCESS ENDPOINTS
+
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])

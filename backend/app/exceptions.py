@@ -177,6 +177,39 @@ class ApiKeyNotConfiguredError(AppError):
         super().__init__(message, meta=meta)
 
 
+class InvalidPasswordError(AppError):
+    """Raised when the password entered to sign in is wrong"""
+
+    status_code = 401
+    code = "INVALID_PASSWORD"
+
+    def __init__(
+        self,
+        message: str = "That password is not right.",
+        *,
+        meta: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, meta=meta)
+
+
+class AuthNotConfiguredError(AppError):
+    """Raised when the server has no password or signing secret set"""
+
+    status_code = 503
+    code = "AUTH_NOT_CONFIGURED"
+
+    def __init__(
+        self,
+        message: str = (
+            "This server has no password set. Set APP_PASSWORD and AUTH_SECRET "
+            "in the backend's environment."
+        ),
+        *,
+        meta: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, meta=meta)
+
+
 # =========================
 # External API / scraper errors
 # =========================

@@ -483,3 +483,22 @@ class MessagePlanResponse(BaseModel):
     columns: list[str]  # One research question per new column
     continue_columns: list[ContinueColumn]  # Existing columns to finish for unanswered leads
     reply: str  # A direct answer, when the message needs one
+
+
+# ---- Access -----------------------------------------------------------------
+
+
+class LoginRequest(BaseModel):
+    password: str
+
+
+class LoginResponse(BaseModel):
+    token: str
+
+
+class ServerKeysResponse(BaseModel):
+    """Which API keys the server has; the frontend never sees the keys."""
+
+    openai: bool
+    jina: bool
+    google: bool
