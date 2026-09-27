@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/projects/{project_id}/jobs/{job_type}", response_model=Optional[JobResponse])
-async def get_job_status(project_id: int, job_type: str, job_type_id: Optional[int] = None):
+def get_job_status(project_id: int, job_type: str, job_type_id: Optional[int] = None):
     """
     Get the status of the most recent job for a project and job type.
     

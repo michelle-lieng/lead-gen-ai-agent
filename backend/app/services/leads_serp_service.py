@@ -170,6 +170,47 @@ class LeadsSerpService:
             DatabaseFailureError: If database operation fails
             JobAlreadyRunningError: If a job is already running
         """
+        # Database work runs on a worker thread throughout: over a remote
+        # database it takes seconds, and on the event loop it would stall every
+        # other request (including the host's health check) until it finished.
+        job_id = await asyncio.to_thread(self._start_url_generation, project_id)
+
+        try:
+            ############# Step 1: Save queries to database
+            await asyncio.to_thread(self._save_queries, project_id, queries)
+
+            ################ STEP 2: Generate URLs
+            # Process all queries in parallel using asyncio
+            # ExternalScraperError from _process_query will propagate to caller
+            tasks = [
+                self._process_query(query, project_id, jina_api_key)
+                for query in queries
+            ]
+            results = await asyncio.gather(*tasks)
+
+            urls_added = await asyncio.to_thread(
+                self._save_generated_urls, project_id, results, len(queries)
+            )
+
+            # Update job status to completed
+            await asyncio.to_thread(job_service.mark_job_as_completed, job_id)
+
+            return {"urls_added": urls_added, "queries_processed": len(queries)}
+
+        except SQLAlchemyError as e:
+            logger.exception(f"❌ Error saving queries to database")
+            await asyncio.to_thread(job_service.mark_job_as_failed, job_id, str(e))
+            raise DatabaseFailureError("Failed to save queries to database") from e
+        except Exception as e:
+            # Anything else (scraper failures, etc.) must still release the job.
+            # Otherwise it stays "running" forever and check_running_job blocks
+            # every later attempt for this project with a 409.
+            logger.exception(f"❌ Error generating URLs for project {project_id}")
+            await asyncio.to_thread(job_service.mark_job_as_failed, job_id, str(e))
+            raise
+
+    def _start_url_generation(self, project_id: int) -> int:
+        """Check the project and open the URL job. Returns the job id."""
         # Validate the project up front so a stale project_id returns a clean 404
         # instead of hitting the jobs.project_id foreign key and surfacing as a 500.
         project_service.get_project(project_id)
@@ -178,91 +219,68 @@ class LeadsSerpService:
         job_service.check_running_job(project_id, "generate_urls")
 
         # create job
-        job = job_service.create_job(project_id, "generate_urls")
+        return job_service.create_job(project_id, "generate_urls").id
 
-        try:
-            ############# Step 1: Save queries to database
-            total_queries = 0
-            with db_service.get_session() as session:
-                for query in queries:
-                    # Create a new SerpQuery record
-                    query_record = SerpQuery(project_id=project_id, query=query)
-                    session.add(query_record)
-                    total_queries += 1
+    def _save_queries(self, project_id: int, queries: list[str]) -> None:
+        """Store the search queries for the project."""
+        with db_service.get_session() as session:
+            for query in queries:
+                session.add(SerpQuery(project_id=project_id, query=query))
 
-                # Commit all queries at once
-                session.commit()
+            # Commit all queries at once
+            session.commit()
 
-                logger.info(f"Uploaded {total_queries} queries to serp_queries table")
+        logger.info(f"Uploaded {len(queries)} queries to serp_queries table")
 
-                ################ STEP 2: Generate URLs
-                # Process all queries in parallel using asyncio
-                # ExternalScraperError from _process_query will propagate to caller
-                tasks = [
-                    self._process_query(query, project_id, jina_api_key)
-                    for query in queries
-                ]
-                results = await asyncio.gather(*tasks)
+    def _save_generated_urls(
+        self, project_id: int, results: list[list[dict]], query_count: int
+    ) -> int:
+        """Upsert the search results the project doesn't have yet. Returns how many."""
+        with db_service.get_session() as session:
+            # STEP 2.1: Get existing URLs for this project to avoid duplicates
+            existing_urls = (
+                session.query(SerpUrl.link)
+                .filter(SerpUrl.project_id == project_id)
+                .all()
+            )
+            existing_links = {url.link for url in existing_urls}
 
-                # STEP 2.1: Get existing URLs for this project to avoid duplicates
-                existing_urls = (
-                    session.query(SerpUrl.link)
-                    .filter(SerpUrl.project_id == project_id)
-                    .all()
+            # STEP 2.2: Collect all generated urls first using jina_serp_scraper
+            all_urls = []
+            seen_links = (
+                set()
+            )  # Track unique links to avoid duplicates within this batch
+
+            for query_urls in results:
+                for url_data in query_urls:
+                    link = url_data["link"]
+                    # Only add if not already in project and not duplicate in this batch
+                    if link not in seen_links and link not in existing_links:
+                        seen_links.add(link)
+                        all_urls.append(url_data)
+
+            # Step 3: Batch upsert using SQLAlchemy core with composite unique constraint
+            if all_urls:
+                statement = insert(SerpUrl).values(all_urls)
+                statement = statement.on_conflict_do_update(
+                    index_elements=["project_id", "link"],
+                    set_=dict(
+                        title=statement.excluded.title,
+                        snippet=statement.excluded.snippet,
+                        date=statement.excluded.date,
+                    ),
                 )
-                existing_links = {url.link for url in existing_urls}
+                session.execute(statement)
+                session.commit()
+                logger.info(
+                    f"✅ Processed {len(all_urls)} URLs for {query_count} queries"
+                )
+            else:
+                logger.info(
+                    f"ℹ️ No new URLs to add (all were duplicates for project {project_id})"
+                )
 
-                # STEP 2.2: Collect all generated urls first using jina_serp_scraper
-                all_urls = []
-                seen_links = (
-                    set()
-                )  # Track unique links to avoid duplicates within this batch
-
-                for query_urls in results:
-                    for url_data in query_urls:
-                        link = url_data["link"]
-                        # Only add if not already in project and not duplicate in this batch
-                        if link not in seen_links and link not in existing_links:
-                            seen_links.add(link)
-                            all_urls.append(url_data)
-
-                # Step 3: Batch upsert using SQLAlchemy core with composite unique constraint
-                if all_urls:
-                    statement = insert(SerpUrl).values(all_urls)
-                    statement = statement.on_conflict_do_update(
-                        index_elements=["project_id", "link"],
-                        set_=dict(
-                            title=statement.excluded.title,
-                            snippet=statement.excluded.snippet,
-                            date=statement.excluded.date,
-                        ),
-                    )
-                    session.execute(statement)
-                    session.commit()
-                    logger.info(
-                        f"✅ Processed {len(all_urls)} URLs for {len(queries)} queries"
-                    )
-                else:
-                    logger.info(
-                        f"ℹ️ No new URLs to add (all were duplicates for project {project_id})"
-                    )
-
-            # Update job status to completed
-            job_service.mark_job_as_completed(job.id)
-
-            return {"urls_added": len(all_urls), "queries_processed": len(queries)}
-
-        except SQLAlchemyError as e:
-            logger.exception(f"❌ Error saving queries to database")
-            job_service.mark_job_as_failed(job.id, str(e))
-            raise DatabaseFailureError("Failed to save queries to database") from e
-        except Exception as e:
-            # Anything else (scraper failures, etc.) must still release the job.
-            # Otherwise it stays "running" forever and check_running_job blocks
-            # every later attempt for this project with a 409.
-            logger.exception(f"❌ Error generating URLs for project {project_id}")
-            job_service.mark_job_as_failed(job.id, str(e))
-            raise
+        return len(all_urls)
 
     def get_queries(self, project_id: int) -> list[dict]:
         """
@@ -807,30 +825,89 @@ class LeadsSerpService:
         """
         # Stays None until the job row exists, so the handlers below know whether
         # there is anything to mark as failed.
-        job = None
+        job_id = None
+        try:
+            # Database work runs on a worker thread: over a remote database it
+            # takes seconds, and on the event loop it would stall every other
+            # request (including the host's health check) until it finished.
+            lead_minimum_criteria, job_id, url_data_list = await asyncio.to_thread(
+                self._start_lead_extraction, project_id
+            )
+
+            if not url_data_list:
+                logger.info(f"No unprocessed URLs found for project {project_id}")
+                # Update job status to completed
+                await asyncio.to_thread(job_service.mark_job_as_completed, job_id)
+                return {
+                    "urls_processed": 0,
+                    "urls_skipped": 0,
+                    "urls_failed": 0,
+                    "total_urls_attempted": 0,
+                    "new_leads_extracted": 0,
+                    "extracted_leads": [],
+                }
+
+            logger.info(
+                f"Processing {len(url_data_list)} unprocessed URLs for project {project_id}"
+            )
+
+            # Step 2: Process URLs in parallel using asyncio
+            # Process all URLs concurrently
+            tasks = [
+                self._process_url_and_extract_lead(
+                    url_data,
+                    lead_minimum_criteria,
+                    openai_api_key,
+                    jina_api_key,
+                )
+                for url_data in url_data_list
+            ]
+            results = await asyncio.gather(*tasks)
+
+            return await asyncio.to_thread(
+                self._save_extracted_leads, project_id, job_id, results
+            )
+        except SQLAlchemyError as e:
+            logger.exception(f"❌ Error extracting leads from URLs")
+            if job_id is not None:
+                await asyncio.to_thread(job_service.mark_job_as_failed, job_id, str(e))
+            raise DatabaseFailureError("Failed to extract leads from URLs") from e
+        except Exception as e:
+            # Same reasoning as generate_urls: release the job on any failure so
+            # it doesn't stay "running" and block every later attempt.
+            logger.exception(f"❌ Error generating leads for project {project_id}")
+            if job_id is not None:
+                await asyncio.to_thread(job_service.mark_job_as_failed, job_id, str(e))
+            raise
+
+    def _start_lead_extraction(self, project_id: int) -> tuple[str, int, list[dict]]:
+        """
+        Check the project, open the extraction job and read the unprocessed URLs.
+        Returns (lead_minimum_criteria, job_id, url_data_list).
+        """
+        # Step 0: Get project to retrieve lead_minimum_criteria
+        project = project_service.get_project(
+            project_id
+        )  # Raises ProjectNotFoundError if not found
+        lead_minimum_criteria = project.lead_minimum_criteria
+
+        if not lead_minimum_criteria or not lead_minimum_criteria.strip():
+            raise InvalidProjectConfigurationError(
+                "Project does not have lead_minimum_criteria set. Please set it before extracting leads."
+            )
+
+        logger.info(
+            f"Using lead minimum criteria for project {project_id}: {lead_minimum_criteria}"
+        )
+
+        # Check if there is a running job
+        job_service.check_running_job(project_id, "generate_leads")
+
+        # Create job
+        job_id = job_service.create_job(project_id, "generate_leads").id
+
         try:
             with db_service.get_session() as session:
-                # Step 0: Get project to retrieve lead_minimum_criteria
-                project = project_service.get_project(
-                    project_id
-                )  # Raises ProjectNotFoundError if not found
-                lead_minimum_criteria = project.lead_minimum_criteria
-
-                if not lead_minimum_criteria or not lead_minimum_criteria.strip():
-                    raise InvalidProjectConfigurationError(
-                        "Project does not have lead_minimum_criteria set. Please set it before extracting leads."
-                    )
-
-                logger.info(
-                    f"Using lead minimum criteria for project {project_id}: {lead_minimum_criteria}"
-                )
-
-                # Check if there is a running job
-                job_service.check_running_job(project_id, "generate_leads")
-
-                # Create job
-                job = job_service.create_job(project_id, "generate_leads")
-
                 # Step 1: Get all unprocessed URLs for this project (only unprocessed, not failed)
                 unprocessed_urls = (
                     session.query(SerpUrl)
@@ -841,77 +918,102 @@ class LeadsSerpService:
                     .all()
                 )
 
-                if not unprocessed_urls:
-                    logger.info(f"No unprocessed URLs found for project {project_id}")
-                    # Update job status to completed
-                    job_service.mark_job_as_completed(job.id)
-                    return {
-                        "urls_processed": 0,
-                        "urls_skipped": 0,
-                        "urls_failed": 0,
-                        "total_urls_attempted": 0,
-                        "new_leads_extracted": 0,
-                        "extracted_leads": [],
-                    }
-
-                logger.info(
-                    f"Processing {len(unprocessed_urls)} unprocessed URLs for project {project_id}"
-                )
-
                 # Step 1.5: Extract data from ORM objects into plain dicts (detach before async)
-                url_data_list = []
-                for url_record in unprocessed_urls:
-                    url_data_list.append(
+                url_data_list = [
+                    {
+                        "id": url_record.id,
+                        "link": url_record.link,
+                        "query": url_record.query,
+                        "title": url_record.title,
+                        "snippet": url_record.snippet,
+                    }
+                    for url_record in unprocessed_urls
+                ]
+        except Exception as e:
+            # The caller doesn't have the job id yet, so release the job here.
+            job_service.mark_job_as_failed(job_id, str(e))
+            raise
+
+        return lead_minimum_criteria, job_id, url_data_list
+
+    def _save_extracted_leads(
+        self, project_id: int, job_id: int, results: list[dict]
+    ) -> dict:
+        """Record each URL's outcome, save its leads, and rebuild the merged table."""
+        with db_service.get_session() as session:
+            # Step 3: Process results and update database (query fresh ORM objects by ID)
+            processed_count = 0
+            skipped_count = 0
+            failed_count = 0
+            new_leads_count = 0
+            all_extracted_leads = []  # Collect all results to return in response
+
+            for result in results:
+                url_id = result["url_id"]
+                leads = result["leads"]
+                scraped_content = result["scraped_content"]
+                status = result["status"]
+
+                # Query fresh ORM object by ID (not using detached object)
+                url_record = (
+                    session.query(SerpUrl).filter(SerpUrl.id == url_id).first()
+                )
+                if not url_record:
+                    logger.error(f"❌ URL record {url_id} not found in database")
+                    failed_count += 1
+                    continue
+
+                # Update the URL record
+                url_record.website_scraped = scraped_content
+                url_record.status = status
+
+                if status == "failed":
+                    failed_count += 1
+                    all_extracted_leads.append(
                         {
-                            "id": url_record.id,
-                            "link": url_record.link,
-                            "query": url_record.query,
-                            "title": url_record.title,
-                            "snippet": url_record.snippet,
+                            "url": result["url"],
+                            "title": result["title"],
+                            "query": result["query"],
+                            "snippet": result["snippet"],
+                            "status": "failed",
+                            "website_scraped": None,
+                            "leads": [],
                         }
                     )
+                    continue
 
-                # Step 2: Process URLs in parallel using asyncio
-                # Process all URLs concurrently
-                tasks = [
-                    self._process_url_and_extract_lead(
-                        url_data,
-                        lead_minimum_criteria,
-                        openai_api_key,
-                        jina_api_key,
-                    )
-                    for url_data in url_data_list
-                ]
-                results = await asyncio.gather(*tasks)
+                if status == "processed":
+                    processed_count += 1
 
-                # Step 3: Process results and update database (query fresh ORM objects by ID)
-                processed_count = 0
-                skipped_count = 0
-                failed_count = 0
-                new_leads_count = 0
-                all_extracted_leads = []  # Collect all results to return in response
+                    # Step 4: Save leads to serp_leads table (normalized)
+                    try:
+                        for lead in leads:
+                            # Normalize lead name before saving (lowercase, trim whitespace)
+                            normalized_lead = normalize_lead_name(lead)
 
-                for result in results:
-                    url_id = result["url_id"]
-                    leads = result["leads"]
-                    scraped_content = result["scraped_content"]
-                    status = result["status"]
+                            # Skip empty leads after normalization
+                            if not normalized_lead:
+                                continue
 
-                    # Query fresh ORM object by ID (not using detached object)
-                    url_record = (
-                        session.query(SerpUrl).filter(SerpUrl.id == url_id).first()
-                    )
-                    if not url_record:
-                        logger.error(f"❌ URL record {url_id} not found in database")
+                            lead_record = SerpLead(
+                                project_id=project_id,
+                                serp_url_id=url_id,
+                                lead=normalized_lead,  # Store normalized version
+                            )
+                            session.add(lead_record)
+                            new_leads_count += 1
+
+                        logger.info(
+                            f"✅ Extracted {len(leads)} leads from {result['url']}"
+                        )
+                    except SQLAlchemyError as save_error:
+                        # Failed to save leads - log but continue
+                        logger.exception(
+                            f"❌ Failed to save leads for {result['url']}"
+                        )
+                        url_record.status = "failed"
                         failed_count += 1
-                        continue
-
-                    # Update the URL record
-                    url_record.website_scraped = scraped_content
-                    url_record.status = status
-
-                    if status == "failed":
-                        failed_count += 1
+                        processed_count -= 1  # Adjust count
                         all_extracted_leads.append(
                             {
                                 "url": result["url"],
@@ -919,116 +1021,59 @@ class LeadsSerpService:
                                 "query": result["query"],
                                 "snippet": result["snippet"],
                                 "status": "failed",
-                                "website_scraped": None,
+                                "website_scraped": scraped_content,
                                 "leads": [],
                             }
                         )
                         continue
+                else:
+                    skipped_count += 1
 
-                    if status == "processed":
-                        processed_count += 1
-
-                        # Step 4: Save leads to serp_leads table (normalized)
-                        try:
-                            for lead in leads:
-                                # Normalize lead name before saving (lowercase, trim whitespace)
-                                normalized_lead = normalize_lead_name(lead)
-
-                                # Skip empty leads after normalization
-                                if not normalized_lead:
-                                    continue
-
-                                lead_record = SerpLead(
-                                    project_id=project_id,
-                                    serp_url_id=url_id,
-                                    lead=normalized_lead,  # Store normalized version
-                                )
-                                session.add(lead_record)
-                                new_leads_count += 1
-
-                            logger.info(
-                                f"✅ Extracted {len(leads)} leads from {result['url']}"
-                            )
-                        except SQLAlchemyError as save_error:
-                            # Failed to save leads - log but continue
-                            logger.exception(
-                                f"❌ Failed to save leads for {result['url']}"
-                            )
-                            url_record.status = "failed"
-                            failed_count += 1
-                            processed_count -= 1  # Adjust count
-                            all_extracted_leads.append(
-                                {
-                                    "url": result["url"],
-                                    "title": result["title"],
-                                    "query": result["query"],
-                                    "snippet": result["snippet"],
-                                    "status": "failed",
-                                    "website_scraped": scraped_content,
-                                    "leads": [],
-                                }
-                            )
-                            continue
-                    else:
-                        skipped_count += 1
-
-                    # Store ALL results (processed, skipped) with status and scraped content
-                    all_extracted_leads.append(
-                        {
-                            "url": result["url"],
-                            "title": result["title"],
-                            "query": result["query"],
-                            "snippet": result["snippet"],
-                            "status": status,
-                            "website_scraped": scraped_content,
-                            "leads": leads if leads else [],
-                        }
-                    )
-
-                # Commit all changes
-                session.commit()
-
-                logger.info(f"✅ Lead extraction completed for project {project_id}:")
-                logger.info(f"   - Processed: {processed_count}")
-                logger.info(f"   - Skipped: {skipped_count}")
-                logger.info(f"   - Failed: {failed_count}")
-                logger.info(f"   - New leads extracted: {new_leads_count}")
-
-                # Transform leads to aggregated format after extraction
-                aggregation_result = self._transform_leads_to_aggregated(project_id)
-                logger.info(
-                    f"✅ Lead aggregation completed: {aggregation_result.get('message', '')}"
+                # Store ALL results (processed, skipped) with status and scraped content
+                all_extracted_leads.append(
+                    {
+                        "url": result["url"],
+                        "title": result["title"],
+                        "query": result["query"],
+                        "snippet": result["snippet"],
+                        "status": status,
+                        "website_scraped": scraped_content,
+                        "leads": leads if leads else [],
+                    }
                 )
 
-                # Merge aggregated leads into merged_results table
-                merged_results_service.merge_serp_leads(project_id)
+            # Commit all changes
+            session.commit()
 
-                # Update project counts (including leads_collected from merged_results) after merge
-                project_service.update_project_counts_from_db(project_id)
+            logger.info(f"✅ Lead extraction completed for project {project_id}:")
+            logger.info(f"   - Processed: {processed_count}")
+            logger.info(f"   - Skipped: {skipped_count}")
+            logger.info(f"   - Failed: {failed_count}")
+            logger.info(f"   - New leads extracted: {new_leads_count}")
 
-                # Update job status to completed
-                job_service.mark_job_as_completed(job.id)
+            # Transform leads to aggregated format after extraction
+            aggregation_result = self._transform_leads_to_aggregated(project_id)
+            logger.info(
+                f"✅ Lead aggregation completed: {aggregation_result.get('message', '')}"
+            )
 
-                return {
-                    "urls_processed": processed_count,
-                    "urls_skipped": skipped_count,
-                    "urls_failed": failed_count,
-                    "total_urls_attempted": len(unprocessed_urls),
-                    "new_leads_extracted": new_leads_count,
-                    "extracted_leads": all_extracted_leads,  # Return detailed results for each URL
-                }
-        except SQLAlchemyError as e:
-            logger.exception(f"❌ Error extracting leads from URLs")
-            if job is not None:
-                job_service.mark_job_as_failed(job.id, str(e))
-            raise DatabaseFailureError("Failed to extract leads from URLs") from e
-        except Exception as e:
-            # Same reasoning as generate_urls: release the job on any failure so
-            # it doesn't stay "running" and block every later attempt.
-            logger.exception(f"❌ Error generating leads for project {project_id}")
-            if job is not None:
-                job_service.mark_job_as_failed(job.id, str(e))
-            raise
+            # Merge aggregated leads into merged_results table
+            merged_results_service.merge_serp_leads(project_id)
+
+            # Update project counts (including leads_collected from merged_results) after merge
+            project_service.update_project_counts_from_db(project_id)
+
+            # Update job status to completed
+            job_service.mark_job_as_completed(job_id)
+
+            return {
+                "urls_processed": processed_count,
+                "urls_skipped": skipped_count,
+                "urls_failed": failed_count,
+                "total_urls_attempted": len(results),
+                "new_leads_extracted": new_leads_count,
+                "extracted_leads": all_extracted_leads,  # Return detailed results for each URL
+            }
 
     def _transform_leads_to_aggregated(self, project_id: int) -> dict:
         """

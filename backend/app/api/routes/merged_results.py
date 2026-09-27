@@ -8,7 +8,7 @@ from ...models.schemas import MergedResultsResponse, MergedRowUpdate
 router = APIRouter()
 
 @router.get("/projects/{project_id}/results", response_model=MergedResultsResponse)
-async def get_merged_results(project_id: int):
+def get_merged_results(project_id: int):
     """
     Get merged results table as JSON for displaying in frontend table.
     
@@ -17,7 +17,7 @@ async def get_merged_results(project_id: int):
     return merged_results_service.get_merged_results(project_id)
 
 @router.get("/projects/{project_id}/results/download")
-async def download_merged_results(project_id: int):
+def download_merged_results(project_id: int):
     """
     Get ZIP file containing merged results table for the project.
     
@@ -40,7 +40,7 @@ async def download_merged_results(project_id: int):
     )
 
 @router.patch("/projects/{project_id}/results/row", response_model=dict)
-async def update_merged_row(project_id: int, request: MergedRowUpdate):
+def update_merged_row(project_id: int, request: MergedRowUpdate):
     """
     Edit one entry in the merged results table.
 
@@ -53,7 +53,7 @@ async def update_merged_row(project_id: int, request: MergedRowUpdate):
     )
 
 @router.delete("/projects/{project_id}/results/row", status_code=204)
-async def delete_merged_row(
+def delete_merged_row(
     project_id: int,
     lead: str = Query(..., description="Lead name identifying the row to delete"),
 ):

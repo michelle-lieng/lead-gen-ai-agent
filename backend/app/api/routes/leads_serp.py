@@ -1,6 +1,7 @@
 """
 Query endpoints
 """
+import asyncio
 import logging
 from fastapi import APIRouter, Depends, Response
 import openai
@@ -37,7 +38,7 @@ from ...models.schemas import (
 router = APIRouter()
 
 @router.post("/projects/{project_id}/lead-brief", response_model=LeadBriefResponse)
-async def draft_lead_brief(
+def draft_lead_brief(
     project_id: int,
     request: InstructionRequest,
     keys: ApiKeys = Depends(get_api_keys),
@@ -57,7 +58,7 @@ async def draft_lead_brief(
     )
 
 @router.post("/projects/{project_id}/queries", response_model=list[str])
-async def generate_queries(
+def generate_queries(
     project_id: int,
     request: QueryGenerationRequest,
     keys: ApiKeys = Depends(get_api_keys),
@@ -78,7 +79,7 @@ async def generate_queries(
     )
 
 @router.get("/projects/{project_id}/queries", response_model=list[QueryResponse])
-async def get_queries(project_id: int):
+def get_queries(project_id: int):
     """
     Get all queries for a project from the database.
     
@@ -106,7 +107,7 @@ async def generate_urls(
     )
 
 @router.get("/projects/{project_id}/urls", response_model=list[UrlResponse])
-async def get_urls(project_id: int):
+def get_urls(project_id: int):
     """
     Get all unprocessed production URLs for a project.
     
@@ -115,7 +116,7 @@ async def get_urls(project_id: int):
     return leads_serp_service.get_urls(project_id)
 
 @router.post("/projects/{project_id}/urls/create", response_model=UrlResponse)
-async def create_url(project_id: int, url_data: UrlCreate):
+def create_url(project_id: int, url_data: UrlCreate):
     """
     Create a single production URL manually.
     
@@ -130,7 +131,7 @@ async def create_url(project_id: int, url_data: UrlCreate):
     )
 
 @router.put("/projects/{project_id}/urls/{url_id}", response_model=UrlResponse)
-async def update_url(project_id: int, url_id: int, update: UrlUpdate):
+def update_url(project_id: int, url_id: int, update: UrlUpdate):
     """
     Update a production URL (title, snippet, date or link).
     
@@ -146,7 +147,7 @@ async def update_url(project_id: int, url_id: int, update: UrlUpdate):
     )
 
 @router.delete("/projects/{project_id}/urls/{url_id}", status_code=204)
-async def delete_url(project_id: int, url_id: int):
+def delete_url(project_id: int, url_id: int):
     """
     Delete a production URL.
     """
@@ -181,15 +182,19 @@ async def search_google_places(
     """
     google_key = keys.require_google()
     openai_key = keys.require_openai()
-    project_service.get_project(project_id)  # raises if the project is gone
+    # The database and the business check block, so they run on a worker
+    # thread; only the Places search itself is async.
+    await asyncio.to_thread(project_service.get_project, project_id)  # raises if the project is gone
     query = places_query(request.query, request.location)
     places = await search_places(query, google_key)
-    businesses = check_businesses(places, query, openai_api_key=openai_key)
-    result = save_places(project_id, query, businesses)
+    businesses = await asyncio.to_thread(
+        check_businesses, places, query, openai_api_key=openai_key
+    )
+    result = await asyncio.to_thread(save_places, project_id, query, businesses)
     return {**result, "not_businesses": len(places) - len(businesses)}
 
 @router.get("/projects/{project_id}/leads/download")
-async def get_latest_run_results(project_id: int):
+def get_latest_run_results(project_id: int):
     """
     Get ZIP file containing all project data (queries, URLs, leads).
     

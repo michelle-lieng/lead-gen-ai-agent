@@ -675,7 +675,7 @@ In {enrichment_name} return None if you do not find any information at all, OR i
                 columns.append(f"{column_name}_evidence")
 
             # Mark job as completed
-            job_service.mark_job_as_completed(job_id)
+            await asyncio.to_thread(job_service.mark_job_as_completed, job_id)
             return (enriched_leads, columns)
         except Exception as e:
             print("Marking job as failed")
@@ -685,8 +685,10 @@ In {enrichment_name} return None if you do not find any information at all, OR i
                 f"Error: {type(e).__name__}: {str(e)}"
             )
             # Mark job as failed
-            job_service.mark_job_as_failed(
-                job_id, f"Unexpected error: {type(e).__name__}: {str(e)}"
+            await asyncio.to_thread(
+                job_service.mark_job_as_failed,
+                job_id,
+                f"Unexpected error: {type(e).__name__}: {str(e)}",
             )
             # Return empty results on critical failure
             return ([], ["lead"])

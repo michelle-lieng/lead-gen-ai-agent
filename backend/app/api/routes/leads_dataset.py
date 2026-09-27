@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/projects/{project_id}/datasets")
-async def upload_dataset(
+def upload_dataset(
     project_id: int,
     dataset_name: str = Form(...),
     lead_column: str = Form(...),
@@ -31,7 +31,7 @@ async def upload_dataset(
         file: CSV or Excel file to upload (.csv, .xlsx, .xls)
     """
     # Call service to process the dataset
-    result = await leads_dataset_service.upload_dataset(
+    result = leads_dataset_service.upload_dataset(
         project_id=project_id,
         dataset_name=dataset_name,
         lead_column=lead_column,

@@ -2,6 +2,7 @@
 Enrichment endpoints
 """
 
+import asyncio
 import logging
 from fastapi import APIRouter, Depends
 
@@ -33,7 +34,7 @@ router = APIRouter()
 
 
 @router.post("/projects/{project_id}/enrichments/", response_model=EnrichmentResponse)
-async def create_enrichment(project_id: int, request: EnrichmentCreate):
+def create_enrichment(project_id: int, request: EnrichmentCreate):
     """
     Create a new enrichment configuration for a project.
 
@@ -56,7 +57,7 @@ async def create_enrichment(project_id: int, request: EnrichmentCreate):
 @router.post(
     "/projects/{project_id}/enrichments/draft", response_model=EnrichmentResponse
 )
-async def draft_enrichment(
+def draft_enrichment(
     project_id: int,
     request: EnrichmentDraftRequest,
     keys: ApiKeys = Depends(get_api_keys),
@@ -84,7 +85,7 @@ async def draft_enrichment(
 @router.get(
     "/projects/{project_id}/enrichments/", response_model=list[EnrichmentResponse]
 )
-async def get_enrichments(project_id: int):
+def get_enrichments(project_id: int):
     """
     Get all enrichment configurations for a project.
     """
@@ -100,7 +101,7 @@ async def get_enrichments(project_id: int):
     "/projects/{project_id}/enrichments/unanswered",
     response_model=list[ContinueColumn],
 )
-async def get_unanswered_columns(project_id: int):
+def get_unanswered_columns(project_id: int):
     """
     Columns that still have leads without an answer, with those leads.
 
@@ -113,7 +114,7 @@ async def get_unanswered_columns(project_id: int):
 
 
 @router.get("/enrichments/{enrichment_id}", response_model=EnrichmentResponse)
-async def get_enrichment(enrichment_id: int):
+def get_enrichment(enrichment_id: int):
     """
     Get a specific enrichment configuration by ID.
     """
@@ -121,7 +122,7 @@ async def get_enrichment(enrichment_id: int):
 
 
 @router.put("/enrichments/{enrichment_id}", response_model=EnrichmentResponse)
-async def update_enrichment(enrichment_id: int, request: EnrichmentUpdate):
+def update_enrichment(enrichment_id: int, request: EnrichmentUpdate):
     """
     Update an enrichment - all fields are optional, only provided fields will be updated.
     """
@@ -130,7 +131,7 @@ async def update_enrichment(enrichment_id: int, request: EnrichmentUpdate):
 
 
 @router.delete("/enrichments/{enrichment_id}", status_code=204)
-async def delete_enrichment(enrichment_id: int):
+def delete_enrichment(enrichment_id: int):
     """
     Delete an enrichment configuration.
     """
@@ -156,13 +157,15 @@ async def enrich_leads(
         enrichment_id: ID of the enrichment configuration to use
         request: Request containing leads_data
     """
+    # Database calls run on a worker thread: these routes stay async for the
+    # research itself, and a blocking call here would stall every request.
     # Verify project exists
-    project = project_service.get_project(project_id)
+    project = await asyncio.to_thread(project_service.get_project, project_id)
     if not project:
         raise ProjectNotFoundError(project_id)
 
     # Verify enrichment exists
-    enrichment = enrichment_service.get_enrichment(enrichment_id)
+    enrichment = await asyncio.to_thread(enrichment_service.get_enrichment, enrichment_id)
     if not enrichment:
         raise EnrichmentNotFoundError(enrichment_id)
 
@@ -174,9 +177,13 @@ async def enrich_leads(
     openai_api_key = keys.require_openai()
     jina_api_key = keys.require_jina()
 
-    running_job = job_service.check_running_job(project_id, "enrich_leads", enrichment_id)
+    await asyncio.to_thread(
+        job_service.check_running_job, project_id, "enrich_leads", enrichment_id
+    )
 
-    job = job_service.create_job(project_id, "enrichments", enrichment_id)
+    job = await asyncio.to_thread(
+        job_service.create_job, project_id, "enrichments", enrichment_id
+    )
     # Process leads enrichment using enrichment's configured values
     enriched_leads, columns = await enrichment_execution_service.enrich_leads(
         enrichment=enrichment,
@@ -189,7 +196,8 @@ async def enrich_leads(
     )
 
     # Automatically save enrichment results to merged_results table
-    merged_results_service.save_ai_enrichment_results(
+    await asyncio.to_thread(
+        merged_results_service.save_ai_enrichment_results,
         project_id=project_id,
         column_name=enrichment.column_name,
         enriched_leads=enriched_leads,
@@ -225,13 +233,15 @@ async def test_enrich_leads(
         enrichment_id: ID of the enrichment configuration to use
         request: Request containing leads_data
     """
+    # Database calls run on a worker thread: these routes stay async for the
+    # research itself, and a blocking call here would stall every request.
     # Verify project exists
-    project = project_service.get_project(project_id)
+    project = await asyncio.to_thread(project_service.get_project, project_id)
     if not project:
         raise ProjectNotFoundError(project_id)
 
     # Verify enrichment exists
-    enrichment = enrichment_service.get_enrichment(enrichment_id)
+    enrichment = await asyncio.to_thread(enrichment_service.get_enrichment, enrichment_id)
     if not enrichment:
         raise EnrichmentNotFoundError(enrichment_id)
 
@@ -244,10 +254,14 @@ async def test_enrich_leads(
     jina_api_key = keys.require_jina()
 
     # Check if there is a running job
-    job_service.check_running_job(project_id, "enrich_leads", enrichment_id)
+    await asyncio.to_thread(
+        job_service.check_running_job, project_id, "enrich_leads", enrichment_id
+    )
 
     # Create job
-    job = job_service.create_job(project_id, "test_enrichments", enrichment_id)
+    job = await asyncio.to_thread(
+        job_service.create_job, project_id, "test_enrichments", enrichment_id
+    )
 
     # Process leads enrichment using enrichment's configured values
     enriched_leads, columns = await enrichment_execution_service.enrich_leads(

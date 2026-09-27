@@ -127,7 +127,7 @@ class LeadsDatasetService:
 
         return merged_df
 
-    async def upload_dataset(
+    def upload_dataset(
         self,
         project_id: int,
         dataset_name: str,
@@ -189,7 +189,7 @@ class LeadsDatasetService:
             # If enrichment_column_list is empty string or '[]', enrichment_column_list_parsed will be []
 
             # Read file content
-            file_content = await file.read()
+            file_content = file.file.read()
 
             # Validate filename and determine file type
             if not file.filename:

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/", response_model=ProjectResponse, status_code=201)
-async def create_project(project_data: ProjectCreate, keys: ApiKeys = Depends(get_api_keys)):
+def create_project(project_data: ProjectCreate, keys: ApiKeys = Depends(get_api_keys)):
     """
     Create a new project, with example first messages written for it from its
     title and description when an OpenAI key is supplied. The project is
@@ -41,7 +41,7 @@ async def create_project(project_data: ProjectCreate, keys: ApiKeys = Depends(ge
     return project
 
 @router.post("/{project_id}/example-prompts", response_model=ProjectResponse)
-async def write_example_prompts(project_id: int, keys: ApiKeys = Depends(get_api_keys)):
+def write_example_prompts(project_id: int, keys: ApiKeys = Depends(get_api_keys)):
     """Write (or rewrite) a project's example first messages from its title and description."""
     project = project_service.get_project(project_id)
     prompts = agent_brief_service.draft_example_prompts(
@@ -50,24 +50,24 @@ async def write_example_prompts(project_id: int, keys: ApiKeys = Depends(get_api
     return project_service.set_example_prompts(project_id, prompts)
 
 @router.get("/", response_model=list[ProjectResponse])
-async def get_projects():
+def get_projects():
     """List all projects"""
     return project_service.get_projects()
 
 @router.get("/{project_id}", response_model=ProjectResponse)
-async def get_project(project_id: int):
+def get_project(project_id: int):
     """Get specific project details by ID"""
     return project_service.get_project(project_id)
 
 @router.put("/{project_id}", response_model=ProjectResponse)
-async def update_project(project_id: int, project_data: ProjectUpdate):
+def update_project(project_id: int, project_data: ProjectUpdate):
     """Update project by ID"""
     # Convert Pydantic model to dict, excluding None values
     update_data = project_data.dict(exclude_unset=True)
     return project_service.update_project(project_id, **update_data)
 
 @router.delete("/{project_id}", status_code=204)
-async def delete_project(project_id: int):
+def delete_project(project_id: int):
     """Delete project by ID"""
     project_service.delete_project(project_id)
     return

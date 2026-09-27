@@ -32,7 +32,7 @@ async def login(request: LoginRequest):
 
 
 @router.get("/status", response_model=ServerKeysResponse)
-async def status():
+def status():
     """Which API keys the server has, so the app knows what can run."""
     return ServerKeysResponse(
         openai=_is_set(settings.openai_api_key),

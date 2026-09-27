@@ -21,7 +21,7 @@ router = APIRouter()
 
 
 @router.get("/projects/{project_id}/chat", response_model=ChatHistoryResponse)
-async def get_chat(
+def get_chat(
     project_id: int,
     before: Optional[int] = None,
     limit: int = Query(200, ge=1, le=500),
@@ -44,14 +44,14 @@ async def get_chat(
     response_model=list[ChatEntryResponse],
     status_code=201,
 )
-async def append_chat(project_id: int, request: ChatAppendRequest):
+def append_chat(project_id: int, request: ChatAppendRequest):
     """Append entries to the project's conversation, in order"""
     saved = chat_service.append(project_id, request.entries)
     return [ChatEntryResponse.model_validate(e) for e in saved]
 
 
 @router.post("/projects/{project_id}/chat/interpret", response_model=MessagePlanResponse)
-async def interpret_message(
+def interpret_message(
     project_id: int,
     request: InstructionRequest,
     keys: ApiKeys = Depends(get_api_keys),
