@@ -18,7 +18,7 @@ from .job_service import job_service
 
 # Import existing Jina functions from utils
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
-from ..utils.ai_clients import build_agent_model
+from ..utils.ai_clients import REASONING_EFFORT, build_agent_model
 from ..exceptions import (
     ApiKeyNotConfiguredError,
     OpenAITokenLimitExceededError,
@@ -417,10 +417,9 @@ In {enrichment_name} return None if you do not find any information at all, OR i
             output_type=OutputModel,
             model=build_agent_model(openai_api_key),
             model_settings=ModelSettings(
-                reasoning=Reasoning(
-                    effort="low"
-                ),  # The lowest effort both gpt-5-mini and gpt-6-luna accept;
-                # gpt-6-luna rejects "minimal" and doesn't document verbosity.
+                # Set by OPENAI_REASONING_EFFORT. gpt-6-luna rejects "minimal" and
+                # doesn't document verbosity, so neither is sent.
+                reasoning=Reasoning(effort=REASONING_EFFORT),
             ),
         )
 

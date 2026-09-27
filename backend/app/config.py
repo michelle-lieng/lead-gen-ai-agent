@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # The OpenAI model every call uses: drafting, search queries, extraction
     # and research. Change it here or with OPENAI_MODEL, no code change needed.
     openai_model: str = Field(default="gpt-6-luna")
+    # How hard the agents think before answering (source extraction and
+    # research). gpt-6-luna accepts none, low, medium, high, xhigh and max.
+    openai_reasoning_effort: str = Field(default="medium")
 
     debug: bool = Field(default=False)
 

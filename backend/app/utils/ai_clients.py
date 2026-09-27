@@ -18,6 +18,7 @@ except ImportError:  # pragma: no cover - fallback for other versions
     from agents.models.openai_responses import OpenAIResponsesModel
 
 DEFAULT_MODEL = settings.openai_model
+REASONING_EFFORT = settings.openai_reasoning_effort
 
 
 def build_openai_client(openai_api_key: str) -> openai.OpenAI:
