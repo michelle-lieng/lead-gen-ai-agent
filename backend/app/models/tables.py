@@ -25,14 +25,17 @@ class Project(Base):
     example_prompts = Column(JSON, nullable=True)  # Example first messages for the chat, written for this project
 
     # Relationship to serp_queries, serp_urls, and serp_leads
-    serp_queries = relationship("SerpQuery", back_populates="project", cascade="all, delete-orphan")
-    serp_urls = relationship("SerpUrl", back_populates="project", cascade="all, delete-orphan")
-    serp_leads = relationship("SerpLead", back_populates="project", cascade="all, delete-orphan")
-    serp_leads_aggregated = relationship("SerpLeadAggregated", back_populates="project", cascade="all, delete-orphan")
-    project_datasets = relationship("ProjectDataset", back_populates="project", cascade="all, delete-orphan")
-    merged_results = relationship("MergedResult", back_populates="project", cascade="all, delete-orphan")
-    enrichments = relationship("Enrichment", back_populates="project", cascade="all, delete-orphan")
-    chat_entries = relationship("ChatEntry", back_populates="project", cascade="all, delete-orphan")
+    # passive_deletes lets Postgres's ON DELETE CASCADE remove the children in
+    # one statement, instead of the ORM loading and deleting each row, which
+    # over a remote database took long enough for the host to restart the server.
+    serp_queries = relationship("SerpQuery", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    serp_urls = relationship("SerpUrl", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    serp_leads = relationship("SerpLead", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    serp_leads_aggregated = relationship("SerpLeadAggregated", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    project_datasets = relationship("ProjectDataset", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    merged_results = relationship("MergedResult", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    enrichments = relationship("Enrichment", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    chat_entries = relationship("ChatEntry", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
 
 class SerpQuery(Base):
     """PostgreSQL table: serp_queries - for generating search questions"""
@@ -66,7 +69,7 @@ class SerpUrl(Base):
     
     # Relationship back to project and forward to leads
     project = relationship("Project", back_populates="serp_urls")
-    serp_leads = relationship("SerpLead", back_populates="serp_url", cascade="all, delete-orphan")
+    serp_leads = relationship("SerpLead", back_populates="serp_url", cascade="all, delete-orphan", passive_deletes=True)
 
 class SerpLead(Base):
     """PostgreSQL table: serp_leads - for storing leads extracted from serp urls"""
@@ -110,7 +113,7 @@ class ProjectDataset(Base):
     
     # Relationships
     project = relationship("Project", back_populates="project_datasets")
-    datasets = relationship("Dataset", back_populates="project_dataset", cascade="all, delete-orphan")
+    datasets = relationship("Dataset", back_populates="project_dataset", cascade="all, delete-orphan", passive_deletes=True)
 
 class Dataset(Base):
     """PostgreSQL table: datasets - actual dataset rows with lead and enrichment values"""
