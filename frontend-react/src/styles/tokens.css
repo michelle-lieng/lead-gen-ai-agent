@@ -413,6 +413,16 @@ textarea.input { line-height: 1.55; resize: vertical; }
   color: var(--text-2);
 }
 
+/* A field menu's title: the column's whole name, wrapped rather than cut. */
+.pop__title {
+  padding: 8px 9px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
 .pop__item {
   display: flex;
   align-items: center;

@@ -67,3 +67,51 @@ export function writeNotesState(projectId: number, state: NotesState): void {
 export function notesOpen(state: NotesState, answerKey: string): boolean {
   return state.all || state.open.includes(answerKey);
 }
+
+export const MIN_COLUMN_WIDTH = 72;
+export const MAX_COLUMN_WIDTH = 720;
+
+/** A dragged width, kept to whole pixels and within bounds. */
+export function clampColumnWidth(width: number): number {
+  return Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(width)));
+}
+
+/**
+ * The width that shows a column's whole name: its current width plus the part
+ * of the name that is cut off (and a little air). Null when the name fits.
+ */
+export function fitColumnWidth(
+  currentWidth: number,
+  nameScrollWidth: number,
+  nameClientWidth: number,
+): number | null {
+  const hidden = nameScrollWidth - nameClientWidth;
+  if (hidden <= 0) return null;
+  return clampColumnWidth(currentWidth + hidden + 4);
+}
+
+const widthsKey = (projectId: number) => `kiyu.results.widths.${projectId}`;
+
+/** Widths the user dragged columns to, by column key; the rest keep their default. */
+export function readColumnWidths(projectId: number): Record<string, number> {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(widthsKey(projectId)) ?? '{}');
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).filter(
+        (entry): entry is [string, number] =>
+          typeof entry[1] === 'number' && Number.isFinite(entry[1]) && entry[1] > 0,
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+export function writeColumnWidths(projectId: number, widths: Record<string, number>): void {
+  try {
+    localStorage.setItem(widthsKey(projectId), JSON.stringify(widths));
+  } catch {
+    /* storage unavailable: the widths last for this visit only */
+  }
+}

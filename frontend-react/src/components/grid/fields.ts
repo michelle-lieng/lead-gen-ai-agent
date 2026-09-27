@@ -228,13 +228,6 @@ function humanise(key: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-export const FIELD_TYPE_LABEL: Record<FieldType, string> = {
-  text: 'Single line text',
-  longtext: 'Long text',
-  number: 'Number',
-  select: 'Single select',
-};
-
 /** The reasoning and evidence an AI field recorded for one record. */
 export interface FieldNote {
   name: string;

@@ -1,5 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { notesOpen, readNotesState, readYesFilters, writeNotesState, writeYesFilters } from './viewState';
+import {
+  clampColumnWidth,
+  fitColumnWidth,
+  notesOpen,
+  readColumnWidths,
+  readNotesState,
+  readYesFilters,
+  writeColumnWidths,
+  writeNotesState,
+  writeYesFilters,
+} from './viewState';
 
 /** An in-memory localStorage: all these functions touch of the browser. */
 function installStorage() {
@@ -52,4 +62,32 @@ describe('why and evidence state', () => {
     expect(notesOpen({ all: false, open: ['env'] }, 'staff')).toBe(false);
     expect(notesOpen({ all: true, open: [] }, 'staff')).toBe(true);
   });
+});
+
+describe('column widths', () => {
+  it('remembers dragged widths per project', () => {
+    writeColumnWidths(11, { lead: 320, env: 140 });
+    expect(readColumnWidths(11)).toEqual({ lead: 320, env: 140 });
+  });
+  it('starts with no overrides', () => expect(readColumnWidths(12)).toEqual({}));
+  it('drops stored entries that are not sensible widths', () => {
+    localStorage.setItem('kiyu.results.widths.13', '{"lead": 300, "env": "wide", "x": -5}');
+    expect(readColumnWidths(13)).toEqual({ lead: 300 });
+    localStorage.setItem('kiyu.results.widths.14', '[1,2]');
+    expect(readColumnWidths(14)).toEqual({});
+  });
+  it('keeps a dragged width within bounds and whole pixels', () => {
+    expect(clampColumnWidth(10)).toBe(72);
+    expect(clampColumnWidth(5000)).toBe(720);
+    expect(clampColumnWidth(201.6)).toBe(202);
+  });
+});
+
+describe('fitColumnWidth', () => {
+  it('widens a column by exactly the part of its name that is cut off', () =>
+    expect(fitColumnWidth(164, 230, 120)).toBe(274 + 4));
+  it('leaves a column whose name already fits', () =>
+    expect(fitColumnWidth(164, 90, 120)).toBeNull());
+  it('never grows past the widest a column can be', () =>
+    expect(fitColumnWidth(600, 900, 400)).toBe(720));
 });

@@ -11,7 +11,7 @@
  * would look like it had done nothing. That needs a backend change first.
  */
 
-import { FIELD_TYPE_LABEL, GridField } from './fields';
+import { GridField } from './fields';
 import { PopItem, PopLabel, PopNote, PopRule, Popover } from '../ui/Popover';
 import { useNotify } from '../ui/Toasts';
 
@@ -44,10 +44,7 @@ export function FieldMenu({
 
   return (
     <Popover anchor={anchor} label={`${field.name} field`} onClose={onClose} width={286}>
-      <PopLabel>
-        {FIELD_TYPE_LABEL[field.type]}
-        {field.ai ? ' · written by the agent' : ''}
-      </PopLabel>
+      <p className="pop__title">{field.name}</p>
 
       {field.identifier && <span className="pop__mono">{field.identifier}</span>}
 

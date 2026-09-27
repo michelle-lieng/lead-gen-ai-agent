@@ -400,7 +400,35 @@
 }
 
 /* An answer column's own why-and-evidence switch, beside its name. */
-.head:has(.head__notes) { padding-right: 22px; }
+.head:has(.head__notes) { padding-right: 26px; }
+
+/* A column's draggable right edge: a thin grab strip over the header's border,
+   showing the accent line on hover, while dragging and when focused. */
+.head__resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.head__resize::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  right: 1px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background var(--clock) var(--ease);
+}
+.head__resize:hover::after,
+.head__resize:active::after,
+.head__resize:focus-visible::after { background: var(--accent); }
+.head__resize:focus-visible { outline: none; }
 .head__notes {
   display: grid;
   place-items: center;
@@ -617,7 +645,7 @@
    would cost more of the field name than it is worth. */
 .head__menu {
   position: absolute;
-  right: 4px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
   display: grid;

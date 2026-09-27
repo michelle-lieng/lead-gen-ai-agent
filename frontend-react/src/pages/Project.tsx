@@ -20,7 +20,9 @@ import {
   NotesState,
   notesOpen,
   readNotesState,
+  readColumnWidths,
   readYesFilters,
+  writeColumnWidths,
   writeNotesState,
   writeYesFilters,
 } from '../components/grid/viewState';
@@ -75,6 +77,7 @@ export function Project() {
   const [focusToken, setFocusToken] = useState(0);
   const [filter, setFilter] = useState('');
   const [yesFilters, setYesFilters] = useState<string[]>(() => readYesFilters(id));
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => readColumnWidths(id));
   const [notes, setNotes] = useState<NotesState>(() => readNotesState(id));
   const [rowHeight, setRowHeight] = useState<RowHeight>(
     () => (localStorage.getItem(ROW_HEIGHT_KEY) as RowHeight | null) ?? 'short',
@@ -175,6 +178,28 @@ export function Project() {
     () => fields.filter((f) => !(f.note && f.parentKey && collapsedNotes.has(f.parentKey))),
     [fields, collapsedNotes],
   );
+  // Dragged widths override each column's default; saved when a drag ends.
+  const sizedFields = useMemo(
+    () =>
+      gridFields.map((f) => (columnWidths[f.key] ? { ...f, width: columnWidths[f.key] } : f)),
+    [gridFields, columnWidths],
+  );
+  const resizeColumn = (key: string, width: number, done: boolean) => {
+    setColumnWidths((current) => {
+      const next = { ...current, [key]: width };
+      if (done) writeColumnWidths(id, next);
+      return next;
+    });
+  };
+  const resetColumnWidth = (key: string) => {
+    setColumnWidths((current) => {
+      const next = { ...current };
+      delete next[key];
+      writeColumnWidths(id, next);
+      return next;
+    });
+  };
+
   const saveNotes = (next: NotesState) => {
     setNotes(next);
     writeNotesState(id, next);
@@ -571,7 +596,9 @@ export function Project() {
           />
         ) : (
           <DataGrid
-            fields={gridFields}
+            fields={sizedFields}
+            onResizeColumn={resizeColumn}
+            onResetColumnWidth={resetColumnWidth}
             collapsedNotes={collapsedNotes}
             onToggleNotes={toggleNotes}
             rows={visibleRows}

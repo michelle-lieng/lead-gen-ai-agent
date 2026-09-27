@@ -28,6 +28,7 @@ import {
 } from 'react';
 import { GridField, GridRow, hasNotes, isBlank } from './fields';
 import { countSources } from './rowStatus';
+import { MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, clampColumnWidth, fitColumnWidth } from './viewState';
 import { CellValue } from './CellValue';
 import { FieldMenu } from './FieldMenu';
 import { Icon } from '../ui/Icon';
@@ -62,6 +63,10 @@ interface DataGridProps {
   collapsedNotes?: Set<string>;
   /** Open or fold one answer column's reasoning and evidence. */
   onToggleNotes?: (answerKey: string) => void;
+  /** A column's width while dragging its edge; `done` on release. */
+  onResizeColumn?: (key: string, width: number, done: boolean) => void;
+  /** Put a column back to its default width. */
+  onResetColumnWidth?: (key: string) => void;
 }
 
 export function DataGrid({
@@ -81,6 +86,8 @@ export function DataGrid({
   onAddField,
   collapsedNotes,
   onToggleNotes,
+  onResizeColumn,
+  onResetColumnWidth,
 }: DataGridProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
@@ -409,6 +416,15 @@ export function DataGrid({
               aria-colindex={index + 2}
               data-note={field.note || undefined}
               style={{ '--cw': `${field.width}px` } as React.CSSProperties}
+              onDoubleClick={(event) => {
+                // Double-clicking the header (not its buttons or edge) widens
+                // the column just enough to show the whole name.
+                if ((event.target as Element).closest('button, .head__resize')) return;
+                const name = event.currentTarget.querySelector<HTMLElement>('.head__name');
+                const width = name && fitColumnWidth(field.width, name.scrollWidth, name.clientWidth);
+                if (width) onResizeColumn?.(field.key, width, true);
+              }}
+              title={onResizeColumn ? 'Double-click to fit the whole name' : undefined}
             >
               <span className="head">
                 <span className="head__icon" data-ai={field.ai || undefined}>
@@ -442,6 +458,14 @@ export function DataGrid({
                   <Icon name="chevron-down" size={12} />
                 </button>
               </span>
+              {onResizeColumn && (
+                <ResizeHandle
+                  name={field.name}
+                  width={field.width}
+                  onResize={(width, done) => onResizeColumn(field.key, width, done)}
+                  onReset={() => onResetColumnWidth?.(field.key)}
+                />
+              )}
             </div>
           ))}
 
@@ -666,5 +690,68 @@ function SourcesBadge({ count, onOpen }: { count: number; onOpen: () => void }) 
       <Icon name="link" size={11} />
       {count}
     </button>
+  );
+}
+
+/**
+ * The draggable right edge of a column header. Dragging resizes the column
+ * live and saves on release; double-click puts the default width back; with
+ * the handle focused, the arrow keys resize in steps.
+ */
+function ResizeHandle({
+  name,
+  width,
+  onResize,
+  onReset,
+}: {
+  name: string;
+  width: number;
+  onResize: (width: number, done: boolean) => void;
+  onReset: () => void;
+}) {
+  const drag = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  return (
+    <span
+      className="head__resize"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize ${name}`}
+      aria-valuemin={MIN_COLUMN_WIDTH}
+      aria-valuemax={MAX_COLUMN_WIDTH}
+      aria-valuenow={width}
+      tabIndex={0}
+      title="Drag to resize · double-click to reset"
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        drag.current = { startX: event.clientX, startWidth: width };
+      }}
+      onPointerMove={(event) => {
+        if (!drag.current) return;
+        onResize(clampColumnWidth(drag.current.startWidth + event.clientX - drag.current.startX), false);
+      }}
+      onPointerUp={(event) => {
+        if (!drag.current) return;
+        onResize(clampColumnWidth(drag.current.startWidth + event.clientX - drag.current.startX), true);
+        drag.current = null;
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
+      }}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        onReset();
+      }}
+      onKeyDown={(event) => {
+        const step = event.shiftKey ? 64 : 16;
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault();
+          event.stopPropagation();
+          onResize(clampColumnWidth(width + (event.key === 'ArrowRight' ? step : -step)), true);
+        }
+      }}
+    />
   );
 }
