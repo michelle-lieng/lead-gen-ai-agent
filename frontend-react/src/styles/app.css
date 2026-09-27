@@ -239,7 +239,7 @@
   animation: settle var(--clock) var(--ease) both;
 }
 
-.side__toggle { display: none; }
+.side__toggle { display: inline-flex; }
 
 /* Dims the table only once the panel has stopped being a column. */
 .panel__scrim { display: none; }
@@ -1804,6 +1804,24 @@
   }
 }
 
+/* Collapsed on wide screens: the content region takes the sidebar's column and
+   drops the seam, which only reads against the sidebar. */
+@media (min-width: 1001px) {
+  .app[data-side='collapsed'] { grid-template-columns: minmax(0, 1fr); }
+  .app[data-side='collapsed'][data-panel='open'] {
+    grid-template-columns: minmax(0, 1fr) var(--panel-w);
+  }
+  .app[data-side='collapsed'] .side { display: none; }
+  .app[data-side='collapsed'] .main {
+    border-left: 0;
+    border-radius: 0;
+  }
+}
+
+@media (min-width: 1001px) and (max-width: 1180px) {
+  .app[data-side='collapsed'][data-panel='open'] { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* The sidebar collapses to a slide-over. */
 @media (max-width: 1000px) {
   .app,
@@ -1828,7 +1846,6 @@
 
   .side[hidden] { display: none; }
   .side__scrim { display: block; }
-  .side__toggle { display: inline-flex; }
 
   .main {
     border-left: 0;

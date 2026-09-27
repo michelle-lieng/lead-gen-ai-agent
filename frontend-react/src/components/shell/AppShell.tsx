@@ -3,7 +3,8 @@
  *
  * The content region carries the rounded seam where it meets the sidebar, so
  * both surfaces — the workspace home and a project — sit in the same shell and
- * the sidebar never reloads between them. Project creation, renaming and
+ * the sidebar never reloads between them. On wide screens the sidebar can be
+ * collapsed to give the table the full width; on narrow ones it is a drawer. Project creation, renaming and
  * deletion live here because the sidebar can start any of them from either
  * surface.
  */
@@ -13,6 +14,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -21,6 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import { deleteProject as deleteProjectRequest } from '../../api/projects';
 import { Project } from '../../api/types';
 import { clearToken } from '../../store/session';
+import { setSidebarCollapsed, useSidebarCollapsed } from '../../store/sidebar';
 import { queryKeys } from '../../hooks/queryKeys';
 import { useProjects } from '../../hooks/useProjects';
 import { Confirm } from '../ui/Modal';
@@ -31,7 +34,10 @@ import { ProjectDialog } from './ProjectDialog';
 import { Sidebar } from './Sidebar';
 
 interface ShellApi {
-  openSidebar: () => void;
+  /** Opens the drawer on narrow screens; collapses or expands it on wide ones. */
+  toggleSidebar: () => void;
+  /** Whether the sidebar is out of view, which the toggle's label follows. */
+  sidebarShown: boolean;
   createProject: () => void;
   renameProject: (project: Project) => void;
   deleteProject: (project: Project) => void;
@@ -39,7 +45,21 @@ interface ShellApi {
 
 const ShellContext = createContext<ShellApi | null>(null);
 
-/** The sidebar button, shown only where the sidebar has collapsed to a drawer. */
+/** Matches the CSS breakpoint where the sidebar becomes a drawer. */
+const NARROW_QUERY = '(max-width: 1000px)';
+
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW_QUERY).matches);
+  useEffect(() => {
+    const query = window.matchMedia(NARROW_QUERY);
+    const onChange = () => setNarrow(query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
+  return narrow;
+}
+
+/** The sidebar button in the project bar: shows or hides the projects. */
 export function SidebarToggle() {
   const shell = useContext(ShellContext);
   if (!shell) return null;
@@ -47,9 +67,10 @@ export function SidebarToggle() {
     <span className="side__toggle">
       <IconButton
         icon="sidebar"
-        label="Show projects"
+        label={shell.sidebarShown ? 'Hide projects' : 'Show projects'}
         compact
-        onClick={shell.openSidebar}
+        aria-expanded={shell.sidebarShown}
+        onClick={shell.toggleSidebar}
       />
     </span>
   );
@@ -130,6 +151,8 @@ export function AppShell({
   const { notify, notifyError } = useNotify();
   const { data: projects, isLoading } = useProjects();
 
+  const narrow = useNarrow();
+  const collapsed = useSidebarCollapsed();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<Project | null>(null);
@@ -150,18 +173,26 @@ export function AppShell({
     onError: notifyError,
   });
 
-  const openSidebar = useCallback(() => setDrawerOpen(true), []);
+  const sidebarShown = narrow ? drawerOpen : !collapsed;
+  const toggleSidebar = useCallback(() => {
+    if (narrow) setDrawerOpen((open) => !open);
+    else setSidebarCollapsed(!collapsed);
+  }, [narrow, collapsed]);
   const createProject = useCallback(() => setCreating(true), []);
   const renameProject = useCallback((project: Project) => setRenaming(project), []);
   const deleteProject = useCallback((project: Project) => setDeleting(project), []);
   const api = useMemo(
-    () => ({ openSidebar, createProject, renameProject, deleteProject }),
-    [openSidebar, createProject, renameProject, deleteProject],
+    () => ({ toggleSidebar, sidebarShown, createProject, renameProject, deleteProject }),
+    [toggleSidebar, sidebarShown, createProject, renameProject, deleteProject],
   );
 
   return (
     <ShellContext.Provider value={api}>
-      <div className="app" data-panel={panel ? 'open' : 'closed'}>
+      <div
+        className="app"
+        data-panel={panel ? 'open' : 'closed'}
+        data-side={collapsed ? 'collapsed' : 'open'}
+      >
         {drawerOpen && (
           <div
             className="side__scrim"
