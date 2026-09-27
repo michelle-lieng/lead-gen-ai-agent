@@ -251,6 +251,27 @@ class OpenAIRequestError(AppError):
         super().__init__(message, meta=meta)
 
 
+class GooglePlacesRequestError(AppError):
+    """
+    Raised when Google Places rejects a search or can't be reached.
+
+    Carries Google's own message: "API not enabled", "billing not set up" and
+    "key not valid" each need a different fix in Google Cloud, and a house
+    sentence would hide which one it is.
+    """
+
+    status_code = 502
+    code = "GOOGLE_PLACES_REQUEST_FAILED"
+
+    def __init__(
+        self,
+        message: str = "Google Places rejected the request",
+        *,
+        meta: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, meta=meta)
+
+
 class OpenAITokenLimitExceededError(AppError):
     """Raised when OpenAI request exceeds token limit even after truncation attempts"""
 

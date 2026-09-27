@@ -106,25 +106,47 @@ Return:
    ("dental clinics in Sydney"), or more of the current search ("get me 10 more",
    "find more", "keep going").
 
-2. `find_instruction` — when `find` is true, one standalone sentence describing the
-   companies to find. For "more of the same", restate the current search target in a
-   sentence. For a new or changed search, describe exactly what the user asked for,
-   folding in anything from the conversation it depends on. Empty when `find` is false.
+2. `find_instruction` — when `find` is true, the BASE search only: the type of
+   organisation plus the one most searchable anchor in the message, meaning the
+   location, industry or listed category that directories and lists are organised
+   by. Leave out every other qualifier; those become `criteria`. Examples:
+   - "sydney harbour companies that invest in environmental causes" ->
+     "Companies based around Sydney Harbour"
+   - "franchise gyms in Brisbane with over 50 staff" -> "Gyms in Brisbane"
+   - "dental clinics in Sydney" -> "Dental clinics in Sydney"
+   For "more of the same", restate the current search target in a sentence. Fold
+   in anything from the conversation the message depends on. Empty when `find` is
+   false.
 
-3. `columns` — one entry per piece of information the user wants researched about
-   every company ("do they have a franchise?", "find their website", "how many
-   staff"). Each entry is a standalone question or instruction, phrased as it would be
-   asked about a single company. Never repeat a column that already exists. Empty
-   when none is asked for. A single message may ask for both companies and columns.
+3. `location` — when `find` is true, the place the message names (suburb, city,
+   landmark or region) exactly as the user wrote it, e.g. "Sydney Harbour" or
+   "Brisbane". For "more of the same", reuse the current search's place if it has
+   one. Empty when no place is named or `find` is false.
 
-4. `continue_columns` — names of EXISTING columns (exactly as listed above) the user
+4. `criteria` — one Yes/No question per qualifier in the message that has to be
+   checked company by company rather than searched for: behaviour, investments,
+   policies, size, certifications, ownership or business model. Phrase each about a
+   single company, e.g. "Does this company invest in or financially support
+   environmental causes?", "Does this gym operate as a franchise?", "Does this
+   company have more than 50 staff?". Empty when the message has no such qualifier
+   (e.g. "dental clinics in Sydney"), and empty for "more of the same" requests.
+   Never repeat a column that already exists.
+
+5. `columns` — one entry per piece of information the user wants researched about
+   every company that is NOT a Yes/No check ("find their website", "how many
+   staff", "what do they fund"). Each entry is a standalone question or
+   instruction, phrased as it would be asked about a single company. Never repeat a
+   column that already exists. Empty when none is asked for. A single message may
+   ask for companies, criteria and columns together.
+
+6. `continue_columns` — names of EXISTING columns (exactly as listed above) the user
    wants finished or resumed for the leads still unanswered: "continue", "keep going",
    "finish the opening hours", "yes" after being asked whether to carry on, or "fill
    in the rest". Only columns that still have unanswered leads. Empty otherwise.
 
-5. `reply` — a short, plain answer only when the message is a question about the
+7. `reply` — a short, plain answer only when the message is a question about the
    project or the tool, a greeting, or too unclear to act on (then ask one clarifying
-   question). Empty when `find`, `columns` or `continue_columns` already cover the
+   question). Empty when `find`, `criteria`, `columns` or `continue_columns` already cover the
    message. The reply is only ever words: it must never say that you are doing,
    starting, resuming or will do any work, because a reply alone runs nothing. If the
    user wants work done, put it in the fields above instead.

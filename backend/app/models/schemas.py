@@ -346,6 +346,13 @@ class InstructionRequest(BaseModel):
         return validate_not_empty_string(v)
 
 
+class EnrichmentDraftRequest(InstructionRequest):
+    """A column to draft from one instruction, optionally with its format pinned"""
+
+    # Criteria columns pass "True/False"; omitted, the drafter picks the format.
+    result_format: Optional[Literal["True/False", "Number", "Text"]] = None
+
+
 class LeadBriefResponse(BaseModel):
     """The search configuration drafted from a 'find me leads like this' instruction"""
 
@@ -440,7 +447,9 @@ class MessagePlanResponse(BaseModel):
     """What one chat message asks the agent to do"""
 
     find: bool  # Search for companies (new search or more of the current one)
-    find_instruction: str  # Standalone description of the companies to find
+    find_instruction: str  # The base search: entity type plus its searchable anchor
+    location: str  # The place the message names, "" when none; triggers Google Places
+    criteria: list[str]  # Yes/No questions, one new True/False column each
     columns: list[str]  # One research question per new column
     continue_columns: list[ContinueColumn]  # Existing columns to finish for unanswered leads
     reply: str  # A direct answer, when the message needs one

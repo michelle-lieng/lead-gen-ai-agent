@@ -8,15 +8,17 @@ from fastapi import APIRouter, Depends
 from ..deps import ApiKeys, get_api_keys
 from ...services.agent_brief_service import agent_brief_service
 from ...services.enrichment_execution_service import enrichment_execution_service
+from ...services.column_gaps import unanswered_columns
 from ...services.enrichment_service import enrichment_service
 from ...services.merged_results_service import merged_results_service
 from ...services.job_service import job_service
 from ...models.schemas import (
+    ContinueColumn,
     EnrichmentCreate,
     EnrichmentUpdate,
     EnrichmentResponse,
     EnrichLeadsRequest,
-    InstructionRequest,
+    EnrichmentDraftRequest,
 )
 from ...services.project_service import project_service
 from ...exceptions import (
@@ -56,7 +58,7 @@ async def create_enrichment(project_id: int, request: EnrichmentCreate):
 )
 async def draft_enrichment(
     project_id: int,
-    request: InstructionRequest,
+    request: EnrichmentDraftRequest,
     keys: ApiKeys = Depends(get_api_keys),
 ):
     """
@@ -75,6 +77,7 @@ async def draft_enrichment(
         project_id,
         request.instruction,
         openai_api_key=keys.require_openai(),
+        result_format=request.result_format,
     )
 
 
@@ -91,6 +94,22 @@ async def get_enrichments(project_id: int):
         raise ProjectNotFoundError(project_id)
 
     return enrichment_service.get_enrichments(project_id)
+
+
+@router.get(
+    "/projects/{project_id}/enrichments/unanswered",
+    response_model=list[ContinueColumn],
+)
+async def get_unanswered_columns(project_id: int):
+    """
+    Columns that still have leads without an answer, with those leads.
+
+    Called after a search adds rows, so every existing column can be filled
+    for the new rows without re-researching the ones already answered.
+    """
+    project_service.get_project(project_id)  # raises if the project is gone
+    rows = merged_results_service.get_merged_results(project_id)["data"]
+    return unanswered_columns(rows, enrichment_service.get_enrichments(project_id))
 
 
 @router.get("/enrichments/{enrichment_id}", response_model=EnrichmentResponse)

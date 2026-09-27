@@ -32,6 +32,7 @@ from ..prompts.agent_briefs import (
 )
 from ..utils.ai_clients import build_openai_client
 from .chat_service import chat_service
+from .column_gaps import unanswered_leads
 from .enrichment_service import enrichment_service
 from .merged_results_service import merged_results_service
 from .project_service import project_service
@@ -47,7 +48,7 @@ MODEL = "gpt-5-mini"
 
 # Reserved so a drafted column can never collide with the merged_results base
 # columns or the reasoning/evidence siblings the execution service appends.
-RESERVED_COLUMNS = {"id", "project_id", "lead", "serp_count"}
+RESERVED_COLUMNS = {"id", "project_id", "lead", "serp_count", "address"}
 
 
 class LeadBriefDraft(BaseModel):
@@ -83,24 +84,103 @@ class MessagePlan(BaseModel):
 
     find: bool = False
     find_instruction: str = ""
+    location: str = ""
+    criteria: list[str] = Field(default_factory=list)
     columns: list[str] = Field(default_factory=list)
     continue_columns: list[str] = Field(default_factory=list)
     reply: str = ""
 
 
-def unanswered_leads(rows: list[dict], column_name: str) -> list[str]:
-    """Leads whose column was never researched: no answer and no reasoning.
+ResultFormat = Literal["True/False", "Number", "Text"]
 
-    A researched lead with no answer found still has its reasoning written, so
-    it is not picked up again when the column is continued.
+
+def apply_format_override(
+    draft: EnrichmentDraft, result_format: Optional[ResultFormat]
+) -> EnrichmentDraft:
+    """Pin a drafted column's result format; criteria are always True/False."""
+    if result_format is None:
+        return draft
+    return draft.model_copy(update={"result_format": result_format})
+
+
+# The most new columns (criteria + research) one message may add, so a single
+# message can't queue an unbounded research bill.
+MAX_NEW_COLUMNS = 5
+
+
+def _column_key(name: str) -> str:
+    """How two column names are compared: case, spacing and a trailing '?' ignored."""
+    return " ".join(name.strip().rstrip("?").lower().split())
+
+
+def known_column_names(enrichments: list) -> list[str]:
     """
-    reasoning = f"{column_name}_reasoning"
-    blank = lambda value: value is None or (isinstance(value, str) and not value.strip())
-    return [
-        str(row["lead"])
-        for row in rows
-        if row.get("lead") and blank(row.get(column_name)) and blank(row.get(reasoning))
+    Every name an existing column is known by: its drafted title and the
+    question it was drafted from. The interpreter re-emits criteria as
+    questions, so comparing titles alone would let a column be added twice.
+    """
+    names = [e.enrichment_name for e in enrichments]
+    names += [e.enrichment_description for e in enrichments if e.enrichment_description]
+    return names
+
+
+def build_plan(
+    raw: MessagePlan,
+    *,
+    current_target: Optional[str],
+    existing_columns: list[str],
+    unanswered_by_name: dict[str, list[str]],
+    enrichments: list,
+) -> dict:
+    """
+    Turn the model's raw reading of a message into the plan the chat runs.
+
+    The search runs on the base only; each qualifier becomes a Yes/No criterion
+    column. Nothing here calls the model or the database.
+    """
+    find_instruction = raw.find_instruction.strip()
+    if raw.find and not find_instruction:
+        find_instruction = (current_target or "").strip()
+    find = raw.find and bool(find_instruction)
+
+    taken = {_column_key(name) for name in existing_columns}
+
+    def fresh(names: list[str], room: int) -> list[str]:
+        kept = []
+        for name in names:
+            name = name.strip()
+            key = _column_key(name)
+            if name and key not in taken and len(kept) < room:
+                taken.add(key)
+                kept.append(name)
+        return kept
+
+    criteria = fresh(raw.criteria, MAX_NEW_COLUMNS)
+    columns = fresh(raw.columns, MAX_NEW_COLUMNS - len(criteria))
+
+    wanted = {_column_key(name) for name in raw.continue_columns}
+    continue_columns = [
+        {
+            "enrichment_id": e.id,
+            "name": e.enrichment_name,
+            "column_name": e.column_name,
+            "leads": unanswered_by_name[e.enrichment_name],
+        }
+        for e in enrichments
+        if e.column_name
+        and unanswered_by_name.get(e.enrichment_name)
+        and _column_key(e.enrichment_name) in wanted
     ]
+
+    return {
+        "find": find,
+        "find_instruction": find_instruction if find else "",
+        "location": raw.location.strip() if find else "",
+        "criteria": criteria,
+        "columns": columns,
+        "continue_columns": continue_columns,
+        "reply": raw.reply.strip(),
+    }
 
 
 # How much of the conversation the interpreter sees, newest last.
@@ -224,39 +304,13 @@ class AgentBriefService:
                 ],
                 text_format=MessagePlan,
             )
-        plan = response.output_parsed
-
-        find_instruction = plan.find_instruction.strip()
-        find = plan.find and bool(find_instruction or project.query_search_target)
-        if find and not find_instruction:
-            find_instruction = project.query_search_target or ""
-        taken = {name.strip().lower() for name in columns}
-        new_columns = []
-        for column in plan.columns:
-            column = column.strip()
-            if column and column.lower() not in taken:
-                taken.add(column.lower())
-                new_columns.append(column)
-
-        return {
-            "find": find,
-            "find_instruction": find_instruction if find else "",
-            "columns": new_columns[:5],
-            "continue_columns": [
-                {
-                    "enrichment_id": e.id,
-                    "name": e.enrichment_name,
-                    "column_name": e.column_name,
-                    "leads": unanswered_by_name[e.enrichment_name],
-                }
-                for e in enrichments
-                if e.column_name
-                and unanswered.get(e.enrichment_name, 0) > 0
-                and e.enrichment_name.strip().lower()
-                in {name.strip().lower() for name in plan.continue_columns}
-            ],
-            "reply": plan.reply.strip(),
-        }
+        return build_plan(
+            response.output_parsed,
+            current_target=project.query_search_target,
+            existing_columns=known_column_names(enrichments),
+            unanswered_by_name=unanswered_by_name,
+            enrichments=enrichments,
+        )
 
     def draft_lead_brief(
         self, project_id: int, instruction: str, *, openai_api_key: str
@@ -304,7 +358,12 @@ class AgentBriefService:
         }
 
     def draft_enrichment(
-        self, project_id: int, instruction: str, *, openai_api_key: str
+        self,
+        project_id: int,
+        instruction: str,
+        *,
+        openai_api_key: str,
+        result_format: Optional[ResultFormat] = None,
     ) -> Enrichment:
         """
         Create a fully configured enrichment from a one-line instruction.
@@ -336,7 +395,7 @@ class AgentBriefService:
                 ],
                 text_format=EnrichmentDraft,
             )
-        draft = response.output_parsed
+        draft = apply_format_override(response.output_parsed, result_format)
 
         existing = enrichment_service.get_enrichments(project_id)
         taken_names = {e.enrichment_name for e in existing}
