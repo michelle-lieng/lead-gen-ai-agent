@@ -60,14 +60,19 @@ export const FRIENDLY_TEMPLATES: Record<string, string> = {
   DATABASE_FAILURE:
     'Database error. Please try again. If it keeps happening, the server may be down.',
   API_KEY_NOT_CONFIGURED:
-    'Missing or invalid API key. Please enter your OpenAI and Jina API keys via the "API Keys" button.',
+    "The server is missing an API key. Add it to the backend's environment and restart the backend.",
+  // Access
+  INVALID_PASSWORD: 'That password is not right.',
+  SESSION_REQUIRED: 'Your session has ended. Enter the password again.',
+  AUTH_NOT_CONFIGURED:
+    "This server has no password set. Set APP_PASSWORD and AUTH_SECRET in the backend's environment.",
   // External APIs
   EXTERNAL_SCRAPER_ERROR:
     'Scraper service is having issues right now. Please try again in a moment.',
   SCRAPER_CREDITS_EXHAUSTED:
-    'Your Jina API key has no credits remaining. Top up at jina.ai/api-dashboard or enter a different key via the "API Keys" button.',
+    "The server's Jina API key has no credits remaining. Top up at jina.ai/api-dashboard or change JINA_API_KEY in the backend's environment.",
   SCRAPER_API_KEY_INVALID:
-    'Jina rejected your API key. Please check the key entered via the "API Keys" button.',
+    "Jina rejected the server's API key. Check JINA_API_KEY in the backend's environment.",
   OPENAI_TOKEN_LIMIT_EXCEEDED:
     'This request is too large for the AI to process. Try fewer URLs or smaller content.',
   // Enrichment

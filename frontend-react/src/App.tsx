@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router-dom';
-import { ApiKeysProvider } from './components/apiKeys/ApiKeys';
+import { PasswordGate } from './components/auth/PasswordGate';
 import { NotificationsProvider } from './components/ui/Toasts';
 import { router } from './routes';
 import './styles/tokens.css';
@@ -20,9 +20,9 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <NotificationsProvider>
-        <ApiKeysProvider>
+        <PasswordGate>
           <RouterProvider router={router} />
-        </ApiKeysProvider>
+        </PasswordGate>
       </NotificationsProvider>
     </QueryClientProvider>
   );

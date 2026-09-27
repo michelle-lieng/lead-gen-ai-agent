@@ -11,9 +11,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { updateEnrichment } from '../api/enrichments';
 import { deleteMergedRow, fetchMergedResultsZip, updateMergedRow } from '../api/mergedResults';
-import { useApiKeysDialog } from '../components/apiKeys/ApiKeys';
 import { writeExamplePrompts } from '../api/projects';
-import { useApiKeys } from '../store/apiKeys';
 import { DataGrid, ROW_HEIGHT_PX, RowHeight } from '../components/grid/DataGrid';
 import { ExpandedRecord } from '../components/grid/ExpandedRecord';
 import { GridField, buildFields } from '../components/grid/fields';
@@ -41,6 +39,7 @@ import { useEnrichments } from '../hooks/useEnrichments';
 import { useMergedResults } from '../hooks/useMergedResults';
 import { useProject } from '../hooks/useProjects';
 import { useProjectChat } from '../hooks/useProjectChat';
+import { useServerKeys } from '../hooks/useServerKeys';
 import { useQueryHistory } from '../hooks/useQueries';
 import { queryKeys } from '../hooks/queryKeys';
 import { useRegisterRun } from '../hooks/useRegisterRun';
@@ -60,10 +59,8 @@ export function Project() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { notify, notifyError } = useNotify();
-  // The keys dialog itself is opened from the sidebar's account slot; this page
-  // only needs the gate that blocks a run when they are missing.
-  const { requireKeys } = useApiKeysDialog();
-  const { hasKeys } = useApiKeys();
+  // Keys live on the server; a run is blocked, with a note, when it lacks them.
+  const { hasKeys, requireKeys } = useServerKeys();
 
   const { data: project, isLoading: loadingProject, isError } = useProject(id);
   const { data: results, isLoading: loadingResults } = useMergedResults(id);

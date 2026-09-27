@@ -14,7 +14,7 @@ import { Fragment, KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { Enrichment, MessagePlan, QueryRecord } from '../../api/types';
 import { ThreadLine } from '../../hooks/useProjectChat';
 import { RunStep, formatElapsed } from '../../hooks/useRegisterRun';
-import { useApiKeys } from '../../store/apiKeys';
+import { useServerKeys } from '../../hooks/useServerKeys';
 import { Icon } from '../ui/Icon';
 import { Button, IconButton, Spinner } from '../ui/Primitives';
 import {
@@ -424,7 +424,7 @@ function BreakdownCard({
   const [removedColumns, setRemovedColumns] = useState<number[]>([]);
   const [removedContinue, setRemovedContinue] = useState<number[]>([]);
   const [removedLocation, setRemovedLocation] = useState(false);
-  const { googleKey } = useApiKeys();
+  const { googleKey } = useServerKeys();
   const edited = applyCardEdits(plan, {
     base,
     removedCriteria,

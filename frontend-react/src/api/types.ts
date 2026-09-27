@@ -244,3 +244,10 @@ export interface MergedRowUpdateResponse {
   lead: string;
   updated: string[];
 }
+
+/** Which API keys the server has (GET /api/auth/status); the keys never leave it. */
+export interface ServerKeys {
+  openai: boolean;
+  jina: boolean;
+  google: boolean;
+}

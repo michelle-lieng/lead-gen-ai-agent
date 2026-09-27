@@ -2,15 +2,15 @@
  * The sidebar: the workspace, its projects, and the account slot.
  *
  * Every project carries the coloured square it is recognised by.
- * The key status sits at the very bottom, where a workspace puts the account —
- * nothing in this product runs without the user's own keys, so that state is
- * permanently on screen rather than behind a menu.
+ * Sign out sits at the very bottom, where a workspace puts the account, with
+ * the server's key status under it: nothing runs without the OpenAI and Jina
+ * keys, so that state is permanently on screen rather than behind a menu.
  */
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Project } from '../../api/types';
-import { useApiKeys } from '../../store/apiKeys';
+import { useServerKeys } from '../../hooks/useServerKeys';
 import { projectColor, projectInitials } from '../../utils/project';
 import { Icon } from '../ui/Icon';
 import { PopItem, PopRule, Popover } from '../ui/Popover';
@@ -23,7 +23,7 @@ interface SidebarProps {
   onCreate: () => void;
   onRename: (project: Project) => void;
   onDelete: (project: Project) => void;
-  onOpenKeys: () => void;
+  onSignOut: () => void;
   /** Closes the slide-over after navigating, on narrow screens. */
   onNavigate?: () => void;
   hidden?: boolean;
@@ -36,12 +36,12 @@ export function Sidebar({
   onCreate,
   onRename,
   onDelete,
-  onOpenKeys,
+  onSignOut,
   onNavigate,
   hidden,
 }: SidebarProps) {
   const navigate = useNavigate();
-  const { hasKeys, googleKey } = useApiKeys();
+  const { hasKeys, googleKey } = useServerKeys();
   const [menuFor, setMenuFor] = useState<{ project: Project; anchor: HTMLElement } | null>(
     null,
   );
@@ -137,17 +137,18 @@ export function Sidebar({
           type="button"
           className="side__keys"
           data-missing={!hasKeys || undefined}
-          onClick={onOpenKeys}
+          onClick={onSignOut}
+          aria-label="Sign out"
         >
           <span className="side__keys__dot" aria-hidden="true">
             <Icon name="key" size={12} />
           </span>
           <span style={{ minWidth: 0 }}>
-            <b>API keys</b>
+            <b>Sign out</b>
             <span>
               {hasKeys
                 ? `OpenAI and Jina set${googleKey ? ' · Google Places on' : ''}`
-                : 'Not set — nothing can run'}
+                : 'Server is missing OpenAI or Jina key'}
             </span>
           </span>
         </button>

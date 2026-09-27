@@ -20,7 +20,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { deleteProject as deleteProjectRequest } from '../../api/projects';
 import { Project } from '../../api/types';
-import { useApiKeysDialog } from '../apiKeys/ApiKeys';
+import { clearToken } from '../../store/session';
 import { queryKeys } from '../../hooks/queryKeys';
 import { useProjects } from '../../hooks/useProjects';
 import { Confirm } from '../ui/Modal';
@@ -128,7 +128,6 @@ export function AppShell({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { notify, notifyError } = useNotify();
-  const { openDialog } = useApiKeysDialog();
   const { data: projects, isLoading } = useProjects();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -179,7 +178,7 @@ export function AppShell({
           onCreate={() => setCreating(true)}
           onRename={setRenaming}
           onDelete={setDeleting}
-          onOpenKeys={openDialog}
+          onSignOut={clearToken}
           onNavigate={() => setDrawerOpen(false)}
         />
 

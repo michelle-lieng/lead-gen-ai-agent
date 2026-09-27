@@ -26,7 +26,7 @@ import {
   generateUrls,
   searchPlaces,
 } from '../api/leadsSerp';
-import { ChatEntryCreate, ContinueColumn, LeadRow, MessagePlan } from '../api/types';
+import { ChatEntryCreate, ContinueColumn, LeadRow, MessagePlan, ServerKeys } from '../api/types';
 import { errorToMessage } from '../api/errors';
 import {
   CANCELLED_LINE,
@@ -35,7 +35,6 @@ import {
   needsConfirmation,
   summarisePlan,
 } from '../components/panel/breakdown';
-import { getApiKeys } from '../store/apiKeys';
 import { queryKeys } from './queryKeys';
 
 export type StepStatus =
@@ -97,6 +96,9 @@ export function useRegisterRun(
   record: (entry: ChatEntryCreate) => void,
 ) {
   const queryClient = useQueryClient();
+  // Read when a run starts, not at render, so a run sees the latest status.
+  const hasGoogleKey = () =>
+    Boolean(queryClient.getQueryData<ServerKeys>(queryKeys.serverKeys)?.google);
   const [state, setState] = useState<RunState>(EMPTY);
   const abortRef = useRef(false);
   const runningRef = useRef(false);
@@ -202,7 +204,7 @@ export function useRegisterRun(
         // A named place means Google Maps lists the businesses there, so ask
         // it first. It is an extra source: if it fails, the web search runs.
         if (location) {
-          if (getApiKeys().googleKey) {
+          if (hasGoogleKey()) {
             setStep('find-places', { status: 'running' });
             write(`Google Places · ${instruction}`);
             try {
@@ -225,7 +227,7 @@ export function useRegisterRun(
             if (abortRef.current) return true;
           } else {
             write(
-              `Add a Google Places key under API keys to also search Google Maps for ${location}.`,
+              `Set GOOGLE_PLACES_API_KEY in the backend's environment to also search Google Maps for ${location}.`,
             );
           }
         }
@@ -437,7 +439,7 @@ export function useRegisterRun(
       if (plan.find) {
         planned.push(
           { id: 'find-brief', label: `Search: ${plan.find_instruction}`, status: 'pending' },
-          ...(plan.location && getApiKeys().googleKey
+          ...(plan.location && hasGoogleKey()
             ? [{ id: 'find-places', label: 'Search Google Maps', status: 'pending' as const }]
             : []),
           { id: 'find-queries', label: 'Write search queries', status: 'pending' },
