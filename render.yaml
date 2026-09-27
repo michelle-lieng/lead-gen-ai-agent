@@ -31,8 +31,18 @@ services:
         fromDatabase:
           name: lead-gen-db
           property: connectionString
-      # OpenAI/Jina keys are no longer required here — users enter their own
-      # keys in the frontend, which sends them per-request via HTTP headers.
+      # The shared password, the session signing secret and the API keys.
+      # Set their values in the Render dashboard; see backend/env.example.
+      - key: APP_PASSWORD
+        sync: false
+      - key: AUTH_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: JINA_API_KEY
+        sync: false
+      - key: GOOGLE_PLACES_API_KEY
+        sync: false
       - key: DEBUG
         value: "false"
       - key: LOG_LEVEL
