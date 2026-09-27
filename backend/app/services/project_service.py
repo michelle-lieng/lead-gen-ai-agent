@@ -59,6 +59,23 @@ class ProjectService:
 
         return urls_count, leads_count, datasets_count
 
+    def set_example_prompts(self, project_id: int, prompts: list[str]) -> Project:
+        """Save the example first messages written for a project."""
+        try:
+            with db_service.get_session() as session:
+                project = session.query(Project).filter(Project.id == project_id).first()
+                if not project:
+                    raise ProjectNotFoundError(project_id)
+                project.example_prompts = prompts
+                session.commit()
+                session.refresh(project)
+                return project
+        except SQLAlchemyError as e:
+            logger.exception(f"Error saving example prompts for project {project_id}")
+            raise DatabaseFailureError(
+                f"Failed to save example prompts for project {project_id}"
+            ) from e
+
     def create_project(
         self, project_name: str, description: Optional[str] = None
     ) -> Project:

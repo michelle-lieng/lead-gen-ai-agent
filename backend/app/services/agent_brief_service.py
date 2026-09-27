@@ -27,6 +27,7 @@ from .. import exceptions
 from ..models.tables import BUILT_IN_RESULT_COLUMNS, Enrichment
 from ..prompts.agent_briefs import (
     ENRICHMENT_DRAFT_PROMPT,
+    EXAMPLE_PROMPTS_PROMPT,
     INTERPRET_PROMPT,
     LEAD_BRIEF_PROMPT,
 )
@@ -77,6 +78,46 @@ class EnrichmentDraft(BaseModel):
     result_false_if: str = ""
     result_number_value: str = ""
     result_text_value: str = ""
+
+
+class ExamplePrompts(BaseModel):
+    """What the model returns: example first messages for a new project."""
+
+    prompts: list[str] = Field(default_factory=list)
+
+
+# Examples longer than this read as paragraphs, not something to click and send.
+MAX_EXAMPLE_LENGTH = 120
+
+
+def clean_example_prompts(raw: list[str]) -> list[str]:
+    """
+    Up to three distinct, trimmed, readable searches, in the model's order.
+    Questions are dropped: the examples start a search, and a question about
+    companies already found means nothing in a project that has none yet.
+    """
+    kept: list[str] = []
+    seen: set[str] = set()
+    for prompt in raw:
+        prompt = " ".join(prompt.split())
+        key = prompt.lower()
+        if (
+            prompt
+            and len(prompt) <= MAX_EXAMPLE_LENGTH
+            and not prompt.endswith("?")
+            and key not in seen
+        ):
+            seen.add(key)
+            kept.append(prompt)
+    return kept[:3]
+
+
+def example_prompts_request(title: str, description: Optional[str]) -> str:
+    """The model's instructions for one project's example messages."""
+    return EXAMPLE_PROMPTS_PROMPT.format(
+        title=title.strip(),
+        description=(description or "").strip() or "(no description)",
+    )
 
 
 class MessagePlan(BaseModel):
@@ -311,6 +352,28 @@ class AgentBriefService:
             unanswered_by_name=unanswered_by_name,
             enrichments=enrichments,
         )
+
+    def draft_example_prompts(
+        self, title: str, description: Optional[str], *, openai_api_key: str
+    ) -> list[str]:
+        """Three example first messages for a project, from its title and description."""
+        client = build_openai_client(openai_api_key)
+        with _openai_errors("writing example prompts"):
+            response = client.responses.parse(
+                model=MODEL,
+                input=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You write short example messages a user could send to a "
+                            "lead-generation chat. You write only the messages."
+                        ),
+                    },
+                    {"role": "user", "content": example_prompts_request(title, description)},
+                ],
+                text_format=ExamplePrompts,
+            )
+        return clean_example_prompts(response.output_parsed.prompts)
 
     def draft_lead_brief(
         self, project_id: int, instruction: str, *, openai_api_key: str

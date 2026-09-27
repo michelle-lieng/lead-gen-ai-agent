@@ -75,6 +75,7 @@ class ProjectResponse(BaseModel):
     leads_collected: int
     datasets_added: int
     urls_processed: int
+    example_prompts: Optional[list[str]] = None  # Example first messages, written for this project
 
     class Config:
         from_attributes = True

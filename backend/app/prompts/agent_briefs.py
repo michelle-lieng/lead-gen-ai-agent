@@ -171,3 +171,29 @@ it. Leave out anything that is only a place.
 Places:
 {places}
 """
+
+
+EXAMPLE_PROMPTS_PROMPT = """
+A user just created a project in a lead-generation tool. Its chat takes a plain
+sentence describing the companies to find; the tool searches for them and
+checks any condition in the sentence against each one.
+
+Project title: {title}
+Project description: {description}
+
+Write exactly 3 example searches this user could send first, tailored to what
+the title and description say they are after. Every one is a request to find
+companies, never a question about companies already found:
+
+1. Plain: the type of organisation and a place or industry, e.g. "Dental
+   clinics in Sydney".
+2. The same kind of search with one condition to check about each company,
+   one that matters for what this project is after.
+3. A different place or kind of company than the first two, with a different
+   condition that matters for what this project is after.
+
+Each under 90 characters, written the way a person types into a chat, with no
+numbering, quotes or trailing explanation, and never phrased as a question. If
+the title and description give no clear direction, stay close to their words
+and assume Australia.
+"""
