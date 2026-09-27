@@ -5,7 +5,7 @@ Job service for managing job operations
 from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ..models.tables import Jobs
 from .database_service import db_service
@@ -157,20 +157,29 @@ class JobService:
                 f"Failed to mark job as failed: {error_message} for job {job_id}"
             ) from e
 
-    def mark_all_running_jobs_as_failed(self, error_message: str = "Server restarted - job marked as failed") -> int:
+    def mark_all_running_jobs_as_failed(
+        self,
+        error_message: str = "Server restarted - job marked as failed",
+        older_than: Optional[timedelta] = None,
+    ) -> int:
         """
         Mark all running jobs as failed. Called on server startup to clean up
         jobs that were left in 'running' state due to server crash or shutdown.
         
         Args:
             error_message: Error message to set for all failed jobs
+            older_than: Only fail jobs started longer ago than this. Used on
+                serverless, where other instances may still be running jobs.
             
         Returns:
             int: Number of jobs marked as failed
         """
         try:
             with db_service.get_session() as session:
-                running_jobs = session.query(Jobs).filter(Jobs.status == "running").all()
+                query = session.query(Jobs).filter(Jobs.status == "running")
+                if older_than is not None:
+                    query = query.filter(Jobs.created_at < datetime.utcnow() - older_than)
+                running_jobs = query.all()
                 
                 if not running_jobs:
                     logger.info("ℹ️ No running jobs found to mark as failed")

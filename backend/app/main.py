@@ -3,6 +3,9 @@ FastAPI application entry point
 """
 
 import logging
+import os
+from datetime import timedelta
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -169,9 +172,17 @@ async def startup_event():
 
     # Mark all running jobs as failed (they were left running due to server crash/shutdown)
     logger.info("🧹 Cleaning up running jobs from previous session")
-    failed_count = job_service.mark_all_running_jobs_as_failed(
-        error_message="Server restarted - job was running when server shut down"
-    )
+    # On Vercel a cold start doesn't mean the server restarted: other instances
+    # may still be running jobs, so only fail ones past the function time limit.
+    if os.getenv("VERCEL"):
+        failed_count = job_service.mark_all_running_jobs_as_failed(
+            error_message="Job timed out - the server stopped before it finished",
+            older_than=timedelta(minutes=10),
+        )
+    else:
+        failed_count = job_service.mark_all_running_jobs_as_failed(
+            error_message="Server restarted - job was running when server shut down"
+        )
     if failed_count > 0:
         logger.info(f"✅ Marked {failed_count} job(s) as failed")
     else:

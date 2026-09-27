@@ -2,7 +2,10 @@
 Database service using SQLAlchemy
 """
 
+import os
+
 from sqlalchemy import create_engine, text
+from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -26,7 +29,14 @@ class DatabaseService:
         )
         # This creates the connection pool (default to 5 connections in the pool)
         # Think of it like parking spaces how many sessions we can create
-        self.engine = create_engine(self.connection_string)
+        # On Vercel every function instance would hold its own pool, so let the
+        # Supabase pooler do the pooling and open a connection per session instead.
+        if os.getenv("VERCEL"):
+            self.engine = create_engine(
+                self.connection_string, poolclass=NullPool, pool_pre_ping=True
+            )
+        else:
+            self.engine = create_engine(self.connection_string)
         # this is the factory for creating new sessions
         # this attachs the get_sessions with the connection pool
         self.SessionLocal = sessionmaker(
@@ -83,6 +93,9 @@ class DatabaseService:
             with self.engine.begin() as connection:
                 connection.execute(
                     text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS example_prompts JSON")
+                )
+                connection.execute(
+                    text("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT now()")
                 )
         except SQLAlchemyError as e:
             logger.exception(f"❌ SQLAlchemy error creating tables: {e}")

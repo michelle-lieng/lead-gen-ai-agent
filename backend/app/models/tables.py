@@ -180,6 +180,7 @@ class Jobs(Base):
     job_type = Column(String(255), nullable=False)  # Type of job (e.g., "generate_leads", "generate_urls" "leads_dataset", "enrichments", "test_enrichments")
     job_type_id = Column(Integer, nullable=True)  # enrichment_id if enrichments pr test_enrichments else null
     status = Column(String(50), default="running")  # Status of the job (e.g., "running", "completed", "failed")
+    created_at = Column(DateTime, default=datetime.utcnow)  # When the job started
     completed_at = Column(DateTime, nullable=True)  # When the job was completed
     error_message = Column(Text, nullable=True)  # Error message if the job failed
 
