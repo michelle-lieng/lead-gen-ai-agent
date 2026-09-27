@@ -28,6 +28,13 @@ import {
 } from '../api/leadsSerp';
 import { ChatEntryCreate, ContinueColumn, LeadRow, MessagePlan } from '../api/types';
 import { errorToMessage } from '../api/errors';
+import {
+  CANCELLED_LINE,
+  STARTED_LINE,
+  hasWork,
+  needsConfirmation,
+  summarisePlan,
+} from '../components/panel/breakdown';
 import { getApiKeys } from '../store/apiKeys';
 import { queryKeys } from './queryKeys';
 
@@ -419,40 +426,13 @@ export function useRegisterRun(
    * matching work runs in order: companies first, so new columns are
    * researched for the new rows as well.
    */
-  const ask = useCallback(
-    async (message: string) => {
-      abortRef.current = false;
-      setState({
-        ...EMPTY,
-        instruction: message,
-        running: true,
-        startedAt: Date.now(),
-        steps: [{ id: 'understand', label: 'Read the request', status: 'pending' }],
-      });
-      recordRef.current({ role: 'user', kind: 'text', text: message });
-
-      let plan: MessagePlan;
-      try {
-        setStep('understand', { status: 'running' });
-        const raw = await interpretMessage(projectId, message);
-        // An older backend may leave fields out; a missing list must not
-        // throw mid-run and leave the chat stuck on "running".
-        plan = {
-          find: Boolean(raw.find),
-          find_instruction: raw.find_instruction ?? '',
-          location: raw.location ?? '',
-          criteria: raw.criteria ?? [],
-          columns: raw.columns ?? [],
-          continue_columns: raw.continue_columns ?? [],
-          reply: raw.reply ?? '',
-        };
-      } catch (error) {
-        const text = errorToMessage(error);
-        write(text, 'error');
-        finish('understand', text);
-        return;
-      }
-
+  /**
+   * Run a confirmed plan: companies first, then new rows filled for existing
+   * columns, then criteria, research columns and any columns being continued.
+   * Its steps are appended to whatever the panel already shows.
+   */
+  const execute = useCallback(
+    async (plan: MessagePlan) => {
       const planned: RunStep[] = [];
       if (plan.find) {
         planned.push(
@@ -485,41 +465,8 @@ export function useRegisterRun(
         });
       });
 
-      const count = (n: number, one: string, many: string) =>
-        n === 1 ? one : n > 1 ? many.replace('#', String(n)) : null;
-      const summary = [
-        plan.find ? 'find companies' : null,
-        count(plan.criteria.length, 'check 1 criterion', 'check # criteria'),
-        count(plan.columns.length, 'add 1 column', 'add # columns'),
-        count(plan.continue_columns.length, 'continue 1 column', 'continue # columns'),
-      ].filter(Boolean);
-      setState((current) => ({
-        ...current,
-        steps: [
-          ...current.steps.map((step) =>
-            step.id === 'understand'
-              ? {
-                  ...step,
-                  status: 'done' as const,
-                  detail: summary.length ? summary.join(' and ') : 'answered',
-                }
-              : step,
-          ),
-          ...planned,
-        ],
-      }));
-
-      if (plan.reply) recordRef.current({ role: 'agent', kind: 'text', text: plan.reply });
+      setState((current) => ({ ...current, steps: [...current.steps, ...planned] }));
       const newColumns = plan.criteria.length + plan.columns.length;
-      if (!plan.find && newColumns === 0 && plan.continue_columns.length === 0) {
-        if (!plan.reply) {
-          write(
-            'Nothing to do for that message. Describe the companies you want, or a question to answer about each one.',
-            'result',
-          );
-        }
-        return finish();
-      }
 
       /** The table's leads as they stand now, read fresh. */
       const readLeads = async (): Promise<string[]> => {
@@ -640,7 +587,111 @@ export function useRegisterRun(
     [projectId, write, setStep, finish, runFind, runColumn, queryClient],
   );
 
-  return { ...state, ask, stop, clear };
+  const ask = useCallback(
+    async (message: string) => {
+      abortRef.current = false;
+      setState({
+        ...EMPTY,
+        instruction: message,
+        running: true,
+        startedAt: Date.now(),
+        steps: [{ id: 'understand', label: 'Read the request', status: 'pending' }],
+      });
+      recordRef.current({ role: 'user', kind: 'text', text: message });
+
+      let plan: MessagePlan;
+      try {
+        setStep('understand', { status: 'running' });
+        const raw = await interpretMessage(projectId, message);
+        // An older backend may leave fields out; a missing list must not
+        // throw mid-run and leave the chat stuck on "running".
+        plan = {
+          find: Boolean(raw.find),
+          find_instruction: raw.find_instruction ?? '',
+          location: raw.location ?? '',
+          criteria: raw.criteria ?? [],
+          columns: raw.columns ?? [],
+          continue_columns: raw.continue_columns ?? [],
+          reply: raw.reply ?? '',
+        };
+      } catch (error) {
+        const text = errorToMessage(error);
+        write(text, 'error');
+        finish('understand', text);
+        return;
+      }
+
+      const count = (n: number, one: string, many: string) =>
+        n === 1 ? one : n > 1 ? many.replace('#', String(n)) : null;
+      const summary = [
+        plan.find ? 'find companies' : null,
+        count(plan.criteria.length, 'check 1 criterion', 'check # criteria'),
+        count(plan.columns.length, 'add 1 column', 'add # columns'),
+        count(plan.continue_columns.length, 'continue 1 column', 'continue # columns'),
+      ].filter(Boolean);
+      setState((current) => ({
+        ...current,
+        steps: [
+          ...current.steps.map((step) =>
+            step.id === 'understand'
+              ? {
+                  ...step,
+                  status: 'done' as const,
+                  detail: summary.length ? summary.join(' and ') : 'answered',
+                }
+              : step,
+          ),
+        ],
+      }));
+
+      if (plan.reply) recordRef.current({ role: 'agent', kind: 'text', text: plan.reply });
+      if (!hasWork(plan)) {
+        if (!plan.reply) {
+          write(
+            'Nothing to do for that message. Describe the companies you want, or a question to answer about each one.',
+            'result',
+          );
+        }
+        return finish();
+      }
+
+      // A search or new columns wait for the user to confirm them on a card.
+      if (needsConfirmation(plan)) {
+        recordRef.current({
+          role: 'agent',
+          kind: 'breakdown',
+          text: summarisePlan(plan),
+          payload: { plan },
+        });
+        // Nothing has run: clear the run state, so the panel shows the card
+        // alone rather than a "Finished" run beside it.
+        setState(EMPTY);
+        return;
+      }
+
+      await execute(plan);
+    },
+    [projectId, write, setStep, finish, execute],
+  );
+
+  /** Start a plan the user confirmed (and perhaps edited) on its card. */
+  const start = useCallback(
+    async (plan: MessagePlan) => {
+      abortRef.current = false;
+      setState({ ...EMPTY, instruction: summarisePlan(plan), running: true, startedAt: Date.now() });
+      write(STARTED_LINE, 'result');
+      await execute(plan);
+    },
+    [write, execute],
+  );
+
+  /** Drop the plan on the newest card. */
+  const cancel = useCallback(() => {
+    write(CANCELLED_LINE, 'result');
+    setState(EMPTY);
+  }, [write]);
+
+  return { ...state, ask, start, cancel, stop, clear };
 }
 
 /** Format a duration as the register prints it: 1m 04s. */

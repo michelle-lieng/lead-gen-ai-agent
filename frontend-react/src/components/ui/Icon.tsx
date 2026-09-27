@@ -33,7 +33,8 @@ export type IconName =
   | 'field-text'
   | 'field-longtext'
   | 'field-number'
-  | 'field-select';
+  | 'field-select'
+  | 'link';
 
 const PATHS: Record<IconName, JSX.Element> = {
   search: (
@@ -117,6 +118,13 @@ const PATHS: Record<IconName, JSX.Element> = {
   rows: (
     <>
       <path d="M2.5 4.25h11M2.5 8h11M2.5 11.75h11" />
+    </>
+  ),
+  link: (
+    <>
+      <path d="M6.75 9.25 9.25 6.75" />
+      <path d="M7.5 4.5 8.75 3.25a2.47 2.47 0 0 1 3.5 3.5L11 8" />
+      <path d="M8.5 11.5 7.25 12.75a2.47 2.47 0 0 1-3.5-3.5L5 8" />
     </>
   ),
   expand: (

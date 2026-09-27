@@ -15,6 +15,7 @@
 import { useEffect, useState } from 'react';
 import { GridField, GridRow, isBlank } from './fields';
 import { SelectChip } from './CellValue';
+import { splitLinks } from './rowStatus';
 import { Icon } from '../ui/Icon';
 import { Modal } from '../ui/Modal';
 import { Button, IconButton } from '../ui/Primitives';
@@ -186,7 +187,17 @@ function RecordField({
             {evidence && (
               <>
                 <dt>Evidence</dt>
-                <dd>{evidence}</dd>
+                <dd>
+                  {splitLinks(String(evidence)).map((run, index) =>
+                    run.href ? (
+                      <a key={index} href={run.href} target="_blank" rel="noopener noreferrer">
+                        {run.text}
+                      </a>
+                    ) : (
+                      <span key={index}>{run.text}</span>
+                    ),
+                  )}
+                </dd>
               </>
             )}
           </dl>

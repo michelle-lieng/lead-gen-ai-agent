@@ -15,6 +15,16 @@ import { useApiKeysDialog } from '../components/apiKeys/ApiKeys';
 import { DataGrid, ROW_HEIGHT_PX, RowHeight } from '../components/grid/DataGrid';
 import { ExpandedRecord } from '../components/grid/ExpandedRecord';
 import { GridField, buildFields } from '../components/grid/fields';
+import { RowStatus, answerKeys, rowStatus } from '../components/grid/rowStatus';
+import {
+  NotesState,
+  ResultsView,
+  notesOpen,
+  readNotesState,
+  readView,
+  writeNotesState,
+  writeView,
+} from '../components/grid/viewState';
 import { ImportSheet } from '../components/imports/ImportSheet';
 import { EnquiryPanel } from '../components/panel/EnquiryPanel';
 import { AppShell, ProjectMenuButton, SidebarToggle } from '../components/shell/AppShell';
@@ -65,6 +75,8 @@ export function Project() {
   );
   const [focusToken, setFocusToken] = useState(0);
   const [filter, setFilter] = useState('');
+  const [view, setView] = useState<ResultsView>(() => readView(id));
+  const [notes, setNotes] = useState<NotesState>(() => readNotesState(id));
   const [rowHeight, setRowHeight] = useState<RowHeight>(
     () => (localStorage.getItem(ROW_HEIGHT_KEY) as RowHeight | null) ?? 'short',
   );
@@ -97,7 +109,7 @@ export function Project() {
     [results?.columns, rows, enrichments],
   );
 
-  const visibleRows = useMemo(() => {
+  const searchedRows = useMemo(() => {
     const needle = filter.trim().toLowerCase();
     if (!needle) return rows;
     return rows.filter((row) =>
@@ -106,6 +118,89 @@ export function Project() {
       ),
     );
   }, [rows, filter]);
+
+  // Every AI answer column decides where a record stands: yes/no columns must
+  // say yes, the rest must hold an answer. No answer columns, no tabs.
+  const keys = useMemo(() => answerKeys(fields), [fields]);
+  const yesNoKeys = useMemo(
+    () => new Set(fields.filter((f) => f.ai && !f.note && f.type === 'select').map((f) => f.key)),
+    [fields],
+  );
+  const statuses = useMemo(() => {
+    const byLead = new Map<string, RowStatus>();
+    for (const row of searchedRows) byLead.set(String(row.lead ?? ''), rowStatus(row, keys, yesNoKeys));
+    return byLead;
+  }, [searchedRows, keys, yesNoKeys]);
+  const showTabs = keys.length > 0;
+  const activeView: ResultsView = showTabs ? view : 'all';
+  const tabCounts = useMemo(() => {
+    const counts = { matches: 0, unclear: 0, all: searchedRows.length };
+    for (const status of statuses.values()) {
+      if (status === 'match') counts.matches += 1;
+      if (status === 'unclear') counts.unclear += 1;
+    }
+    return counts;
+  }, [statuses, searchedRows.length]);
+
+  const visibleRows = useMemo(() => {
+    if (activeView === 'all') return searchedRows;
+    const wanted: RowStatus = activeView === 'matches' ? 'match' : 'unclear';
+    return searchedRows.filter((row) => statuses.get(String(row.lead ?? '')) === wanted);
+  }, [searchedRows, statuses, activeView]);
+
+  // Only the All view shows records that answered No, and it shows them muted.
+  const dimmed = useMemo(
+    () => new Set([...statuses].filter(([, status]) => status === 'fails').map(([lead]) => lead)),
+    [statuses],
+  );
+
+  // The open record is read from the rows in view, so paging stays within the
+  // tab; once an edit moves it out of the tab, it is read from every row, so
+  // the record stays open instead of vanishing mid-edit.
+  const recordRows = useMemo(
+    () =>
+      expanded && !visibleRows.some((row) => String(row.lead ?? '') === expanded)
+        ? rows
+        : visibleRows,
+    [expanded, visibleRows, rows],
+  );
+
+  const chooseView = (next: ResultsView) => {
+    setView(next);
+    writeView(id, next);
+  };
+
+  // Why and evidence: folded by default. A folded answer column keeps a
+  // source-count badge; its reasoning and evidence columns leave the grid.
+  const hasNoteColumns = fields.some((field) => field.noteKeys);
+  const collapsedNotes = useMemo(
+    () =>
+      new Set(
+        fields.filter((f) => f.noteKeys && !notesOpen(notes, f.key)).map((f) => f.key),
+      ),
+    [fields, notes],
+  );
+  const gridFields = useMemo(
+    () => fields.filter((f) => !(f.note && f.parentKey && collapsedNotes.has(f.parentKey))),
+    [fields, collapsedNotes],
+  );
+  const saveNotes = (next: NotesState) => {
+    setNotes(next);
+    writeNotesState(id, next);
+  };
+  const toggleAllNotes = (open: boolean) => saveNotes({ all: open, open: [] });
+  const toggleNotes = (answerKey: string) => {
+    if (notesOpen(notes, answerKey)) {
+      // Closing one column while all are open keeps the others open.
+      const others = notes.all
+        ? fields.filter((f) => f.noteKeys && f.key !== answerKey).map((f) => f.key)
+        : notes.open.filter((key) => key !== answerKey);
+      saveNotes({ all: false, open: others });
+    } else {
+      saveNotes({ all: false, open: [...notes.open, answerKey] });
+    }
+  };
+  const allNotesOpen = hasNoteColumns && collapsedNotes.size === 0;
 
   // Selection is held by company name, so a renamed or deleted record drops out
   // of it on the next refetch rather than lingering as a phantom.
@@ -275,6 +370,10 @@ export function Project() {
             enrichments={enrichments ?? []}
             pastQueries={pastQueries ?? []}
             onSubmit={submit}
+            onStart={(plan) => {
+              if (requireKeys()) run.start(plan);
+            }}
+            onCancel={run.cancel}
             onStop={run.stop}
             onClear={run.clear}
             onClose={() => setPanelOpen(false)}
@@ -335,7 +434,7 @@ export function Project() {
 
           {filter && (
             <span className="toolbar__found">
-              {visibleRows.length.toLocaleString()} of {rows.length.toLocaleString()}
+              {searchedRows.length.toLocaleString()} of {rows.length.toLocaleString()}
             </span>
           )}
 
@@ -393,6 +492,43 @@ export function Project() {
           )}
         </div>
 
+        {(hasNoteColumns || showTabs) && (
+          <div className="viewbar">
+            {hasNoteColumns && (
+              <label className="toolbar__notes">
+                <input
+                  type="checkbox"
+                  checked={allNotesOpen}
+                  onChange={(event) => toggleAllNotes(event.target.checked)}
+                />
+                Why and evidence
+              </label>
+            )}
+
+            {showTabs && (
+              <span className="toolbar__views" role="group" aria-label="Show records">
+                {(
+                  [
+                    ['matches', 'Matches all', tabCounts.matches],
+                    ['all', 'All', tabCounts.all],
+                    ['unclear', 'Unclear', tabCounts.unclear],
+                  ] as const
+                ).map(([value, label, count]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className="toolbar__view"
+                    aria-pressed={activeView === value}
+                    onClick={() => chooseView(value)}
+                  >
+                    {label} <span>· {count.toLocaleString()}</span>
+                  </button>
+                ))}
+              </span>
+            )}
+          </div>
+        )}
+
         {loadingResults && rows.length === 0 ? (
           <p className="quiet">Loading records…</p>
         ) : rows.length === 0 ? (
@@ -433,17 +569,27 @@ export function Project() {
               },
             ]}
           />
-        ) : visibleRows.length === 0 ? (
+        ) : searchedRows.length === 0 ? (
           <EmptyState
             icon="search"
             title="No records match that"
             body={`Nothing in this table contains “${filter}”.`}
             actions={<Button onClick={() => setFilter('')}>Clear search</Button>}
           />
+        ) : visibleRows.length === 0 ? (
+          <EmptyState
+            icon="search"
+            title={activeView === 'matches' ? 'No records match every column yet' : 'No unclear records'}
+            body="Switch to All to see every record, including ones that answered No."
+            actions={<Button onClick={() => chooseView('all')}>Show all</Button>}
+          />
         ) : (
           <DataGrid
-            fields={fields}
+            fields={gridFields}
+            collapsedNotes={collapsedNotes}
+            onToggleNotes={toggleNotes}
             rows={visibleRows}
+            dimmed={activeView === 'all' ? dimmed : undefined}
             rowHeight={rowHeight}
             settling={run.settling}
             workingLeads={run.workingLeads}
@@ -491,7 +637,7 @@ export function Project() {
           ) : (
             <span>
               {rows.length.toLocaleString()} {rows.length === 1 ? 'record' : 'records'}
-              {filter && ` · ${visibleRows.length.toLocaleString()} shown`}
+              {(filter || activeView !== 'all') && ` · ${visibleRows.length.toLocaleString()} shown`}
             </span>
           )}
 
@@ -539,7 +685,7 @@ export function Project() {
 
       <ExpandedRecord
         lead={expanded}
-        rows={visibleRows}
+        rows={recordRows}
         fields={fields}
         busy={editMutation.isPending}
         onClose={() => setExpanded(null)}

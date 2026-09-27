@@ -27,6 +27,7 @@ import {
   useState,
 } from 'react';
 import { GridField, GridRow, hasNotes, isBlank } from './fields';
+import { countSources } from './rowStatus';
 import { CellValue } from './CellValue';
 import { FieldMenu } from './FieldMenu';
 import { Icon } from '../ui/Icon';
@@ -57,6 +58,12 @@ interface DataGridProps {
   onExpand: (lead: string) => void;
   onRenameField: (field: GridField) => void;
   onAddField: () => void;
+  /** Records shown muted: they answered No to a yes/no column. */
+  dimmed?: Set<string>;
+  /** Answer columns whose reasoning and evidence are folded away. */
+  collapsedNotes?: Set<string>;
+  /** Open or fold one answer column's reasoning and evidence. */
+  onToggleNotes?: (answerKey: string) => void;
 }
 
 export function DataGrid({
@@ -74,6 +81,9 @@ export function DataGrid({
   onExpand,
   onRenameField,
   onAddField,
+  dimmed,
+  collapsedNotes,
+  onToggleNotes,
 }: DataGridProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
@@ -410,6 +420,20 @@ export function DataGrid({
                 <span className="head__name" title={field.name}>
                   {field.name}
                 </span>
+                {field.noteKeys && onToggleNotes && (
+                  <button
+                    type="button"
+                    className="head__notes"
+                    aria-pressed={!collapsedNotes?.has(field.key)}
+                    aria-label={`${
+                      collapsedNotes?.has(field.key) ? 'Show' : 'Hide'
+                    } why and evidence for ${field.name}`}
+                    title={collapsedNotes?.has(field.key) ? 'Show why and evidence' : 'Hide why and evidence'}
+                    onClick={() => onToggleNotes(field.key)}
+                  >
+                    <Icon name="expand" size={12} />
+                  </button>
+                )}
                 <button
                   type="button"
                   className="head__menu"
@@ -456,6 +480,7 @@ export function DataGrid({
                 aria-selected={isChecked || undefined}
                 data-working={isWorking || undefined}
                 data-selected={isChecked || undefined}
+                data-dimmed={dimmed?.has(lead) || undefined}
               >
                 <div
                   className="cell cell--gutter cell--sticky"
@@ -562,6 +587,15 @@ export function DataGrid({
                         />
                       )}
 
+                      {/* With its working folded away, an answer still says how
+                          many sources back it, and opens the record to read them. */}
+                      {!isEditing && field.noteKeys && collapsedNotes?.has(field.key) && (
+                        <SourcesBadge
+                          count={countSources(row[`${field.key}_evidence`])}
+                          onOpen={() => onExpand(lead)}
+                        />
+                      )}
+
                       {/* Only on the selected cell, and only when there is
                           actually more to see: a mark on every long value
                           would be a column of chevrons. */}
@@ -616,5 +650,25 @@ export function DataGrid({
         />
       )}
     </div>
+  );
+}
+
+function SourcesBadge({ count, onOpen }: { count: number; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      className="cell__sources"
+      data-none={count === 0 || undefined}
+      aria-label={`${count} ${count === 1 ? 'source' : 'sources'}, open record`}
+      onMouseDown={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpen();
+      }}
+    >
+      <Icon name="link" size={11} />
+      {count}
+    </button>
   );
 }

@@ -11,11 +11,19 @@
  */
 
 import { Fragment, KeyboardEvent, useEffect, useRef, useState } from 'react';
-import { Enrichment, QueryRecord } from '../../api/types';
+import { Enrichment, MessagePlan, QueryRecord } from '../../api/types';
 import { ThreadLine } from '../../hooks/useProjectChat';
 import { RunStep, formatElapsed } from '../../hooks/useRegisterRun';
+import { useApiKeys } from '../../store/apiKeys';
 import { Icon } from '../ui/Icon';
 import { Button, IconButton, Spinner } from '../ui/Primitives';
+import {
+  applyCardEdits,
+  cardState,
+  hasWork,
+  isActiveCard,
+  readCardPlan,
+} from './breakdown';
 
 const COPY = {
   placeholder: 'Describe the companies you want, or ask something about each one.',
@@ -44,6 +52,10 @@ interface EnquiryPanelProps {
   enrichments: Enrichment[];
   pastQueries: QueryRecord[];
   onSubmit: (instruction: string) => void;
+  /** Run the plan on the newest card, as the user edited it. */
+  onStart: (plan: MessagePlan) => void;
+  /** Drop the plan on the newest card. */
+  onCancel: () => void;
   onStop: () => void;
   onClear: () => void;
   onClose: () => void;
@@ -65,6 +77,8 @@ export function EnquiryPanel({
   enrichments,
   pastQueries,
   onSubmit,
+  onStart,
+  onCancel,
   onStop,
   onClear,
   onClose,
@@ -149,7 +163,7 @@ export function EnquiryPanel({
               </div>
             )}
 
-            <Thread lines={thread} />
+            <Thread lines={thread} running={running} onStart={onStart} onCancel={onCancel} />
 
             {showsRun && (
             <ol className="steps">
@@ -326,7 +340,17 @@ function PanelIntro({
  * requests set apart, and a divider wherever the day changes so a thread that
  * spans visits reads as one continuing record.
  */
-function Thread({ lines }: { lines: ThreadLine[] }) {
+function Thread({
+  lines,
+  running,
+  onStart,
+  onCancel,
+}: {
+  lines: ThreadLine[];
+  running: boolean;
+  onStart: (plan: MessagePlan) => void;
+  onCancel: () => void;
+}) {
   if (lines.length === 0) return null;
   return (
     <div className="log thread">
@@ -336,7 +360,16 @@ function Thread({ lines }: { lines: ThreadLine[] }) {
         return (
           <Fragment key={line.key}>
             {newDay && <p className="thread__day">{dayLabel(line.at)}</p>}
-            {line.role === 'user' ? (
+            {line.kind === 'breakdown' && readCardPlan(line.payload) ? (
+              <BreakdownCard
+                at={line.at}
+                plan={readCardPlan(line.payload) as MessagePlan}
+                active={isActiveCard(lines, index, running)}
+                state={cardState(lines, index)}
+                onStart={onStart}
+                onCancel={onCancel}
+              />
+            ) : line.role === 'user' ? (
               <div className="thread__request">
                 <time>{stamp(line.at)}</time>
                 <p>{line.text}</p>
@@ -350,6 +383,175 @@ function Thread({ lines }: { lines: ThreadLine[] }) {
           </Fragment>
         );
       })}
+    </div>
+  );
+}
+
+const CARD_STATE_LABEL = {
+  started: 'Started',
+  cancelled: 'Cancelled',
+  replaced: 'Replaced by a newer request',
+} as const;
+
+/**
+ * What the agent is about to do, before it does it. The base search can be
+ * edited and any criterion or column removed; to add one, the user types it
+ * in the chat and a new card replaces this one.
+ */
+function BreakdownCard({
+  at,
+  plan,
+  active,
+  state,
+  onStart,
+  onCancel,
+}: {
+  at: Date;
+  plan: MessagePlan;
+  active: boolean;
+  state: ReturnType<typeof cardState>;
+  onStart: (plan: MessagePlan) => void;
+  onCancel: () => void;
+}) {
+  const [base, setBase] = useState(plan.find_instruction);
+  const [removedCriteria, setRemovedCriteria] = useState<number[]>([]);
+  const [removedColumns, setRemovedColumns] = useState<number[]>([]);
+  const [removedContinue, setRemovedContinue] = useState<number[]>([]);
+  const [removedLocation, setRemovedLocation] = useState(false);
+  const { googleKey } = useApiKeys();
+  const edited = applyCardEdits(plan, {
+    base,
+    removedCriteria,
+    removedColumns,
+    removedContinue,
+    removedLocation,
+  });
+  const runnable = hasWork(edited);
+
+  return (
+    <div className="plancard" data-active={active || undefined}>
+      <div className="plancard__head">
+        <time>{stamp(at)}</time>
+        <b>{active ? 'Ready to run' : 'Plan'}</b>
+        {!active && state !== 'active' && <span className="plancard__state">{CARD_STATE_LABEL[state]}</span>}
+      </div>
+
+      {plan.find && (
+        <label className="plancard__field">
+          <span>Search for</span>
+          <input
+            className="input"
+            value={base}
+            disabled={!active}
+            onChange={(event) => setBase(event.target.value)}
+            aria-label="Base search"
+          />
+        </label>
+      )}
+
+      {plan.find && edited.find && plan.location && !removedLocation && (
+        <p className="plancard__chips">
+          <span className="chip" data-kind="location" data-off={!googleKey || undefined}>
+            <Icon name="search" size={11} /> Google Maps: {plan.location}
+            {!googleKey && ' · needs a Google key'}
+            {active && (
+              <button
+                type="button"
+                aria-label={`Skip the Google Maps search for ${plan.location}`}
+                onClick={() => setRemovedLocation(true)}
+              >
+                <Icon name="close" size={10} />
+              </button>
+            )}
+          </span>
+        </p>
+      )}
+
+      {plan.criteria.length > 0 && (
+        <div className="plancard__group">
+          <span>Yes/No checks</span>
+          <p className="plancard__chips">
+            {plan.criteria.map((criterion, index) =>
+              removedCriteria.includes(index) ? null : (
+                <span key={index} className="chip" data-kind="criterion">
+                  {criterion}
+                  {active && (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${criterion}`}
+                      onClick={() => setRemovedCriteria((current) => [...current, index])}
+                    >
+                      <Icon name="close" size={10} />
+                    </button>
+                  )}
+                </span>
+              ),
+            )}
+          </p>
+        </div>
+      )}
+
+      {plan.columns.length > 0 && (
+        <div className="plancard__group">
+          <span>Columns to research</span>
+          <p className="plancard__chips">
+            {plan.columns.map((column, index) =>
+              removedColumns.includes(index) ? null : (
+                <span key={index} className="chip" data-kind="column">
+                  {column}
+                  {active && (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${column}`}
+                      onClick={() => setRemovedColumns((current) => [...current, index])}
+                    >
+                      <Icon name="close" size={10} />
+                    </button>
+                  )}
+                </span>
+              ),
+            )}
+          </p>
+        </div>
+      )}
+
+      {plan.continue_columns.length > 0 && (
+        <div className="plancard__group">
+          <span>Columns to finish</span>
+          <p className="plancard__chips">
+            {plan.continue_columns.map((column, index) =>
+              removedContinue.includes(index) ? null : (
+                <span key={column.enrichment_id} className="chip" data-kind="continue">
+                  {column.name} · {column.leads.length} left
+                  {active && (
+                    <button
+                      type="button"
+                      aria-label={`Don't finish ${column.name}`}
+                      onClick={() => setRemovedContinue((current) => [...current, index])}
+                    >
+                      <Icon name="close" size={10} />
+                    </button>
+                  )}
+                </span>
+              ),
+            )}
+          </p>
+        </div>
+      )}
+
+      {active && (
+        <div className="plancard__foot">
+          <span className="plancard__hint">
+            {runnable ? 'Type in the chat to add something.' : 'Nothing left to run'}
+          </span>
+          <Button tone="quiet" compact onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button tone="primary" compact icon="sparkle" disabled={!runnable} onClick={() => onStart(edited)}>
+            Start
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

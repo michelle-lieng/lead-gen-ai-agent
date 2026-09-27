@@ -263,6 +263,8 @@
 }
 
 .main--plain { grid-template-rows: auto minmax(0, 1fr); }
+/* The view bar is only there when the table has AI columns; give it a row. */
+.main:has(> .viewbar) { grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
 
 /* --- Project bar ----------------------------------------------------------- */
 
@@ -343,6 +345,101 @@
 }
 
 .toolbar__spacer { flex: 1 1 auto; }
+
+/* The table's view controls, on their own slim row under the toolbar so the
+   toolbar keeps room for Import, Export and the panel toggle. */
+.viewbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 34px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.viewbar::-webkit-scrollbar { height: 0; }
+.viewbar > * { flex: none; }
+
+.toolbar__views {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--r);
+  background: var(--surface-hover);
+}
+
+.toolbar__view {
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: calc(var(--r) - 2px);
+  background: none;
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.toolbar__view span { font-variant-numeric: tabular-nums; }
+.toolbar__view[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.toolbar__notes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* An answer column's own why-and-evidence switch, beside its name. */
+.head:has(.head__notes) { padding-right: 22px; }
+.head__notes {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.head__notes:hover { background: var(--surface-hover); color: var(--text); }
+.head__notes[aria-pressed='true'] { color: var(--accent); }
+
+/* How many sources back an answer whose working is folded away. */
+.cell__sources {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  margin-left: auto;
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.cell__sources[data-none] { color: var(--text-3); }
+.cell__sources:hover { border-color: var(--line-strong); }
+
+.rec__working dd a { color: var(--accent); word-break: break-all; }
+
+/* Answered No to a yes/no column: kept in view under All, but quieted. */
+.grid__row[data-dimmed] .cell__value,
+.grid__row[data-dimmed] .cell__sources { opacity: 0.55; }
 
 .toolbar__found {
   font-size: 12px;
@@ -1047,6 +1144,75 @@
 .log__line[data-role='agent'] { color: var(--text); }
 
 .thread + .steps { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+
+/* --- The confirmation card: the plan, before anything runs ---------------- */
+
+.plancard {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.plancard[data-active] { border-color: var(--line-strong); }
+
+.plancard__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.plancard__head time {
+  font-family: var(--face-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+.plancard__head b { font-weight: 600; color: var(--text); }
+.plancard__state { margin-left: auto; font-size: 11.5px; color: var(--text-2); }
+
+.plancard__field,
+.plancard__group { display: grid; gap: 4px; }
+.plancard__field > span,
+.plancard__group > span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.plancard__field .input { height: 30px; font-size: 12.5px; }
+
+.plancard__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.plancard .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.35;
+  text-align: left;
+}
+.plancard .chip[data-kind='criterion'] { background: var(--chip-yes-bg); color: var(--chip-yes-ink); }
+.plancard .chip[data-off] { color: var(--text-2); }
+.plancard .chip button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.plancard .chip button:hover { background: var(--surface-hover); }
+
+.plancard__foot { display: flex; align-items: center; gap: 6px; }
+.plancard__hint { flex: 1 1 auto; font-size: 11.5px; color: var(--text-2); }
 
 /* --- Composer -------------------------------------------------------------- */
 
