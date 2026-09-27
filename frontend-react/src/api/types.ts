@@ -195,8 +195,10 @@ export interface ContinueColumn {
 
 /** What one Google Places search added to the table. */
 export interface PlacesSearchResult {
-  /** Distinct businesses Google returned. */
+  /** Distinct businesses kept after the AI business check. */
   found: number;
+  /** Google results the AI check judged to be plain places (landmarks, precincts…). */
+  not_businesses: number;
   /** Of those, how many were not in the table before. */
   new: number;
   existing: number;

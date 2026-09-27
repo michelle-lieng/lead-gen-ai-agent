@@ -200,8 +200,11 @@ export function useRegisterRun(
             write(`Google Places · ${instruction}`);
             try {
               const places = await searchPlaces(projectId, instruction, location);
+              const leftOut = places.not_businesses
+                ? ` · ${places.not_businesses} left out as not businesses`
+                : '';
               write(
-                `${places.found} ${places.found === 1 ? 'business' : 'businesses'} found on Google Maps · ${places.new} new, ${places.existing} already in the table.`,
+                `${places.found} ${places.found === 1 ? 'business' : 'businesses'} found on Google Maps${leftOut} · ${places.new} new, ${places.existing} already in the table.`,
                 'result',
               );
               setStep('find-places', { status: 'done', detail: `${places.found} found` });
