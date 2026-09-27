@@ -197,8 +197,10 @@ export interface ContinueColumn {
 export interface MessagePlan {
   /** Search for companies: a new search, or more of the current one. */
   find: boolean;
-  /** Standalone description of the companies to find. */
+  /** The base search: entity type plus its searchable anchor. */
   find_instruction: string;
+  /** Yes/No questions, one new True/False column each. */
+  criteria: string[];
   /** One research question per new column. */
   columns: string[];
   /** Existing columns to finish for the leads they have no answer for yet. */

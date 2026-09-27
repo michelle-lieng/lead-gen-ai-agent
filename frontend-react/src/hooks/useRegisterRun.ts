@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { interpretMessage } from '../api/chat';
-import { draftEnrichment, enrichLeads } from '../api/enrichments';
+import { draftEnrichment, enrichLeads, getUnansweredColumns } from '../api/enrichments';
 import { getMergedResults } from '../api/mergedResults';
 import {
   draftLeadBrief,
@@ -266,7 +266,7 @@ export function useRegisterRun(
   const runColumn = useCallback(
     async (
       prefix: string,
-      source: { question: string } | { existing: ContinueColumn },
+      source: { question: string; resultFormat?: 'True/False' } | { existing: ContinueColumn },
       leads: string[],
     ): Promise<boolean> => {
       const draftId = `${prefix}-draft`;
@@ -279,7 +279,7 @@ export function useRegisterRun(
       try {
         if ('question' in source) {
           setStep(draftId, { status: 'running' });
-          const drafted = await draftEnrichment(projectId, source.question);
+          const drafted = await draftEnrichment(projectId, source.question, source.resultFormat);
           enrichment = drafted;
           setStep(draftId, { status: 'done', detail: drafted.column_name ?? undefined });
           setState((current) => ({ ...current, workingField: drafted.column_name ?? null }));
@@ -300,6 +300,16 @@ export function useRegisterRun(
             } without an answer yet.`,
             'result',
           );
+        }
+
+        if (leads.length === 0) {
+          // The column exists now; the next search fills it for its new rows.
+          setStep(researchId, { status: 'skipped', detail: 'no companies yet' });
+          write(
+            `No companies to research yet. “${enrichment.enrichment_name}” will be filled for the companies the next search finds.`,
+            'result',
+          );
+          return true;
         }
 
         stepId = researchId;
@@ -391,7 +401,17 @@ export function useRegisterRun(
       let plan: MessagePlan;
       try {
         setStep('understand', { status: 'running' });
-        plan = await interpretMessage(projectId, message);
+        const raw = await interpretMessage(projectId, message);
+        // An older backend may leave fields out; a missing list must not
+        // throw mid-run and leave the chat stuck on "running".
+        plan = {
+          find: Boolean(raw.find),
+          find_instruction: raw.find_instruction ?? '',
+          criteria: raw.criteria ?? [],
+          columns: raw.columns ?? [],
+          continue_columns: raw.continue_columns ?? [],
+          reply: raw.reply ?? '',
+        };
       } catch (error) {
         const text = errorToMessage(error);
         write(text, 'error');
@@ -402,12 +422,18 @@ export function useRegisterRun(
       const planned: RunStep[] = [];
       if (plan.find) {
         planned.push(
-          { id: 'find-brief', label: 'Define the search', status: 'pending' },
+          { id: 'find-brief', label: `Search: ${plan.find_instruction}`, status: 'pending' },
           { id: 'find-queries', label: 'Write search queries', status: 'pending' },
           { id: 'find-urls', label: 'Locate sources', status: 'pending' },
           { id: 'find-extract', label: 'Read sources and extract companies', status: 'pending' },
         );
       }
+      plan.criteria.forEach((criterion, index) => {
+        planned.push(
+          { id: `crit-${index}-draft`, label: `Check: ${criterion}`, status: 'pending' },
+          { id: `crit-${index}-research`, label: 'Research every entry', status: 'pending' },
+        );
+      });
       plan.columns.forEach((column, index) => {
         planned.push(
           { id: `col-${index}-draft`, label: `Define column: ${column}`, status: 'pending' },
@@ -422,18 +448,13 @@ export function useRegisterRun(
         });
       });
 
+      const count = (n: number, one: string, many: string) =>
+        n === 1 ? one : n > 1 ? many.replace('#', String(n)) : null;
       const summary = [
         plan.find ? 'find companies' : null,
-        plan.columns.length === 1
-          ? 'add 1 column'
-          : plan.columns.length > 1
-            ? `add ${plan.columns.length} columns`
-            : null,
-        plan.continue_columns.length === 1
-          ? 'continue 1 column'
-          : plan.continue_columns.length > 1
-            ? `continue ${plan.continue_columns.length} columns`
-            : null,
+        count(plan.criteria.length, 'check 1 criterion', 'check # criteria'),
+        count(plan.columns.length, 'add 1 column', 'add # columns'),
+        count(plan.continue_columns.length, 'continue 1 column', 'continue # columns'),
       ].filter(Boolean);
       setState((current) => ({
         ...current,
@@ -452,7 +473,8 @@ export function useRegisterRun(
       }));
 
       if (plan.reply) recordRef.current({ role: 'agent', kind: 'text', text: plan.reply });
-      if (!plan.find && plan.columns.length === 0 && plan.continue_columns.length === 0) {
+      const newColumns = plan.criteria.length + plan.columns.length;
+      if (!plan.find && newColumns === 0 && plan.continue_columns.length === 0) {
         if (!plan.reply) {
           write(
             'Nothing to do for that message. Describe the companies you want, or a question to answer about each one.',
@@ -462,37 +484,99 @@ export function useRegisterRun(
         return finish();
       }
 
+      /** The table's leads as they stand now, read fresh. */
+      const readLeads = async (): Promise<string[]> => {
+        const results = await queryClient.fetchQuery({
+          queryKey: queryKeys.mergedResults(projectId),
+          queryFn: () => getMergedResults(projectId),
+          staleTime: 0,
+        });
+        return results.data.map((row) => String(row.lead ?? '')).filter(Boolean);
+      };
+
+      // Leads each column was just filled for, so continuing that column in
+      // the same message never researches them twice.
+      const filled = new Map<number, Set<string>>();
+
       if (plan.find) {
         setState((current) => ({ ...current, kind: 'find' }));
-        if (!(await runFind(plan.find_instruction))) return;
-        if (abortRef.current) return finish();
-      }
-
-      if (plan.columns.length > 0) {
-        setState((current) => ({ ...current, kind: 'enrich' }));
-        let leads: string[];
+        let before: Set<string>;
         try {
-          // Read the table fresh: a search that just ran has added rows.
-          const results = await queryClient.fetchQuery({
-            queryKey: queryKeys.mergedResults(projectId),
-            queryFn: () => getMergedResults(projectId),
-            staleTime: 0,
-          });
-          leads = results.data.map((row) => String(row.lead ?? '')).filter(Boolean);
+          before = new Set(await readLeads());
         } catch (error) {
           const text = errorToMessage(error);
           write(text, 'error');
-          return finish('col-0-draft', text);
+          return finish('find-brief', text);
         }
-        if (leads.length === 0) {
+        write(`Base search: ${plan.find_instruction}`);
+        if (!(await runFind(plan.find_instruction))) return;
+        if (abortRef.current) return finish();
+
+        // Existing columns are filled for the rows this search added, so a
+        // criterion never reads blank for new companies. Only the new rows:
+        // gaps the user left on purpose (a stopped column) are not refilled.
+        let gaps: ContinueColumn[];
+        try {
+          gaps = (await getUnansweredColumns(projectId))
+            .map((gap) => ({ ...gap, leads: gap.leads.filter((lead) => !before.has(lead)) }))
+            .filter((gap) => gap.leads.length > 0);
+        } catch (error) {
+          const text = errorToMessage(error);
+          write(text, 'error');
+          return finish('find-extract', text);
+        }
+        if (gaps.length > 0) {
+          const afterFind = (step: RunStep) => step.id === 'find-extract';
+          setState((current) => {
+            const at = current.steps.findIndex(afterFind) + 1;
+            const added: RunStep[] = gaps.map((gap, index) => ({
+              id: `gap-${index}-research`,
+              label: `Fill new rows: ${gap.name}`,
+              status: 'pending',
+            }));
+            return {
+              ...current,
+              steps: [...current.steps.slice(0, at), ...added, ...current.steps.slice(at)],
+            };
+          });
+          setState((current) => ({ ...current, kind: 'enrich' }));
+          for (const [index, gap] of gaps.entries()) {
+            if (abortRef.current) return finish();
+            if (!(await runColumn(`gap-${index}`, { existing: gap }, gap.leads))) return;
+            filled.set(gap.enrichment_id, new Set(gap.leads));
+          }
+        }
+      }
+
+      if (newColumns > 0) {
+        setState((current) => ({ ...current, kind: 'enrich' }));
+        const firstStep = plan.criteria.length > 0 ? 'crit-0-draft' : 'col-0-draft';
+        let leads: string[];
+        try {
+          // Read the table fresh: a search that just ran has added rows.
+          leads = await readLeads();
+        } catch (error) {
+          const text = errorToMessage(error);
+          write(text, 'error');
+          return finish(firstStep, text);
+        }
+        // After a search that found nothing, the columns are still created so
+        // the request isn't lost; without a search there is nothing to add to.
+        if (leads.length === 0 && !plan.find) {
           write(
             'There are no companies in the table to research yet. Ask me to find some first.',
             'error',
           );
-          return finish('col-0-draft', 'no companies yet');
+          return finish(firstStep, 'no companies yet');
+        }
+        for (const [index, criterion] of plan.criteria.entries()) {
+          if (abortRef.current) return finish();
+          write(`Criterion column: ${criterion} · Yes/No`);
+          const source = { question: criterion, resultFormat: 'True/False' as const };
+          if (!(await runColumn(`crit-${index}`, source, leads))) return;
         }
         for (const [index, column] of plan.columns.entries()) {
-          if (abortRef.current) break;
+          if (abortRef.current) return finish();
           if (!(await runColumn(`col-${index}`, { question: column }, leads))) return;
         }
       }
@@ -501,8 +585,17 @@ export function useRegisterRun(
       // they stood when the message was read.
       for (const [index, column] of plan.continue_columns.entries()) {
         if (abortRef.current) break;
+        const done = filled.get(column.enrichment_id);
+        const leads = done ? column.leads.filter((lead) => !done.has(lead)) : column.leads;
+        if (leads.length === 0) {
+          setStep(`cont-${index}-research`, {
+            status: 'skipped',
+            detail: 'already filled above',
+          });
+          continue;
+        }
         setState((current) => ({ ...current, kind: 'enrich' }));
-        if (!(await runColumn(`cont-${index}`, { existing: column }, column.leads))) return;
+        if (!(await runColumn(`cont-${index}`, { existing: column }, leads))) return;
       }
 
       finish();

@@ -1,5 +1,12 @@
 import { http } from './client';
-import { EnrichLeadsResponse, Enrichment, EnrichmentUpdate, LeadRow } from './types';
+import {
+  ContinueColumn,
+  EnrichLeadsResponse,
+  Enrichment,
+  EnrichmentUpdate,
+  LeadRow,
+  ResultFormat,
+} from './types';
 
 export async function getEnrichments(projectId: number): Promise<Enrichment[]> {
   const { data } = await http.get<Enrichment[]>(
@@ -69,10 +76,20 @@ export async function testEnrichLeads(
 export async function draftEnrichment(
   projectId: number,
   instruction: string,
+  /** Pin the column's format; criteria are always 'True/False'. */
+  resultFormat?: Exclude<ResultFormat, ''>,
 ): Promise<Enrichment> {
   const { data } = await http.post<Enrichment>(
     `/api/projects/${projectId}/enrichments/draft`,
-    { instruction },
+    resultFormat ? { instruction, result_format: resultFormat } : { instruction },
   );
   return data;
+}
+
+/** Columns that still have leads without an answer, with those leads. */
+export async function getUnansweredColumns(projectId: number): Promise<ContinueColumn[]> {
+  const { data } = await http.get<ContinueColumn[]>(
+    `/api/projects/${projectId}/enrichments/unanswered`,
+  );
+  return data ?? [];
 }
