@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { countSources, rowStatus, splitLinks } from './rowStatus';
+import { countSources, passesYesFilters, splitLinks, yesCount } from './rowStatus';
 
-const keys = ['env', 'staff', 'website'];
-const yesNo = new Set(['env', 'staff']);
-
-describe('rowStatus', () => {
-  it('matches when every yes/no is yes and every column has an answer', () =>
-    expect(rowStatus({ env: 'Yes', staff: true, website: 'x.com' }, keys, yesNo)).toBe('match'));
-  it('fails when any yes/no column is no, even with blanks', () =>
-    expect(rowStatus({ env: 'No', staff: null, website: '' }, keys, yesNo)).toBe('fails'));
-  it('is unclear when nothing is no but something is blank', () =>
-    expect(rowStatus({ env: 'Yes', staff: '  ', website: 'x.com' }, keys, yesNo)).toBe('unclear'));
-  it('treats a filled text-only column as a match and a blank one as unclear', () => {
-    expect(rowStatus({ website: 'x.com' }, ['website'], new Set())).toBe('match');
-    expect(rowStatus({ website: null }, ['website'], new Set())).toBe('unclear');
+describe('passesYesFilters', () => {
+  const row = { env: 'Yes', staff: 'No', website: 'x.com', blank: null };
+  it('keeps every row when no filter is on', () => expect(passesYesFilters(row, [])).toBe(true));
+  it('keeps a row that says yes to the column switched on', () =>
+    expect(passesYesFilters(row, ['env'])).toBe(true));
+  it('drops a row that says no or has no answer', () => {
+    expect(passesYesFilters(row, ['staff'])).toBe(false);
+    expect(passesYesFilters(row, ['blank'])).toBe(false);
   });
-  it('matches every row when there are no answer columns', () =>
-    expect(rowStatus({}, [], new Set())).toBe('match'));
+  it('needs yes for every column switched on', () =>
+    expect(passesYesFilters(row, ['env', 'staff'])).toBe(false));
+});
+
+describe('yesCount', () => {
+  it('counts the rows that say yes', () =>
+    expect(yesCount([{ env: 'Yes' }, { env: true }, { env: 'No' }, { env: null }], 'env')).toBe(2));
 });
 
 describe('countSources', () => {

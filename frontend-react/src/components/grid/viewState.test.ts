@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { notesOpen, readNotesState, readView, writeNotesState, writeView } from './viewState';
+import { notesOpen, readNotesState, readYesFilters, writeNotesState, writeYesFilters } from './viewState';
 
 /** An in-memory localStorage: all these functions touch of the browser. */
 function installStorage() {
@@ -18,15 +18,17 @@ function installStorage() {
 
 beforeEach(installStorage);
 
-describe('results view', () => {
-  it('remembers the chosen tab per project', () => {
-    writeView(7, 'unclear');
-    expect(readView(7)).toBe('unclear');
+describe('yes/no filters', () => {
+  it('remembers which columns are switched on per project', () => {
+    writeYesFilters(7, ['env', 'staff']);
+    expect(readYesFilters(7)).toEqual(['env', 'staff']);
   });
-  it('defaults to all when nothing is stored', () => expect(readView(8)).toBe('all'));
-  it('falls back to all for a value it does not know', () => {
-    localStorage.setItem('kiyu.results.view.9', 'garbage');
-    expect(readView(9)).toBe('all');
+  it('starts with every filter off', () => expect(readYesFilters(8)).toEqual([]));
+  it('ignores stored values that are not a list of column keys', () => {
+    localStorage.setItem('kiyu.results.filters.9', '{not json');
+    expect(readYesFilters(9)).toEqual([]);
+    localStorage.setItem('kiyu.results.filters.10', '["env", 3]');
+    expect(readYesFilters(10)).toEqual([]);
   });
 });
 

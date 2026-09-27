@@ -437,9 +437,6 @@
 
 .rec__working dd a { color: var(--accent); word-break: break-all; }
 
-/* Answered No to a yes/no column: kept in view under All, but quieted. */
-.grid__row[data-dimmed] .cell__value,
-.grid__row[data-dimmed] .cell__sources { opacity: 0.55; }
 
 .toolbar__found {
   font-size: 12px;

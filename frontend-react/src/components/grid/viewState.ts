@@ -5,24 +5,22 @@
  * shows the table in its defaults, never breaks it.
  */
 
-export type ResultsView = 'all' | 'matches' | 'unclear';
+const filtersKey = (projectId: number) => `kiyu.results.filters.${projectId}`;
 
-const VIEWS: ResultsView[] = ['all', 'matches', 'unclear'];
-
-const viewKey = (projectId: number) => `kiyu.results.view.${projectId}`;
-
-export function readView(projectId: number): ResultsView {
+/** The yes/no columns switched on as filters; none by default. */
+export function readYesFilters(projectId: number): string[] {
   try {
-    const stored = localStorage.getItem(viewKey(projectId));
-    return VIEWS.includes(stored as ResultsView) ? (stored as ResultsView) : 'all';
+    const parsed: unknown = JSON.parse(localStorage.getItem(filtersKey(projectId)) ?? '[]');
+    if (Array.isArray(parsed) && parsed.every((key) => typeof key === 'string')) return parsed;
   } catch {
-    return 'all';
+    /* unreadable or malformed: every filter off */
   }
+  return [];
 }
 
-export function writeView(projectId: number, view: ResultsView): void {
+export function writeYesFilters(projectId: number, keys: string[]): void {
   try {
-    localStorage.setItem(viewKey(projectId), view);
+    localStorage.setItem(filtersKey(projectId), JSON.stringify(keys));
   } catch {
     /* storage unavailable: the choice lasts for this visit only */
   }

@@ -58,8 +58,6 @@ interface DataGridProps {
   onExpand: (lead: string) => void;
   onRenameField: (field: GridField) => void;
   onAddField: () => void;
-  /** Records shown muted: they answered No to a yes/no column. */
-  dimmed?: Set<string>;
   /** Answer columns whose reasoning and evidence are folded away. */
   collapsedNotes?: Set<string>;
   /** Open or fold one answer column's reasoning and evidence. */
@@ -81,7 +79,6 @@ export function DataGrid({
   onExpand,
   onRenameField,
   onAddField,
-  dimmed,
   collapsedNotes,
   onToggleNotes,
 }: DataGridProps) {
@@ -480,7 +477,6 @@ export function DataGrid({
                 aria-selected={isChecked || undefined}
                 data-working={isWorking || undefined}
                 data-selected={isChecked || undefined}
-                data-dimmed={dimmed?.has(lead) || undefined}
               >
                 <div
                   className="cell cell--gutter cell--sticky"

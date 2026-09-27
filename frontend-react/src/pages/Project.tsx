@@ -15,15 +15,14 @@ import { useApiKeysDialog } from '../components/apiKeys/ApiKeys';
 import { DataGrid, ROW_HEIGHT_PX, RowHeight } from '../components/grid/DataGrid';
 import { ExpandedRecord } from '../components/grid/ExpandedRecord';
 import { GridField, buildFields } from '../components/grid/fields';
-import { RowStatus, answerKeys, rowStatus } from '../components/grid/rowStatus';
+import { passesYesFilters, yesCount } from '../components/grid/rowStatus';
 import {
   NotesState,
-  ResultsView,
   notesOpen,
   readNotesState,
-  readView,
+  readYesFilters,
   writeNotesState,
-  writeView,
+  writeYesFilters,
 } from '../components/grid/viewState';
 import { ImportSheet } from '../components/imports/ImportSheet';
 import { EnquiryPanel } from '../components/panel/EnquiryPanel';
@@ -75,7 +74,7 @@ export function Project() {
   );
   const [focusToken, setFocusToken] = useState(0);
   const [filter, setFilter] = useState('');
-  const [view, setView] = useState<ResultsView>(() => readView(id));
+  const [yesFilters, setYesFilters] = useState<string[]>(() => readYesFilters(id));
   const [notes, setNotes] = useState<NotesState>(() => readNotesState(id));
   const [rowHeight, setRowHeight] = useState<RowHeight>(
     () => (localStorage.getItem(ROW_HEIGHT_KEY) as RowHeight | null) ?? 'short',
@@ -119,40 +118,36 @@ export function Project() {
     );
   }, [rows, filter]);
 
-  // Every AI answer column decides where a record stands: yes/no columns must
-  // say yes, the rest must hold an answer. No answer columns, no tabs.
-  const keys = useMemo(() => answerKeys(fields), [fields]);
-  const yesNoKeys = useMemo(
-    () => new Set(fields.filter((f) => f.ai && !f.note && f.type === 'select').map((f) => f.key)),
+  // Each yes/no column can be switched on as a filter: switched on, only
+  // records that say Yes to it stay in view. Stored keys for columns that no
+  // longer exist are simply ignored.
+  const yesNoFields = useMemo(
+    () => fields.filter((f) => f.ai && !f.note && f.type === 'select'),
     [fields],
   );
-  const statuses = useMemo(() => {
-    const byLead = new Map<string, RowStatus>();
-    for (const row of searchedRows) byLead.set(String(row.lead ?? ''), rowStatus(row, keys, yesNoKeys));
-    return byLead;
-  }, [searchedRows, keys, yesNoKeys]);
-  const showTabs = keys.length > 0;
-  const activeView: ResultsView = showTabs ? view : 'all';
-  const tabCounts = useMemo(() => {
-    const counts = { matches: 0, unclear: 0, all: searchedRows.length };
-    for (const status of statuses.values()) {
-      if (status === 'match') counts.matches += 1;
-      if (status === 'unclear') counts.unclear += 1;
-    }
-    return counts;
-  }, [statuses, searchedRows.length]);
-
-  const visibleRows = useMemo(() => {
-    if (activeView === 'all') return searchedRows;
-    const wanted: RowStatus = activeView === 'matches' ? 'match' : 'unclear';
-    return searchedRows.filter((row) => statuses.get(String(row.lead ?? '')) === wanted);
-  }, [searchedRows, statuses, activeView]);
-
-  // Only the All view shows records that answered No, and it shows them muted.
-  const dimmed = useMemo(
-    () => new Set([...statuses].filter(([, status]) => status === 'fails').map(([lead]) => lead)),
-    [statuses],
+  const activeFilters = useMemo(
+    () => yesFilters.filter((key) => yesNoFields.some((f) => f.key === key)),
+    [yesFilters, yesNoFields],
   );
+  const showFilters = yesNoFields.length > 0;
+
+  const visibleRows = useMemo(
+    () => searchedRows.filter((row) => passesYesFilters(row, activeFilters)),
+    [searchedRows, activeFilters],
+  );
+
+  const toggleYesFilter = (key: string) => {
+    // Built on the latest state, so quick successive clicks all count.
+    setYesFilters((current) => {
+      const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key];
+      writeYesFilters(id, next);
+      return next;
+    });
+  };
+  const clearYesFilters = () => {
+    setYesFilters([]);
+    writeYesFilters(id, []);
+  };
 
   // The open record is read from the rows in view, so paging stays within the
   // tab; once an edit moves it out of the tab, it is read from every row, so
@@ -165,10 +160,6 @@ export function Project() {
     [expanded, visibleRows, rows],
   );
 
-  const chooseView = (next: ResultsView) => {
-    setView(next);
-    writeView(id, next);
-  };
 
   // Why and evidence: folded by default. A folded answer column keeps a
   // source-count badge; its reasoning and evidence columns leave the grid.
@@ -492,7 +483,7 @@ export function Project() {
           )}
         </div>
 
-        {(hasNoteColumns || showTabs) && (
+        {(hasNoteColumns || showFilters) && (
           <div className="viewbar">
             {hasNoteColumns && (
               <label className="toolbar__notes">
@@ -505,23 +496,18 @@ export function Project() {
               </label>
             )}
 
-            {showTabs && (
-              <span className="toolbar__views" role="group" aria-label="Show records">
-                {(
-                  [
-                    ['matches', 'Matches all', tabCounts.matches],
-                    ['all', 'All', tabCounts.all],
-                    ['unclear', 'Unclear', tabCounts.unclear],
-                  ] as const
-                ).map(([value, label, count]) => (
+            {showFilters && (
+              <span className="toolbar__views" role="group" aria-label="Show only records that say Yes to">
+                {yesNoFields.map((field) => (
                   <button
-                    key={value}
+                    key={field.key}
                     type="button"
                     className="toolbar__view"
-                    aria-pressed={activeView === value}
-                    onClick={() => chooseView(value)}
+                    aria-pressed={activeFilters.includes(field.key)}
+                    title={`Show only records that say Yes to ${field.name}`}
+                    onClick={() => toggleYesFilter(field.key)}
                   >
-                    {label} <span>· {count.toLocaleString()}</span>
+                    {field.name} <span>· {yesCount(searchedRows, field.key).toLocaleString()}</span>
                   </button>
                 ))}
               </span>
@@ -579,9 +565,9 @@ export function Project() {
         ) : visibleRows.length === 0 ? (
           <EmptyState
             icon="search"
-            title={activeView === 'matches' ? 'No records match every column yet' : 'No unclear records'}
-            body="Switch to All to see every record, including ones that answered No."
-            actions={<Button onClick={() => chooseView('all')}>Show all</Button>}
+            title="No records say Yes to every filter"
+            body="Switch a filter off to see more records."
+            actions={<Button onClick={clearYesFilters}>Clear filters</Button>}
           />
         ) : (
           <DataGrid
@@ -589,7 +575,6 @@ export function Project() {
             collapsedNotes={collapsedNotes}
             onToggleNotes={toggleNotes}
             rows={visibleRows}
-            dimmed={activeView === 'all' ? dimmed : undefined}
             rowHeight={rowHeight}
             settling={run.settling}
             workingLeads={run.workingLeads}
@@ -637,7 +622,7 @@ export function Project() {
           ) : (
             <span>
               {rows.length.toLocaleString()} {rows.length === 1 ? 'record' : 'records'}
-              {(filter || activeView !== 'all') && ` · ${visibleRows.length.toLocaleString()} shown`}
+              {(filter || activeFilters.length > 0) && ` · ${visibleRows.length.toLocaleString()} shown`}
             </span>
           )}
 

@@ -1,33 +1,21 @@
 /**
- * How a record stands against the table's answer columns, and the sources
- * behind an answer.
+ * Filtering the lead table by its yes/no columns, and the sources behind an
+ * answer.
  *
- * Every AI answer column counts towards a match, whatever its format: a yes/no
- * column must say yes, and any other column must hold an answer. Reasoning and
- * evidence columns are the working behind an answer, never a filter.
+ * Each yes/no column can be switched on as a filter: switched on, only records
+ * that say Yes to it stay in view. Several switched on means Yes to all of them.
  */
 
-import { GridField, GridRow, readVerdict } from './fields';
+import { GridRow, readVerdict } from './fields';
 
-export type RowStatus = 'match' | 'unclear' | 'fails';
-
-/** Keys of the AI answer columns, without their reasoning/evidence notes. */
-export function answerKeys(fields: GridField[]): string[] {
-  return fields.filter((field) => field.ai && !field.note).map((field) => field.key);
+/** True when the record says Yes to every yes/no column switched on. */
+export function passesYesFilters(row: GridRow, activeKeys: string[]): boolean {
+  return activeKeys.every((key) => readVerdict(row[key]) === 'yes');
 }
 
-function blank(value: unknown): boolean {
-  return value === null || value === undefined || (typeof value === 'string' && !value.trim());
-}
-
-/**
- * `fails` when any yes/no column says no; otherwise `unclear` when any answer
- * column is blank; otherwise `match`. A table with no answer columns matches.
- */
-export function rowStatus(row: GridRow, keys: string[], yesNoKeys: Set<string>): RowStatus {
-  if (keys.some((key) => yesNoKeys.has(key) && readVerdict(row[key]) === 'no')) return 'fails';
-  if (keys.some((key) => blank(row[key]))) return 'unclear';
-  return 'match';
+/** How many records say Yes to one yes/no column. */
+export function yesCount(rows: GridRow[], key: string): number {
+  return rows.filter((row) => readVerdict(row[key]) === 'yes').length;
 }
 
 const URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/g;
