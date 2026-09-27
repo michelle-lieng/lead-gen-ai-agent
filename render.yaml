@@ -1,17 +1,12 @@
-# Render Blueprint — deploys the whole stack (backend + frontend + Postgres).
+# Render Blueprint — deploys the FastAPI backend.
 # Docs: https://render.com/docs/blueprint-spec
 #
-# In the Render dashboard: New > Blueprint, connect this repo. Render reads this
-# file and creates all three resources. You'll be prompted for the two secret
-# API keys below (marked `sync: false`).
-
-databases:
-  - name: lead-gen-db
-    plan: free            # free Postgres expires after 30 days — upgrade for anything long-lived
-    region: oregon
-    databaseName: ai_lead_generator
-    # No `user:` — Render auto-generates one, and the backend reads the full
-    # DATABASE_URL (connectionString) below, so the username doesn't matter.
+# The rest of the stack lives elsewhere:
+#   - Frontend: Vercel (frontend-react/, VITE_BACKEND_URL points here)
+#   - Database: Supabase Postgres (DATABASE_URL, Transaction pooler URL)
+#
+# In the Render dashboard: New > Blueprint, connect this repo. You'll be
+# prompted for the values marked `sync: false`.
 
 services:
   # ---- Backend: FastAPI ----
@@ -19,7 +14,7 @@ services:
     name: lead-gen-backend
     runtime: docker
     plan: free            # free web services sleep when idle (slow first request); use `starter` to stay warm
-    region: oregon
+    region: singapore     # closest Render region to the Supabase database (Tokyo)
     dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile
     # Bind to the port Render assigns via $PORT instead of the hardcoded 8000.
@@ -27,16 +22,16 @@ services:
     dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     envVars:
+      # Supabase connection string (Connect > Transaction pooler, port 6543).
       - key: DATABASE_URL
-        fromDatabase:
-          name: lead-gen-db
-          property: connectionString
-      # The shared password, the session signing secret and the API keys.
-      # Set their values in the Render dashboard; see backend/env.example.
+        sync: false
+      # The shared password and the API keys. Set their values in the Render
+      # dashboard; see backend/env.example.
       - key: APP_PASSWORD
         sync: false
+      # Signs sessions; Render generates a random value once.
       - key: AUTH_SECRET
-        sync: false
+        generateValue: true
       - key: OPENAI_API_KEY
         sync: false
       - key: JINA_API_KEY
@@ -47,26 +42,6 @@ services:
         value: "false"
       - key: LOG_LEVEL
         value: INFO
-      # Restrict browser CORS to the deployed frontend origin(s). Comma-separated;
-      # defaults to "*" if unset. Set this to your Vercel URL in the dashboard, e.g.
-      #   https://your-app.vercel.app
+      # Browser origins allowed to call the API (comma-separated): the Vercel frontend.
       - key: CORS_ALLOW_ORIGINS
-        sync: false
-
-  # ---- Frontend: React + Vite (served by nginx) ----
-  - type: web
-    name: lead-gen-frontend
-    runtime: docker
-    plan: free
-    region: oregon
-    dockerContext: ./frontend-react
-    dockerfilePath: ./frontend-react/Dockerfile
-    # nginx listens on $PORT (set by Render); no dockerCommand override needed.
-    healthCheckPath: /
-    envVars:
-      # The browser calls the backend directly, so this must be the backend's
-      # PUBLIC URL. It is injected into config.js at container start (no rebuild).
-      # Paste the backend's onrender.com URL in the dashboard, e.g.
-      #   https://lead-gen-backend-ms7s.onrender.com
-      - key: BACKEND_URL
-        sync: false
+        value: https://lead-gen-frontend-theta.vercel.app,https://lead-gen-frontend-michelle-liengs-projects.vercel.app
