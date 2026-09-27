@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     jina_api_key: Optional[str] = None
     google_places_api_key: Optional[str] = None
 
+    # The OpenAI model every call uses: drafting, search queries, extraction
+    # and research. Change it here or with OPENAI_MODEL, no code change needed.
+    openai_model: str = Field(default="gpt-6-luna")
+
     debug: bool = Field(default=False)
 
     # App settings

@@ -10,12 +10,14 @@ instead of relying on the process-global default key.
 
 import openai
 
+from ..config import settings
+
 try:  # openai-agents re-exports this at the top level in 0.6.x
     from agents import OpenAIResponsesModel
 except ImportError:  # pragma: no cover - fallback for other versions
     from agents.models.openai_responses import OpenAIResponsesModel
 
-DEFAULT_MODEL = "gpt-5-mini"
+DEFAULT_MODEL = settings.openai_model
 
 
 def build_openai_client(openai_api_key: str) -> openai.OpenAI:

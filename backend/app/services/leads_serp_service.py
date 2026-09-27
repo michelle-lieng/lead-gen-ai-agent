@@ -32,7 +32,7 @@ from ..exceptions import (
 
 from ..utils.scrapers import jina_serp_scraper, jina_url_scraper
 from ..utils.lead_utils import normalize_lead_name
-from ..utils.ai_clients import build_openai_client, build_agent_model
+from ..utils.ai_clients import DEFAULT_MODEL, build_openai_client, build_agent_model
 from ..prompts import SERP_QUERIES_PROMPT, SERP_EXTRACTION_PROMPT
 from ..models.tables import SerpQuery, SerpUrl, SerpLead, SerpLeadAggregated, Project
 from ..models.schemas import QueryListRequest
@@ -98,7 +98,7 @@ class LeadsSerpService:
         # Call OpenAI API with a per-request client built from the caller's key
         openai_client = build_openai_client(openai_api_key)
         response = openai_client.responses.parse(
-            model="gpt-5-mini",  # Using gpt-5-mini: 500K TPM, better quality, 10x cheaper input than gpt-4o
+            model=DEFAULT_MODEL,
             input=[
                 {
                     "role": "system",

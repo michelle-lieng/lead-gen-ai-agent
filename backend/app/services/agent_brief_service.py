@@ -31,7 +31,7 @@ from ..prompts.agent_briefs import (
     INTERPRET_PROMPT,
     LEAD_BRIEF_PROMPT,
 )
-from ..utils.ai_clients import build_openai_client
+from ..utils.ai_clients import DEFAULT_MODEL, build_openai_client
 from .chat_service import chat_service
 from .column_gaps import unanswered_leads
 from .enrichment_service import enrichment_service
@@ -40,7 +40,7 @@ from .project_service import project_service
 
 logger = logging.getLogger(__name__)
 
-MODEL = "gpt-5-mini"
+MODEL = DEFAULT_MODEL
 
 # No sampling parameters are passed with it. gpt-5-class models reject
 # `temperature` outright — "Unsupported parameter: 'temperature' is not
