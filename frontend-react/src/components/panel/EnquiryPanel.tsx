@@ -114,7 +114,13 @@ export function EnquiryPanel({
     }
   };
 
-  const showsRun = steps.length > 0;
+  /* A finished run belongs to the tab it ran on. Kept on screen regardless of
+     the selected tab, it made the other tab look broken: its account filled
+     the body, the tab's own examples and fields never appeared, and switching
+     to it read as a dead control. A run still in flight is the exception — it
+     stays visible wherever you are, because that is where the Stop button and
+     the elapsed count live. */
+  const showsRun = steps.length > 0 && (running || kind === tab);
 
   return (
     <aside className="panel" aria-label="Find and enrich leads">

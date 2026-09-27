@@ -89,6 +89,9 @@ export const FRIENDLY_TEMPLATES: Record<string, string> = {
   UNEXPECTED_INTERNAL_ERROR: 'Something went wrong on the server. Please try again.',
 };
 
+/** Codes whose server-side message is already the most useful thing to show. */
+export const PASS_THROUGH_CODES = new Set(['OPENAI_REQUEST_FAILED']);
+
 export const STATUS_FALLBACK_MESSAGES: Record<number, string> = {
   400: 'Bad request. Please check your input and try again.',
   401: "You're not authenticated. Please log in again.",
@@ -122,6 +125,13 @@ export function errorToMessage(err: unknown): string {
         return `${loc}: ${item.msg || 'Invalid value'}`;
       });
       return `Please fix the highlighted input errors:\n${lines.join('\n')}`;
+    }
+    // Errors whose whole value is what the upstream service said: "temperature
+    // is not supported with this model" and "you exceeded your current quota"
+    // need different things done about them, and a house sentence covering
+    // both would help with neither.
+    if (err.code && PASS_THROUGH_CODES.has(err.code) && typeof err.detail === 'string') {
+      return err.detail;
     }
     if (err.code) {
       const template = FRIENDLY_TEMPLATES[err.code];
