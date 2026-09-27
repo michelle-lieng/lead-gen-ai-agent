@@ -29,17 +29,19 @@ const KeysContext = createContext<KeysApi | null>(null);
 
 export function ApiKeysProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const { openaiKey, jinaKey, hasKeys, setKeys, clearKeys } = useApiKeys();
+  const { openaiKey, jinaKey, googleKey, hasKeys, setKeys, clearKeys } = useApiKeys();
   const { notify } = useNotify();
 
   const [draftOpenai, setDraftOpenai] = useState(openaiKey);
   const [draftJina, setDraftJina] = useState(jinaKey);
+  const [draftGoogle, setDraftGoogle] = useState(googleKey);
 
   const openDialog = useCallback(() => {
     setDraftOpenai(openaiKey);
     setDraftJina(jinaKey);
+    setDraftGoogle(googleKey);
     setOpen(true);
-  }, [openaiKey, jinaKey]);
+  }, [openaiKey, jinaKey, googleKey]);
 
   const requireKeys = useCallback(() => {
     if (hasKeys) return true;
@@ -51,7 +53,7 @@ export function ApiKeysProvider({ children }: { children: ReactNode }) {
   const api = useMemo(() => ({ openDialog, requireKeys }), [openDialog, requireKeys]);
 
   const save = () => {
-    setKeys({ openaiKey: draftOpenai, jinaKey: draftJina });
+    setKeys({ openaiKey: draftOpenai, jinaKey: draftJina, googleKey: draftGoogle });
     notify('Keys saved in this browser.', 'success');
     setOpen(false);
   };
@@ -70,11 +72,12 @@ export function ApiKeysProvider({ children }: { children: ReactNode }) {
             <Button
               tone="danger"
               icon="trash"
-              disabled={!openaiKey && !jinaKey}
+              disabled={!openaiKey && !jinaKey && !googleKey}
               onClick={() => {
                 clearKeys();
                 setDraftOpenai('');
                 setDraftJina('');
+                setDraftGoogle('');
                 notify('Keys cleared from this browser.', 'info');
               }}
             >
@@ -113,6 +116,16 @@ export function ApiKeysProvider({ children }: { children: ReactNode }) {
             value={draftJina}
             onChange={(event) => setDraftJina(event.target.value)}
             hint="Runs the searches and reads the pages the answers come from."
+          />
+          <Field
+            label="Google Places key (optional)"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="AIza…"
+            value={draftGoogle}
+            onChange={(event) => setDraftGoogle(event.target.value)}
+            hint="Finds businesses on Google Maps when you name a location. Needs Places API (New) enabled."
           />
           <p
             style={{

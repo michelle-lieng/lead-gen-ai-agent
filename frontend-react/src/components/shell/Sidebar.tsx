@@ -41,7 +41,7 @@ export function Sidebar({
   hidden,
 }: SidebarProps) {
   const navigate = useNavigate();
-  const { hasKeys } = useApiKeys();
+  const { hasKeys, googleKey } = useApiKeys();
   const [menuFor, setMenuFor] = useState<{ project: Project; anchor: HTMLElement } | null>(
     null,
   );
@@ -144,7 +144,11 @@ export function Sidebar({
           </span>
           <span style={{ minWidth: 0 }}>
             <b>API keys</b>
-            <span>{hasKeys ? 'OpenAI and Jina set' : 'Not set — nothing can run'}</span>
+            <span>
+              {hasKeys
+                ? `OpenAI and Jina set${googleKey ? ' · Google Places on' : ''}`
+                : 'Not set — nothing can run'}
+            </span>
           </span>
         </button>
       </div>

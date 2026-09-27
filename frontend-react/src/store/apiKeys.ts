@@ -13,10 +13,13 @@ import { useSyncExternalStore } from 'react';
 
 const OPENAI_STORAGE_KEY = 'lead_gen_openai_key';
 const JINA_STORAGE_KEY = 'lead_gen_jina_key';
+const GOOGLE_STORAGE_KEY = 'lead_gen_google_key';
 
 export interface ApiKeysState {
   openaiKey: string;
   jinaKey: string;
+  /** Optional: only location searches use it, to search Google Places. */
+  googleKey: string;
 }
 
 function readFromStorage(): ApiKeysState {
@@ -24,9 +27,10 @@ function readFromStorage(): ApiKeysState {
     return {
       openaiKey: localStorage.getItem(OPENAI_STORAGE_KEY) ?? '',
       jinaKey: localStorage.getItem(JINA_STORAGE_KEY) ?? '',
+      googleKey: localStorage.getItem(GOOGLE_STORAGE_KEY) ?? '',
     };
   } catch {
-    return { openaiKey: '', jinaKey: '' };
+    return { openaiKey: '', jinaKey: '', googleKey: '' };
   }
 }
 
@@ -44,22 +48,27 @@ export function getApiKeys(): ApiKeysState {
 
 /** Persist and broadcast new keys. */
 export function setApiKeys(next: ApiKeysState) {
-  state = { openaiKey: next.openaiKey.trim(), jinaKey: next.jinaKey.trim() };
+  state = {
+    openaiKey: next.openaiKey.trim(),
+    jinaKey: next.jinaKey.trim(),
+    googleKey: next.googleKey.trim(),
+  };
   try {
     localStorage.setItem(OPENAI_STORAGE_KEY, state.openaiKey);
     localStorage.setItem(JINA_STORAGE_KEY, state.jinaKey);
+    localStorage.setItem(GOOGLE_STORAGE_KEY, state.googleKey);
   } catch {
     /* ignore storage errors (e.g. private mode) */
   }
   emit();
 }
 
-/** Clear both keys from memory and storage. */
+/** Clear every key from memory and storage. */
 export function clearApiKeys() {
-  setApiKeys({ openaiKey: '', jinaKey: '' });
+  setApiKeys({ openaiKey: '', jinaKey: '', googleKey: '' });
 }
 
-/** True when both keys are present. */
+/** True when both required keys (OpenAI and Jina) are present; Google is optional. */
 export function hasBothKeys(s: ApiKeysState = state): boolean {
   return Boolean(s.openaiKey && s.jinaKey);
 }

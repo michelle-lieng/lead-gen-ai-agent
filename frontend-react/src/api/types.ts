@@ -193,12 +193,25 @@ export interface ContinueColumn {
   leads: string[];
 }
 
+/** What one Google Places search added to the table. */
+export interface PlacesSearchResult {
+  /** Distinct businesses Google returned. */
+  found: number;
+  /** Of those, how many were not in the table before. */
+  new: number;
+  existing: number;
+  /** Normalized names of every business found. */
+  leads: string[];
+}
+
 /** What the agent decided one chat message asks for. */
 export interface MessagePlan {
   /** Search for companies: a new search, or more of the current one. */
   find: boolean;
   /** The base search: entity type plus its searchable anchor. */
   find_instruction: string;
+  /** The place the message names, '' when none; searches Google Places first. */
+  location: string;
   /** Yes/No questions, one new True/False column each. */
   criteria: string[];
   /** One research question per new column. */

@@ -3,6 +3,7 @@ import {
   DownloadedFile,
   LeadBrief,
   LeadExtractionResponse,
+  PlacesSearchResult,
   QueryRecord,
   SerpUrl,
   UrlCreate,
@@ -63,6 +64,20 @@ export async function updateUrl(
 
 export async function deleteUrl(projectId: number, urlId: number): Promise<void> {
   await http.delete(`/api/projects/${projectId}/urls/${urlId}`);
+}
+
+/** Find businesses for a location search on Google Places and add them as leads. */
+export async function searchPlaces(
+  projectId: number,
+  query: string,
+  /** The place the message names; the backend adds it if the query lacks it. */
+  location: string,
+): Promise<PlacesSearchResult> {
+  const { data } = await http.post<PlacesSearchResult>(`/api/projects/${projectId}/places`, {
+    query,
+    location,
+  });
+  return data;
 }
 
 export async function generateLeads(projectId: number): Promise<LeadExtractionResponse> {

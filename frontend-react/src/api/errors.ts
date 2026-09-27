@@ -90,7 +90,10 @@ export const FRIENDLY_TEMPLATES: Record<string, string> = {
 };
 
 /** Codes whose server-side message is already the most useful thing to show. */
-export const PASS_THROUGH_CODES = new Set(['OPENAI_REQUEST_FAILED']);
+export const PASS_THROUGH_CODES = new Set([
+  'OPENAI_REQUEST_FAILED',
+  'GOOGLE_PLACES_REQUEST_FAILED',
+]);
 
 export const STATUS_FALLBACK_MESSAGES: Record<number, string> = {
   400: 'Bad request. Please check your input and try again.',

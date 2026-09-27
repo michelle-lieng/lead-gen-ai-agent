@@ -1,6 +1,6 @@
 /**
  * Axios instance with interceptors:
- *   - request: inject the user's API keys as X-OpenAI-Key / X-Jina-Key headers
+ *   - request: inject the user's API keys as X-OpenAI-Key / X-Jina-Key / X-Google-Key headers
  *   - response: normalise backend errors into ApiError / NetworkError
  */
 
@@ -17,9 +17,10 @@ export const http = axios.create({
 
 // Inject API keys on every request (harmless where the backend ignores them).
 http.interceptors.request.use((config) => {
-  const { openaiKey, jinaKey } = getApiKeys();
+  const { openaiKey, jinaKey, googleKey } = getApiKeys();
   if (openaiKey) config.headers.set('X-OpenAI-Key', openaiKey);
   if (jinaKey) config.headers.set('X-Jina-Key', jinaKey);
+  if (googleKey) config.headers.set('X-Google-Key', googleKey);
   return config;
 });
 

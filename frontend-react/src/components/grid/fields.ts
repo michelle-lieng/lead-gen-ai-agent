@@ -141,6 +141,23 @@ export function buildFields(columns: string[], rows: GridRow[], enrichments: Enr
       };
     }
 
+    if (key === 'places_address') {
+      // From Google Places; not an AI answer and not editable (the backend
+      // only accepts edits to imported and researched columns). Stored apart
+      // from any research column the user named "Address".
+      return {
+        key,
+        name: 'Address',
+        identifier: key,
+        type: 'text',
+        icon: ICON.text,
+        width: WIDTH.longtext,
+        align: 'left',
+        editable: false,
+        ai: false,
+      };
+    }
+
     if (key === 'serp_count') {
       return {
         key,

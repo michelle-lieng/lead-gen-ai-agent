@@ -24,9 +24,11 @@ import {
   generateLeads,
   generateQueries,
   generateUrls,
+  searchPlaces,
 } from '../api/leadsSerp';
 import { ChatEntryCreate, ContinueColumn, LeadRow, MessagePlan } from '../api/types';
 import { errorToMessage } from '../api/errors';
+import { getApiKeys } from '../store/apiKeys';
 import { queryKeys } from './queryKeys';
 
 export type StepStatus =
@@ -177,7 +179,7 @@ export function useRegisterRun(
    * ids start with `find-`. Returns false when it failed, so the caller stops.
    */
   const runFind = useCallback(
-    async (instruction: string): Promise<boolean> => {
+    async (instruction: string, location: string): Promise<boolean> => {
       let stepId = 'find-brief';
       try {
         setStep('find-brief', { status: 'running' });
@@ -189,6 +191,34 @@ export function useRegisterRun(
         write(`Target set: ${brief.query_search_target}`);
         write(`Counts as a lead: ${brief.lead_minimum_criteria}`);
         if (abortRef.current) return true;
+
+        // A named place means Google Maps lists the businesses there, so ask
+        // it first. It is an extra source: if it fails, the web search runs.
+        if (location) {
+          if (getApiKeys().googleKey) {
+            setStep('find-places', { status: 'running' });
+            write(`Google Places · ${instruction}`);
+            try {
+              const places = await searchPlaces(projectId, instruction, location);
+              write(
+                `${places.found} ${places.found === 1 ? 'business' : 'businesses'} found on Google Maps · ${places.new} new, ${places.existing} already in the table.`,
+                'result',
+              );
+              setStep('find-places', { status: 'done', detail: `${places.found} found` });
+              markSettled(places.leads);
+              refreshRegister();
+            } catch (error) {
+              const message = errorToMessage(error);
+              write(message, 'error');
+              setStep('find-places', { status: 'failed', detail: message });
+            }
+            if (abortRef.current) return true;
+          } else {
+            write(
+              `Add a Google Places key under API keys to also search Google Maps for ${location}.`,
+            );
+          }
+        }
 
         stepId = 'find-queries';
         setStep('find-queries', { status: 'running' });
@@ -407,6 +437,7 @@ export function useRegisterRun(
         plan = {
           find: Boolean(raw.find),
           find_instruction: raw.find_instruction ?? '',
+          location: raw.location ?? '',
           criteria: raw.criteria ?? [],
           columns: raw.columns ?? [],
           continue_columns: raw.continue_columns ?? [],
@@ -423,6 +454,9 @@ export function useRegisterRun(
       if (plan.find) {
         planned.push(
           { id: 'find-brief', label: `Search: ${plan.find_instruction}`, status: 'pending' },
+          ...(plan.location && getApiKeys().googleKey
+            ? [{ id: 'find-places', label: 'Search Google Maps', status: 'pending' as const }]
+            : []),
           { id: 'find-queries', label: 'Write search queries', status: 'pending' },
           { id: 'find-urls', label: 'Locate sources', status: 'pending' },
           { id: 'find-extract', label: 'Read sources and extract companies', status: 'pending' },
@@ -509,7 +543,7 @@ export function useRegisterRun(
           return finish('find-brief', text);
         }
         write(`Base search: ${plan.find_instruction}`);
-        if (!(await runFind(plan.find_instruction))) return;
+        if (!(await runFind(plan.find_instruction, plan.location))) return;
         if (abortRef.current) return finish();
 
         // Existing columns are filled for the rows this search added, so a
