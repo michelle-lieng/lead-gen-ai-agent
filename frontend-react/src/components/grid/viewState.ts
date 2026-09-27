@@ -115,3 +115,14 @@ export function writeColumnWidths(projectId: number, widths: Record<string, numb
     /* storage unavailable: the widths last for this visit only */
   }
 }
+
+/**
+ * Whether the agent panel is open when a project is first shown. A project
+ * just created opens on its table with the panel closed; otherwise it opens
+ * where there is room beside the table. `navigationState` is the router state
+ * the project was reached with; creation passes `{ created: true }`.
+ */
+export function panelStartsOpen(navigationState: unknown, wideScreen: boolean): boolean {
+  if ((navigationState as { created?: unknown } | null)?.created === true) return false;
+  return wideScreen;
+}

@@ -198,7 +198,7 @@ export function AppShell({
         onSaved={(project) => {
           setCreating(false);
           invalidate();
-          navigate(`/projects/${project.id}`);
+          navigate(`/projects/${project.id}`, { state: { created: true } });
         }}
       />
 

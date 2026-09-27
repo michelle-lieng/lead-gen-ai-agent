@@ -11,6 +11,8 @@ export interface Project {
   leads_collected: number;
   datasets_added: number;
   urls_processed: number;
+  /** Example first messages for the chat, written for this project. */
+  example_prompts?: string[] | null;
 }
 
 export interface ProjectCreate {

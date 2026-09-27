@@ -3,6 +3,7 @@ import {
   clampColumnWidth,
   fitColumnWidth,
   notesOpen,
+  panelStartsOpen,
   readColumnWidths,
   readNotesState,
   readYesFilters,
@@ -90,4 +91,17 @@ describe('fitColumnWidth', () => {
     expect(fitColumnWidth(164, 90, 120)).toBeNull());
   it('never grows past the widest a column can be', () =>
     expect(fitColumnWidth(600, 900, 400)).toBe(720));
+});
+
+describe('panelStartsOpen', () => {
+  it('starts closed on a project just created', () => {
+    expect(panelStartsOpen({ created: true }, true)).toBe(false);
+  });
+  it('starts open on a wide screen otherwise', () => {
+    expect(panelStartsOpen(null, true)).toBe(true);
+    expect(panelStartsOpen({ other: 1 }, true)).toBe(true);
+  });
+  it('starts closed on a narrow screen, where it would cover the table', () => {
+    expect(panelStartsOpen(null, false)).toBe(false);
+  });
 });

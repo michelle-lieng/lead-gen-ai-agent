@@ -52,6 +52,8 @@ interface EnquiryPanelProps {
   enrichments: Enrichment[];
   pastQueries: QueryRecord[];
   onSubmit: (instruction: string) => void;
+  /** Example first messages written for this project; generic ones when empty. */
+  examples?: string[] | null;
   /** Run the plan on the newest card, as the user edited it. */
   onStart: (plan: MessagePlan) => void;
   /** Drop the plan on the newest card. */
@@ -77,6 +79,7 @@ export function EnquiryPanel({
   enrichments,
   pastQueries,
   onSubmit,
+  examples,
   onStart,
   onCancel,
   onStop,
@@ -148,6 +151,7 @@ export function EnquiryPanel({
             copy={copy}
             enrichments={enrichments}
             pastQueries={pastQueries}
+            examples={examples?.length ? examples : copy.examples}
             onUseExample={(text) => {
               setDraft(text);
               inputRef.current?.focus();
@@ -268,11 +272,13 @@ const STATUS_WORD: Record<RunStep['status'], string> = {
 
 function PanelIntro({
   copy,
+  examples,
   enrichments,
   pastQueries,
   onUseExample,
 }: {
   copy: typeof COPY;
+  examples: string[];
   enrichments: Enrichment[];
   pastQueries: QueryRecord[];
   onUseExample: (text: string) => void;
@@ -289,7 +295,7 @@ function PanelIntro({
         <>
           <span className="intro__label">Try one of these</span>
           <ul className="intro__examples">
-            {copy.examples.map((example) => (
+            {examples.map((example) => (
               <li key={example}>
                 <button type="button" onClick={() => onUseExample(example)}>
                   {example}

@@ -27,3 +27,9 @@ export async function updateProject(
 export async function deleteProject(projectId: number): Promise<void> {
   await http.delete(`/api/projects/${projectId}`);
 }
+
+/** Write (or rewrite) a project's example first messages from its title and description. */
+export async function writeExamplePrompts(projectId: number): Promise<Project> {
+  const { data } = await http.post<Project>(`/api/projects/${projectId}/example-prompts`);
+  return data;
+}

@@ -8,10 +8,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { updateEnrichment } from '../api/enrichments';
 import { deleteMergedRow, fetchMergedResultsZip, updateMergedRow } from '../api/mergedResults';
 import { useApiKeysDialog } from '../components/apiKeys/ApiKeys';
+import { writeExamplePrompts } from '../api/projects';
+import { useApiKeys } from '../store/apiKeys';
 import { DataGrid, ROW_HEIGHT_PX, RowHeight } from '../components/grid/DataGrid';
 import { ExpandedRecord } from '../components/grid/ExpandedRecord';
 import { GridField, buildFields } from '../components/grid/fields';
@@ -25,6 +27,7 @@ import {
   writeColumnWidths,
   writeNotesState,
   writeYesFilters,
+  panelStartsOpen,
 } from '../components/grid/viewState';
 import { ImportSheet } from '../components/imports/ImportSheet';
 import { EnquiryPanel } from '../components/panel/EnquiryPanel';
@@ -60,6 +63,7 @@ export function Project() {
   // The keys dialog itself is opened from the sidebar's account slot; this page
   // only needs the gate that blocks a run when they are missing.
   const { requireKeys } = useApiKeysDialog();
+  const { hasKeys } = useApiKeys();
 
   const { data: project, isLoading: loadingProject, isError } = useProject(id);
   const { data: results, isLoading: loadingResults } = useMergedResults(id);
@@ -69,10 +73,32 @@ export function Project() {
   const chat = useProjectChat(id);
   const run = useRegisterRun(id, chat.append);
 
+  // A project made before examples existed, or without a key, gets its own
+  // examples written the first time the chat would show them: an empty chat
+  // with no searches or columns yet. Once, and only with keys to pay for it.
+  const askedForExamples = useRef(false);
+  useEffect(() => {
+    const showsExamples =
+      chat.ready && chat.lines.length === 0 && !pastQueries?.length && !enrichments?.length;
+    if (!project || project.example_prompts?.length || !hasKeys || !showsExamples) return;
+    if (askedForExamples.current) return;
+    askedForExamples.current = true;
+    writeExamplePrompts(id)
+      .then((updated) => queryClient.setQueryData(queryKeys.project(id), updated))
+      .catch(() => {
+        /* the generic examples stay */
+      });
+  }, [project, hasKeys, chat.ready, chat.lines.length, pastQueries, enrichments, id, queryClient]);
+
   // Below 1181px the panel stops being a column and becomes an overlay, so
   // opening it by default there would hide the table the visitor came for.
-  const [panelOpen, setPanelOpen] = useState(
-    () => typeof window === 'undefined' || window.matchMedia('(min-width: 1181px)').matches,
+  // A project just created opens with it closed too.
+  const location = useLocation();
+  const [panelOpen, setPanelOpen] = useState(() =>
+    panelStartsOpen(
+      location.state,
+      typeof window === 'undefined' || window.matchMedia('(min-width: 1181px)').matches,
+    ),
   );
   const [focusToken, setFocusToken] = useState(0);
   const [filter, setFilter] = useState('');
@@ -384,6 +410,7 @@ export function Project() {
             unsaved={chat.unsaved}
             startedAt={run.startedAt}
             enrichments={enrichments ?? []}
+            examples={project.example_prompts}
             pastQueries={pastQueries ?? []}
             onSubmit={submit}
             onStart={(plan) => {
