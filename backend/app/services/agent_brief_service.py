@@ -2,7 +2,10 @@
 Turns one plain-English instruction from the chat into the structured
 configuration the existing pipeline requires.
 
-Two entry points:
+Three entry points:
+
+* ``interpret`` reads a message sent to the project's single chat and decides
+  whether it asks for companies, for research columns, both, or just an answer.
 
 * ``draft_lead_brief`` writes a project's ``query_search_target`` and
   ``lead_minimum_criteria`` from a sentence like "dental clinics in Sydney",
@@ -22,9 +25,15 @@ from pydantic import BaseModel, Field
 
 from .. import exceptions
 from ..models.tables import Enrichment
-from ..prompts.agent_briefs import ENRICHMENT_DRAFT_PROMPT, LEAD_BRIEF_PROMPT
+from ..prompts.agent_briefs import (
+    ENRICHMENT_DRAFT_PROMPT,
+    INTERPRET_PROMPT,
+    LEAD_BRIEF_PROMPT,
+)
 from ..utils.ai_clients import build_openai_client
+from .chat_service import chat_service
 from .enrichment_service import enrichment_service
+from .merged_results_service import merged_results_service
 from .project_service import project_service
 
 logger = logging.getLogger(__name__)
@@ -67,6 +76,35 @@ class EnrichmentDraft(BaseModel):
     result_false_if: str = ""
     result_number_value: str = ""
     result_text_value: str = ""
+
+
+class MessagePlan(BaseModel):
+    """What the model decides a chat message asks for."""
+
+    find: bool = False
+    find_instruction: str = ""
+    columns: list[str] = Field(default_factory=list)
+    continue_columns: list[str] = Field(default_factory=list)
+    reply: str = ""
+
+
+def unanswered_leads(rows: list[dict], column_name: str) -> list[str]:
+    """Leads whose column was never researched: no answer and no reasoning.
+
+    A researched lead with no answer found still has its reasoning written, so
+    it is not picked up again when the column is continued.
+    """
+    reasoning = f"{column_name}_reasoning"
+    blank = lambda value: value is None or (isinstance(value, str) and not value.strip())
+    return [
+        str(row["lead"])
+        for row in rows
+        if row.get("lead") and blank(row.get(column_name)) and blank(row.get(reasoning))
+    ]
+
+
+# How much of the conversation the interpreter sees, newest last.
+INTERPRET_HISTORY_LINES = 30
 
 
 def _slugify_column(value: str, fallback: str) -> str:
@@ -131,6 +169,94 @@ def _openai_errors(step: str):
 
 class AgentBriefService:
     """Drafts pipeline configuration from natural-language instructions."""
+
+    def interpret(self, project_id: int, message: str, *, openai_api_key: str) -> dict:
+        """
+        Decide what one chat message asks for, using the project's current
+        search, its columns, and the recent conversation as context, so that
+        "get me 10 more" or "also check their staff count" make sense.
+        """
+        project = project_service.get_project(project_id)  # raises if the project is gone
+        enrichments = enrichment_service.get_enrichments(project_id)
+        columns = [e.enrichment_name for e in enrichments]
+        results = merged_results_service.get_merged_results(project_id)
+        unanswered_by_name = {
+            e.enrichment_name: unanswered_leads(results["data"], e.column_name)
+            for e in enrichments
+            if e.column_name
+        }
+        unanswered = {name: len(leads) for name, leads in unanswered_by_name.items()}
+        history, _ = chat_service.get_history(project_id, limit=INTERPRET_HISTORY_LINES)
+        # The newest message is usually saved already; don't show it twice.
+        if history and history[-1].role == "user" and history[-1].text.strip() == message.strip():
+            history = history[:-1]
+        transcript = "\n".join(
+            f"[{entry.role}] {entry.text}" for entry in history if entry.text
+        ) or "(none yet)"
+
+        client = build_openai_client(openai_api_key)
+        with _openai_errors("reading your message"):
+            response = client.responses.parse(
+                model=MODEL,
+                input=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You route messages in a lead-generation chat. You decide "
+                            "what the user wants done; you never do it yourself and never "
+                            "invent companies or facts."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": INTERPRET_PROMPT.format(
+                            search_target=project.query_search_target or "(no search yet)",
+                            lead_criteria=project.lead_minimum_criteria or "(no search yet)",
+                            lead_count=project.leads_collected or 0,
+                            columns=", ".join(
+                                f"{name} ({unanswered.get(name, 0)} unanswered)"
+                                for name in columns
+                            ) or "(none)",
+                            history=transcript,
+                            message=message,
+                        ),
+                    },
+                ],
+                text_format=MessagePlan,
+            )
+        plan = response.output_parsed
+
+        find_instruction = plan.find_instruction.strip()
+        find = plan.find and bool(find_instruction or project.query_search_target)
+        if find and not find_instruction:
+            find_instruction = project.query_search_target or ""
+        taken = {name.strip().lower() for name in columns}
+        new_columns = []
+        for column in plan.columns:
+            column = column.strip()
+            if column and column.lower() not in taken:
+                taken.add(column.lower())
+                new_columns.append(column)
+
+        return {
+            "find": find,
+            "find_instruction": find_instruction if find else "",
+            "columns": new_columns[:5],
+            "continue_columns": [
+                {
+                    "enrichment_id": e.id,
+                    "name": e.enrichment_name,
+                    "column_name": e.column_name,
+                    "leads": unanswered_by_name[e.enrichment_name],
+                }
+                for e in enrichments
+                if e.column_name
+                and unanswered.get(e.enrichment_name, 0) > 0
+                and e.enrichment_name.strip().lower()
+                in {name.strip().lower() for name in plan.continue_columns}
+            ],
+            "reply": plan.reply.strip(),
+        }
 
     def draft_lead_brief(
         self, project_id: int, instruction: str, *, openai_api_key: str

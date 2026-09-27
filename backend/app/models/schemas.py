@@ -2,7 +2,7 @@
 Pydantic models for API request/response validation
 """
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Literal
 
 
@@ -373,3 +373,74 @@ class MergedRowUpdate(BaseModel):
         if not v:
             raise ValueError("At least one column must be provided")
         return v
+
+
+ChatRole = Literal["user", "agent", "log"]
+ChatKind = Literal[
+    "text", "step", "result", "error", "breakdown", "definition", "query"
+]
+
+
+class ChatEntryCreate(BaseModel):
+    """One entry appended to a project's conversation"""
+
+    role: ChatRole
+    kind: ChatKind = "text"
+    text: str = ""
+    payload: Optional[dict] = None
+
+
+class ChatAppendRequest(BaseModel):
+    """Entries to append, in the order they happened"""
+
+    # Bounded so a single append stays one small transaction
+    entries: list[ChatEntryCreate] = Field(min_length=1, max_length=200)
+
+
+class ChatEntryResponse(BaseModel):
+    """One saved entry of a project's conversation"""
+
+    id: int
+    project_id: int
+    created_at: str
+    role: str
+    kind: str
+    text: str
+    payload: Optional[dict] = None
+
+    class Config:
+        from_attributes = True
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def serialize_datetime(cls, v):
+        """Convert datetime to ISO format string, marked as UTC"""
+        if hasattr(v, "isoformat"):
+            return v.isoformat() + ("Z" if v.tzinfo is None else "")
+        return v
+
+
+class ChatHistoryResponse(BaseModel):
+    """A page of a project's conversation, oldest first"""
+
+    entries: list[ChatEntryResponse]
+    has_more: bool  # True when older entries exist before the first one returned
+
+
+class ContinueColumn(BaseModel):
+    """An existing column to finish for the leads it has no answer for yet"""
+
+    enrichment_id: int
+    name: str
+    column_name: str
+    leads: list[str]  # The leads with no answer yet, in table order
+
+
+class MessagePlanResponse(BaseModel):
+    """What one chat message asks the agent to do"""
+
+    find: bool  # Search for companies (new search or more of the current one)
+    find_instruction: str  # Standalone description of the companies to find
+    columns: list[str]  # One research question per new column
+    continue_columns: list[ContinueColumn]  # Existing columns to finish for unanswered leads
+    reply: str  # A direct answer, when the message needs one

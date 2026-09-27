@@ -16,6 +16,7 @@ from .api.routes import (
     merged_results,
     enrichments,
     jobs,
+    chat,
 )
 from .services.database_service import db_service
 from .services.job_service import job_service
@@ -210,3 +211,7 @@ app.include_router(enrichments.router, prefix="/api", tags=["enrichments"])
 ########## JOB ENDPOINTS
 
 app.include_router(jobs.router, prefix="/api", tags=["jobs"])
+
+########## CHAT ENDPOINTS
+
+app.include_router(chat.router, prefix="/api", tags=["chat"])

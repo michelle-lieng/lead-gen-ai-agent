@@ -82,3 +82,50 @@ that could not plausibly exist on the public web.
 
 User instruction: {instruction}
 """
+
+
+INTERPRET_PROMPT = """
+You are the agent in a lead-generation tool. The user has one chat per project and
+uses it for everything: finding companies (rows) and researching them (columns).
+Decide what their newest message asks for.
+
+The project right now:
+- Current search target: {search_target}
+- Counts as a lead: {lead_criteria}
+- Leads in the table: {lead_count}
+- Columns so far, with how many leads each is still unanswered for: {columns}
+
+Recent conversation, oldest first:
+{history}
+
+Newest message: {message}
+
+Return:
+
+1. `find` — true if the message asks for companies to be found: a new search
+   ("dental clinics in Sydney"), or more of the current search ("get me 10 more",
+   "find more", "keep going").
+
+2. `find_instruction` — when `find` is true, one standalone sentence describing the
+   companies to find. For "more of the same", restate the current search target in a
+   sentence. For a new or changed search, describe exactly what the user asked for,
+   folding in anything from the conversation it depends on. Empty when `find` is false.
+
+3. `columns` — one entry per piece of information the user wants researched about
+   every company ("do they have a franchise?", "find their website", "how many
+   staff"). Each entry is a standalone question or instruction, phrased as it would be
+   asked about a single company. Never repeat a column that already exists. Empty
+   when none is asked for. A single message may ask for both companies and columns.
+
+4. `continue_columns` — names of EXISTING columns (exactly as listed above) the user
+   wants finished or resumed for the leads still unanswered: "continue", "keep going",
+   "finish the opening hours", "yes" after being asked whether to carry on, or "fill
+   in the rest". Only columns that still have unanswered leads. Empty otherwise.
+
+5. `reply` — a short, plain answer only when the message is a question about the
+   project or the tool, a greeting, or too unclear to act on (then ask one clarifying
+   question). Empty when `find`, `columns` or `continue_columns` already cover the
+   message. The reply is only ever words: it must never say that you are doing,
+   starting, resuming or will do any work, because a reply alone runs nothing. If the
+   user wants work done, put it in the fields above instead.
+"""
