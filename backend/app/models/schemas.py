@@ -2,7 +2,9 @@
 Pydantic models for API request/response validation
 """
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
+
+from .tables import BUILT_IN_RESULT_COLUMNS
 from typing import Optional, Literal
 
 
@@ -73,6 +75,7 @@ class ProjectResponse(BaseModel):
     leads_collected: int
     datasets_added: int
     urls_processed: int
+    example_prompts: Optional[list[str]] = None  # Example first messages, written for this project
 
     class Config:
         from_attributes = True
@@ -161,6 +164,8 @@ def validate_column_name(v: str) -> str:
         raise ValueError("Column name must be lowercase")
     if v[0].isdigit():
         raise ValueError("Column name cannot start with a number")
+    if v in BUILT_IN_RESULT_COLUMNS:
+        raise ValueError(f"Column name '{v}' is reserved for a built-in column")
     return v
 
 
@@ -332,3 +337,168 @@ class MergedResultsResponse(BaseModel):
     data: list[dict]  # List of result rows with dynamic columns
     columns: list[str]  # List of column names (base columns + enrichment columns)
     count: int  # Total number of results
+
+
+class InstructionRequest(BaseModel):
+    """One plain-English instruction typed into the chat"""
+
+    instruction: str
+
+    @field_validator("instruction")
+    @classmethod
+    def validate_not_empty(cls, v: str) -> str:
+        """Ensure the instruction is not empty or just whitespace"""
+        return validate_not_empty_string(v)
+
+
+class EnrichmentDraftRequest(InstructionRequest):
+    """A column to draft from one instruction, optionally with its format pinned"""
+
+    # Criteria columns pass "True/False"; omitted, the drafter picks the format.
+    result_format: Optional[Literal["True/False", "Number", "Text"]] = None
+
+
+class PlacesSearchRequest(BaseModel):
+    """One Google Places text search, e.g. 'Companies based around Sydney Harbour'"""
+
+    query: str
+    # The place the message names. Added to the query when the query leaves it
+    # out, so Google never runs an unanchored, nationwide search.
+    location: str = ""
+
+    @field_validator("query")
+    @classmethod
+    def validate_not_empty(cls, v: str) -> str:
+        """Ensure the query is not empty or just whitespace"""
+        return validate_not_empty_string(v)
+
+
+class PlacesSearchResponse(BaseModel):
+    """What one Google Places search added to the table"""
+
+    found: int  # Distinct businesses kept after the business check
+    not_businesses: int = 0  # Google results the AI check judged to be plain places
+    new: int  # Of those, how many were not in the table before
+    existing: int  # found - new
+    leads: list[str]  # Normalized names of every business found
+
+
+class LeadBriefResponse(BaseModel):
+    """The search configuration drafted from a 'find me leads like this' instruction"""
+
+    query_search_target: str
+    lead_minimum_criteria: str
+    num_queries: int
+
+
+class MergedRowUpdate(BaseModel):
+    """Schema for editing one row of the merged results table"""
+
+    lead: str  # The row's current lead name (its key within the project)
+    updates: dict  # Column name -> new value
+
+    @field_validator("lead")
+    @classmethod
+    def validate_lead(cls, v: str) -> str:
+        """Ensure the row key is not empty or just whitespace"""
+        return validate_not_empty_string(v)
+
+    @field_validator("updates")
+    @classmethod
+    def validate_updates(cls, v: dict) -> dict:
+        """Ensure at least one column is being written"""
+        if not v:
+            raise ValueError("At least one column must be provided")
+        return v
+
+
+ChatRole = Literal["user", "agent", "log"]
+ChatKind = Literal[
+    "text", "step", "result", "error", "breakdown", "definition", "query"
+]
+
+
+class ChatEntryCreate(BaseModel):
+    """One entry appended to a project's conversation"""
+
+    role: ChatRole
+    kind: ChatKind = "text"
+    text: str = ""
+    payload: Optional[dict] = None
+
+
+class ChatAppendRequest(BaseModel):
+    """Entries to append, in the order they happened"""
+
+    # Bounded so a single append stays one small transaction
+    entries: list[ChatEntryCreate] = Field(min_length=1, max_length=200)
+
+
+class ChatEntryResponse(BaseModel):
+    """One saved entry of a project's conversation"""
+
+    id: int
+    project_id: int
+    created_at: str
+    role: str
+    kind: str
+    text: str
+    payload: Optional[dict] = None
+
+    class Config:
+        from_attributes = True
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def serialize_datetime(cls, v):
+        """Convert datetime to ISO format string, marked as UTC"""
+        if hasattr(v, "isoformat"):
+            return v.isoformat() + ("Z" if v.tzinfo is None else "")
+        return v
+
+
+class ChatHistoryResponse(BaseModel):
+    """A page of a project's conversation, oldest first"""
+
+    entries: list[ChatEntryResponse]
+    has_more: bool  # True when older entries exist before the first one returned
+
+
+class ContinueColumn(BaseModel):
+    """An existing column to finish for the leads it has no answer for yet"""
+
+    enrichment_id: int
+    name: str
+    column_name: str
+    leads: list[str]  # The leads with no answer yet, in table order
+
+
+class MessagePlanResponse(BaseModel):
+    """What one chat message asks the agent to do"""
+
+    find: bool  # Search for companies (new search or more of the current one)
+    find_instruction: str  # The base search: entity type plus its searchable anchor
+    location: str  # The place the message names, "" when none; triggers Google Places
+    criteria: list[str]  # Yes/No questions, one new True/False column each
+    columns: list[str]  # One research question per new column
+    continue_columns: list[ContinueColumn]  # Existing columns to finish for unanswered leads
+    reply: str  # A direct answer, when the message needs one
+
+
+# ---- Access -----------------------------------------------------------------
+
+
+class LoginRequest(BaseModel):
+    password: str
+
+
+class LoginResponse(BaseModel):
+    token: str
+
+
+class ServerKeysResponse(BaseModel):
+    """Which API keys the server has; the frontend never sees the keys."""
+
+    openai: bool
+    jina: bool
+    google: bool

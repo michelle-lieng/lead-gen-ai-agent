@@ -1,0 +1,1919 @@
+/* ===========================================================================
+   The app: a sidebar of projects, a content region behind a rounded seam, a grid
+   ruled both ways, and the enquiry panel on the right.
+   ========================================================================= */
+
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  height: 100dvh;
+  background: var(--chrome);
+  overflow: hidden;
+}
+
+.app[data-panel='open'] {
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--panel-w);
+}
+
+/* ==========================================================================
+   Sidebar
+   ========================================================================= */
+
+.side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--chrome);
+}
+
+.side__top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 52px;
+  padding: 0 12px 0 14px;
+  flex: none;
+}
+
+.side__mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: var(--r);
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.side__workspace { min-width: 0; }
+
+.side__workspace b {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side__workspace span {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--text-2);
+}
+
+.side__section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.side__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+  list-style: none;
+  margin: 0;
+}
+
+.side__item { position: relative; }
+
+.side__link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 30px 6px 8px;
+  border: 0;
+  border-radius: var(--r);
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--clock) var(--ease), box-shadow var(--clock) var(--ease);
+}
+.side__link:hover { background: #ececee; }
+
+.side__item[data-active='true'] .side__link {
+  background: var(--surface);
+  font-weight: 500;
+  box-shadow: var(--shadow-card);
+}
+
+/* The active project is carried by the raised white pill and its navy label —
+   the way the category itself marks one. An accent bar down the side of a list
+   item would read as a separate mark rather than as the item's own state. */
+.side__item[data-active='true'] .side__name { color: var(--accent); }
+
+.side__item[data-active='true'] .side__count { color: var(--accent); }
+
+.side__icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.side__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side__count {
+  margin-left: auto;
+  padding-left: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.side__more {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity var(--clock) var(--ease);
+}
+.side__item:hover .side__more,
+.side__more:focus-visible { opacity: 1; }
+
+.side__empty {
+  padding: 4px 8px 8px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.side__foot {
+  flex: none;
+  padding: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.side__create {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r);
+  background: none;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--clock) var(--ease), color var(--clock) var(--ease);
+}
+.side__create:hover { background: #ececee; color: var(--text); }
+
+/* The account slot: key status lives where the avatar would. */
+.side__keys {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--r);
+  background: none;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--clock) var(--ease);
+}
+.side__keys:hover { background: #ececee; }
+
+.side__keys__dot {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.side__keys[data-missing='true'] .side__keys__dot { background: var(--danger-soft); color: var(--danger); }
+
+.side__keys b { display: block; font-weight: 500; color: var(--text); }
+.side__keys span { display: block; font-size: 11.5px; color: var(--text-2); }
+.side__keys[data-missing='true'] span { color: var(--danger); }
+
+/* --- Sidebar as a slide-over, on narrow screens ---------------------------- */
+
+.side__scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(20, 24, 35, 0.32);
+  animation: settle var(--clock) var(--ease) both;
+}
+
+.side__toggle { display: none; }
+
+/* Dims the table only once the panel has stopped being a column. */
+.panel__scrim { display: none; }
+
+/* ==========================================================================
+   Content region — the rounded seam is the shell's signature
+   ========================================================================= */
+
+.main {
+  display: grid;
+  /* Explicit, so the implicit column cannot size itself to the widest child —
+     the toolbar and the grid both exceed a phone's width by design. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  min-width: 0;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  border-radius: var(--r-seam) 0 0 0;
+  overflow: hidden;
+}
+
+.main--plain { grid-template-rows: auto minmax(0, 1fr); }
+/* The view bar is only there when the table has AI columns; give it a row. */
+.main:has(> .viewbar) { grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
+
+/* --- Project bar ----------------------------------------------------------- */
+
+.projectbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 47px;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.projectbar__title {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+}
+
+.projectbar__title h1 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectbar__meta {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.projectbar__spacer { flex: 1 1 auto; }
+
+/* --- Toolbar: the one table's tab, then the controls that actually work ---- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 10px 0 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.toolbar__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  align-self: stretch;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 2px solid var(--accent);
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: default;
+}
+
+.toolbar__tab span {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbar__rule {
+  width: 1px;
+  height: 18px;
+  flex: none;
+  background: var(--line);
+}
+
+.toolbar__spacer { flex: 1 1 auto; }
+
+/* The table's view controls, on their own slim row under the toolbar so the
+   toolbar keeps room for Import, Export and the panel toggle. */
+.viewbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 34px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.viewbar::-webkit-scrollbar { height: 0; }
+.viewbar > * { flex: none; }
+
+.toolbar__views {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--r);
+  background: var(--surface-hover);
+}
+
+.toolbar__view {
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: calc(var(--r) - 2px);
+  background: none;
+  color: var(--text-2);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.toolbar__view span { font-variant-numeric: tabular-nums; }
+.toolbar__view[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.toolbar__notes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* An answer column's own why-and-evidence switch, beside its name. */
+.head:has(.head__notes) { padding-right: 26px; }
+
+/* A column's draggable right edge: a thin grab strip over the header's border,
+   showing the accent line on hover, while dragging and when focused. */
+.head__resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.head__resize::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  right: 1px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background var(--clock) var(--ease);
+}
+.head__resize:hover::after,
+.head__resize:active::after,
+.head__resize:focus-visible::after { background: var(--accent); }
+.head__resize:focus-visible { outline: none; }
+.head__notes {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.head__notes:hover { background: var(--surface-hover); color: var(--text); }
+.head__notes[aria-pressed='true'] { color: var(--accent); }
+
+/* How many sources back an answer whose working is folded away. */
+.cell__sources {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  margin-left: auto;
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.cell__sources[data-none] { color: var(--text-3); }
+.cell__sources:hover { border-color: var(--line-strong); }
+
+.rec__working dd a { color: var(--accent); word-break: break-all; }
+
+
+.toolbar__found {
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* --- Footer ---------------------------------------------------------------- */
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 33px;
+  padding: 0 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.foot__spacer { flex: 1 1 auto; }
+
+/* The phone-width tallies; the full string carries them everywhere else. */
+.foot__meta--short { display: none; white-space: nowrap; }
+
+.foot__sel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   The grid
+   ========================================================================= */
+
+.grid {
+  position: relative;
+  min-height: 0;
+  overflow: auto;
+  /* The ground below the last record, so the table has a visible end. */
+  background: var(--surface-2);
+  scroll-padding-top: var(--head-h);
+  scroll-padding-left: var(--frozen-w, 300px);
+  scroll-padding-right: 24px;
+}
+
+/* At least the full width of the scroller, so the gridlines reach its edge; at
+   least the fields' own total, so they never compress. */
+.grid__inner {
+  width: max-content;
+  min-width: max(100%, var(--grid-w, 0px));
+}
+
+.grid__row {
+  display: flex;
+  width: 100%;
+  border-bottom: 1px solid var(--line-2);
+  background: var(--surface);
+}
+
+.grid__row:hover { background: var(--surface-hover); }
+.grid__row:hover .cell--sticky { background: var(--surface-hover); }
+
+/* A row the run is working now. */
+.grid__row[data-working='true'],
+.grid__row[data-working='true'] .cell--sticky { background: var(--accent-tint); }
+
+.grid__row[data-selected='true'],
+.grid__row[data-selected='true'] .cell--sticky { background: var(--accent-soft); }
+
+.grid__head {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  width: 100%;
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--surface-2);
+}
+
+.grid__head .cell--sticky { background: var(--surface-2); z-index: 5; }
+
+/* --- Cells ----------------------------------------------------------------- */
+
+.cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: var(--cw, 160px);
+  min-height: var(--row-h);
+  padding: 0 8px;
+  border-right: 1px solid var(--line-2);
+  font-size: 13px;
+  overflow: hidden;
+}
+
+.grid[data-rowheight='medium'] .cell,
+.grid[data-rowheight='tall'] .cell {
+  align-items: flex-start;
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+.grid__head .cell { min-height: var(--head-h); align-items: center; padding-top: 0; padding-bottom: 0; }
+
+.cell--sticky { position: sticky; z-index: 2; background: var(--surface); }
+
+.cell--gutter {
+  left: 0;
+  width: var(--gutter-w);
+  flex: 0 0 var(--gutter-w);
+  padding: 0 4px 0 8px;
+  gap: 2px;
+  border-right-color: var(--line);
+}
+
+/* At Medium and Tall the cell text sits at the top of the row, so the row
+   number and its hover controls go with it — a number floating 40px below the
+   company it belongs to is not a row number. */
+.grid[data-rowheight='medium'] .cell--gutter,
+.grid[data-rowheight='tall'] .cell--gutter { align-items: flex-start; }
+
+.cell--first { left: var(--gutter-w); }
+
+/* The frozen edge: a firmer rule, and a cast shadow once the sheet is scrolled. */
+.cell--frozen-edge { border-right: 1px solid var(--line-strong); }
+.grid[data-scrolled='true'] .cell--frozen-edge { box-shadow: var(--shadow-frozen); }
+
+.cell--num { justify-content: flex-end; font-variant-numeric: tabular-nums; }
+
+.cell--pad { flex: 1 1 auto; width: auto; min-width: 0; border-right: 0; }
+
+.cell--add {
+  width: var(--addcol-w);
+  flex: 0 0 var(--addcol-w);
+  justify-content: center;
+  padding: 0;
+  border-right: 0;
+}
+
+.cell--addpad {
+  width: var(--addcol-w);
+  flex: 0 0 var(--addcol-w);
+  border-right: 0;
+}
+
+/* --- Column heads ---------------------------------------------------------- */
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.head__icon { flex: none; color: var(--text-2); display: flex; }
+.head__icon[data-ai='true'] { color: var(--accent); }
+
+.head__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* Taken out of the flow: a chevron that reserves 20px in every column head
+   would cost more of the field name than it is worth. */
+.head__menu {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--clock) var(--ease), background var(--clock) var(--ease);
+}
+.cell:hover .head__menu,
+.head__menu:focus-visible,
+.head__menu[aria-expanded='true'] { opacity: 1; }
+.head__menu:hover { background: var(--chrome-hover); color: var(--text); }
+
+.head__add {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--clock) var(--ease), color var(--clock) var(--ease);
+}
+.head__add:hover { background: var(--chrome-hover); color: var(--accent); }
+
+/* --- Gutter ---------------------------------------------------------------- */
+
+.gut__no {
+  width: 26px;
+  flex: none;
+  font-size: 11.5px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  transition: opacity var(--clock) var(--ease);
+}
+
+/* The row number gives way to its checkbox on hover, once the row is selected,
+   and for every row while a selection is being made. */
+.gut__check {
+  display: none;
+  place-items: center;
+  width: 26px;
+  flex: none;
+}
+
+/* Taken out of the document, not just made transparent: a number left sitting
+   invisibly over the checkbox swallows every click aimed at it. The checkbox
+   that replaces it is the same width, so nothing shifts. */
+.grid__row:hover .gut__no,
+.grid__row:focus-within .gut__no,
+.grid__row[data-selected='true'] .gut__no,
+.grid[data-anyselected='true'] .gut__no { display: none; }
+
+.grid__row:hover .gut__check,
+.grid__row:focus-within .gut__check,
+.grid__row[data-selected='true'] .gut__check,
+.grid[data-anyselected='true'] .gut__check { display: grid; }
+
+.gut__box {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: background var(--clock) var(--ease), border-color var(--clock) var(--ease);
+}
+.gut__box:hover { border-color: var(--accent); }
+.gut__box:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5 6.2 11.7 13 5'/%3E%3C/svg%3E");
+  background-size: 12px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.gut__expand {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--clock) var(--ease), color var(--clock) var(--ease),
+    border-color var(--clock) var(--ease);
+}
+.grid__row:hover .gut__expand,
+.gut__expand:focus-visible { opacity: 1; }
+.gut__expand:hover { color: var(--accent); border-color: var(--accent); }
+
+/* --- Cell values ----------------------------------------------------------- */
+
+.cell--data { cursor: default; }
+
+.cell__value {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.grid[data-rowheight='medium'] .cell__value {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+}
+
+.grid[data-rowheight='tall'] .cell__value {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  line-clamp: 4;
+}
+
+.cell__value--lead { font-weight: 500; }
+.cell__value--num { font-variant-numeric: tabular-nums; text-align: right; }
+.cell__empty { color: var(--text-3); }
+
+/* An AI field's reasoning and evidence, in the two columns that follow the
+   answer they explain. Quieter ink and an unbolded head, so a row still reads
+   as its answers first and the working is there to be checked against rather
+   than three columns competing for the same attention. */
+.cell[data-note] .head__name { font-weight: 400; color: var(--text-2); }
+.cell__value--note { color: var(--text-2); }
+
+/* The selected cell: a 2px accent border drawn inside, over the gridlines. */
+.cell--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  z-index: 3;
+}
+.cell--selected.cell--sticky { z-index: 6; }
+
+.cell--editing { overflow: visible; z-index: 20; }
+.cell--editing.cell--sticky { z-index: 22; }
+
+/* The editor rises off the sheet and, in a narrow column, grows past it — a
+   cell being typed into has to be legibly different from a cell merely
+   selected, and 96px of Sources column is not enough to edit in. */
+.cell__editor {
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  width: max(calc(100% + 2px), var(--editor-min-w, 232px));
+  min-height: calc(100% + 2px);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 6px 7px;
+  border: 2px solid var(--accent);
+  border-radius: 2px;
+  background: var(--surface);
+  box-shadow: var(--shadow-cell);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  resize: none;
+  /* Matches the reader: past this the value scrolls inside the overlay rather
+     than growing an editor taller than the sheet it is opened on. */
+  max-height: 258px;
+  overflow-y: auto;
+  outline: none;
+  caret-color: var(--accent);
+}
+
+/* On the right-hand columns the editor opens leftward, so it grows into the
+   table rather than under the panel's edge. */
+.cell__editor[data-flip='true'] { left: auto; right: -1px; }
+
+.cell--reading { overflow: visible; z-index: 20; }
+.cell--reading.cell--sticky { z-index: 22; }
+
+/* The reader: a value too long for its column, shown whole where it stands.
+   It borrows the editor's frame so that opening a cell looks like one gesture
+   whether or not the field can be written to, and parts from it where it has
+   to — no caret, prose that wraps, and a ceiling past which it scrolls rather
+   than running off the sheet. */
+.cell__reader {
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  width: max(calc(100% + 2px), var(--editor-min-w, 232px));
+  min-height: calc(100% + 2px);
+  max-height: 258px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 6px 7px;
+  border: 2px solid var(--accent);
+  border-radius: 2px;
+  background: var(--surface);
+  box-shadow: var(--shadow-cell);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.cell__reader[data-flip='true'] { left: auto; right: -1px; }
+
+/* The one mark in the grid that says a value is cut off. It sits on the
+   selected cell only, so the sheet stays quiet until a cell is being read. */
+.cell__peek {
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  z-index: 4;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: color var(--clock) var(--ease), border-color var(--clock) var(--ease);
+}
+
+.cell__peek:hover,
+.cell__peek:focus-visible { color: var(--accent); border-color: var(--accent); }
+
+/* At Medium and Tall the value starts at the top of the row, so the mark goes
+   with it rather than floating beside the middle of a paragraph. */
+.grid[data-rowheight='medium'] .cell__peek,
+.grid[data-rowheight='tall'] .cell__peek { top: 7px; transform: none; }
+
+.cell__spinner { color: var(--accent); }
+
+/* ==========================================================================
+   Enquiry panel
+   ========================================================================= */
+
+/* A column, not a row template. The progress strip only exists while a run is
+   in flight, so a fixed `grid-template-rows` silently shifts every band down
+   by one the moment it appears — the body lands on an `auto` row, stops
+   scrolling, and pushes the composer off the bottom. Flex makes the count of
+   children irrelevant: the body is the one part that flexes, everything else
+   holds its own height. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+}
+
+.panel__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 47px;
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel__head h2 {
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* The live progress strip: real elapsed work, never a fake percentage. */
+.panel__progress {
+  position: relative;
+  flex: none;
+  height: 2px;
+  overflow: hidden;
+  background: var(--accent-soft);
+}
+
+.panel__progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 38%;
+  background: var(--accent);
+  animation: sweep 1.5s var(--ease) infinite;
+}
+
+@keyframes sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(340%); }
+}
+
+/* The only part that flexes, and so the only part that scrolls. */
+.panel__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+/* --- Intro (no run yet) ---------------------------------------------------- */
+
+.intro__note {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-2);
+  max-width: 44ch;
+}
+
+.intro__label {
+  display: block;
+  margin: 18px 0 7px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.intro__examples { list-style: none; display: grid; gap: 5px; }
+
+.intro__examples button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: border-color var(--clock) var(--ease), background var(--clock) var(--ease),
+    color var(--clock) var(--ease);
+}
+.intro__examples button:hover {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.intro__fields { list-style: none; display: grid; gap: 1px; }
+
+.intro__fields li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--line-2);
+  font-size: 12.5px;
+}
+.intro__fields li:last-child { border-bottom: 0; }
+
+.intro__fields b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.intro__fields code {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--face-mono);
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.intro__more { margin-top: 8px; font-size: 12px; color: var(--text-2); }
+
+.intro__queries { list-style: none; display: grid; gap: 4px; }
+
+.intro__queries li {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.intro__queries li:last-child { border-bottom: 0; }
+
+/* --- The run --------------------------------------------------------------- */
+
+.run__request {
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-2);
+}
+
+.run__request span {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.run__request p { font-size: 12.5px; line-height: 1.55; color: var(--text); }
+
+.steps { list-style: none; margin: 16px 0 0; display: grid; gap: 2px; }
+
+.steps li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  padding: 5px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.steps li[data-status='running'] { color: var(--text); font-weight: 500; }
+.steps li[data-status='done'] { color: var(--text); }
+.steps li[data-status='failed'] { color: var(--danger); }
+
+.steps__mark {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 18px;
+  color: var(--text-3);
+}
+.steps li[data-status='done'] .steps__mark { color: var(--success); }
+.steps li[data-status='running'] .steps__mark { color: var(--accent); }
+.steps li[data-status='failed'] .steps__mark { color: var(--danger); }
+
+.steps__dash { width: 7px; height: 1px; background: currentColor; }
+
+.steps__detail { color: var(--text-2); font-weight: 400; }
+
+.log { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 1px; }
+
+.log__line {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.log__line time {
+  font-family: var(--face-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.log__line[data-tone='result'] { color: var(--text); }
+.log__line[data-tone='error'] { color: var(--danger); }
+
+/* --- The saved conversation ------------------------------------------------ */
+
+.thread { margin-top: 0; border-top: 0; padding-top: 0; }
+
+.thread__earlier { display: flex; justify-content: center; margin-bottom: 8px; }
+
+.thread__day {
+  margin: 12px 0 6px;
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.thread__day::before,
+.thread__day::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.thread__day:first-child { margin-top: 0; }
+
+.thread__request {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.thread__request time {
+  padding-top: 7px;
+  font-family: var(--face-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.thread__request p {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.log__line[data-role='agent'] { color: var(--text); }
+
+.thread + .steps { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+
+/* --- The confirmation card: the plan, before anything runs ---------------- */
+
+.plancard {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.plancard[data-active] { border-color: var(--line-strong); }
+
+.plancard__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.plancard__head time {
+  font-family: var(--face-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+.plancard__head b { font-weight: 600; color: var(--text); }
+.plancard__state { margin-left: auto; font-size: 11.5px; color: var(--text-2); }
+
+.plancard__field,
+.plancard__group { display: grid; gap: 4px; }
+.plancard__field > span,
+.plancard__group > span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.plancard__field .input { height: 30px; font-size: 12.5px; }
+
+.plancard__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.plancard .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.35;
+  text-align: left;
+}
+.plancard .chip[data-kind='criterion'] { background: var(--chip-yes-bg); color: var(--chip-yes-ink); }
+.plancard .chip[data-off] { color: var(--text-2); }
+.plancard .chip button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.plancard .chip button:hover { background: var(--surface-hover); }
+
+.plancard__foot { display: flex; align-items: center; gap: 6px; }
+.plancard__hint { flex: 1 1 auto; font-size: 11.5px; color: var(--text-2); }
+
+/* --- Composer -------------------------------------------------------------- */
+
+.composer {
+  flex: none;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.composer__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.composer__status b { color: var(--text); font-weight: 500; }
+.composer__status > :last-child { margin-left: auto; }
+
+.composer__blocked {
+  margin-bottom: 9px;
+  padding: 8px 10px;
+  border: 1px solid #f0dfc4;
+  border-radius: var(--r);
+  background: var(--warning-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--warning);
+}
+
+.composer__input {
+  min-height: 62px;
+  resize: none;
+  line-height: 1.55;
+}
+
+.composer__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 9px;
+}
+
+.composer__hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+/* ==========================================================================
+   Workspace home
+   ========================================================================= */
+
+.home {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 28px 40px;
+}
+
+.home__label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.home__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 12px;
+  max-width: 1180px;
+}
+
+.project {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  text-align: left;
+  cursor: pointer;
+  /* A long project name ellipsises inside the card rather than past its corner. */
+  overflow: hidden;
+  transition: box-shadow var(--clock) var(--ease), border-color var(--clock) var(--ease),
+    transform var(--clock) var(--ease);
+}
+.project:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-card-up);
+  transform: translateY(-1px);
+}
+
+/* Stretches so `margin-top: auto` on the meta line pins it to the card's foot,
+   whether or not the project has a description. */
+.project__open {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.project__open > span { min-width: 0; }
+
+.project__icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.project__name {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project__note {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.project__meta {
+  margin-top: auto;
+  padding-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.project__more {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  opacity: 0;
+  transition: opacity var(--clock) var(--ease);
+}
+.project:hover .project__more,
+.project__more:focus-visible { opacity: 1; }
+
+.project--new {
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  border-style: dashed;
+  border-color: var(--line-strong);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-2);
+  min-height: 132px;
+}
+.project--new:hover {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent);
+  box-shadow: none;
+  transform: none;
+}
+
+.project--new b { font-size: 13px; font-weight: 500; }
+.project--new span { font-size: 12px; line-height: 1.5; }
+
+/* ==========================================================================
+   Empty states — they teach the interface
+   ========================================================================= */
+
+.empty {
+  display: grid;
+  place-items: center;
+  padding: 44px 24px;
+}
+.empty[data-fill='true'] { min-height: 100%; align-content: center; }
+
+.empty__body { max-width: 480px; text-align: center; }
+
+.empty__glyph {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 16px;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.empty__title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  color: var(--text);
+}
+
+.empty__note {
+  margin-top: 7px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.empty__action { margin-top: 18px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+.empty__steps {
+  list-style: none;
+  margin: 26px auto 0;
+  max-width: 420px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.empty__steps li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line-2);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.empty__steps li:last-child { border-bottom: 0; }
+
+.empty__no {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty__steps b { display: block; font-weight: 600; color: var(--text); }
+.empty__steps span { color: var(--text-2); }
+
+.quiet { padding: 36px 20px; text-align: center; font-size: 13px; color: var(--text-2); }
+
+/* ==========================================================================
+   Expanded record
+   ========================================================================= */
+
+.rec__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rec__nav { display: flex; gap: 2px; }
+
+.rec__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rec__count { flex: none; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+
+.rec__fields { display: grid; gap: 14px; }
+
+.rec__field { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 14px; align-items: start; }
+
+.rec__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  min-width: 0;
+}
+
+.rec__label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.rec__value { min-width: 0; }
+
+.rec__ro {
+  padding: 7px 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.rec__working {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 1px solid var(--accent);
+  border-radius: var(--r);
+  background: var(--accent-tint);
+}
+
+.rec__working dt {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.rec__working dd {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.rec__working dt + dd + dt { margin-top: 10px; }
+
+/* ==========================================================================
+   Modal
+   ========================================================================= */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(20, 24, 35, 0.34);
+  animation: settle var(--clock) var(--ease) both;
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  max-height: min(86vh, 860px);
+  width: 100%;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+  animation: modal-in var(--clock) var(--ease) both;
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  to { opacity: 1; transform: none; }
+}
+
+.modal__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 15px 16px 13px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal__head h2 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+}
+
+.modal__head p {
+  margin-top: 4px;
+  max-width: 58ch;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.modal__body { flex: 1 1 auto; overflow-y: auto; padding: 16px; }
+
+.modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+/* ==========================================================================
+   Toasts
+   ========================================================================= */
+
+.toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 70;
+  display: grid;
+  gap: 8px;
+  width: min(376px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 11px 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  pointer-events: auto;
+  animation: toast-in var(--clock) var(--ease) both;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.toast__icon { flex: none; margin-top: 1px; }
+.toast__body { flex: 1 1 auto; min-width: 0; }
+
+.toast__label {
+  display: block;
+  margin-bottom: 1px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.toast__text {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ==========================================================================
+   Import sheet
+   ========================================================================= */
+
+.file-drop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.file-note { font-size: 12.5px; color: var(--text-2); }
+
+.note-line {
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.preview {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: auto;
+  max-height: 210px;
+}
+
+.preview table { border-collapse: collapse; width: 100%; font-size: 12px; }
+
+.preview th,
+.preview td {
+  padding: 6px 9px;
+  border-right: 1px solid var(--line-2);
+  border-bottom: 1px solid var(--line-2);
+  text-align: left;
+  white-space: nowrap;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.preview th[data-lead='true'] { color: var(--accent); }
+.preview td[data-lead='true'] { font-weight: 500; }
+
+/* ==========================================================================
+   Responsive: structural, not fluid
+   ========================================================================= */
+
+/* The panel stops being a column and becomes an overlay drawer. */
+@media (max-width: 1180px) {
+  .app[data-panel='open'] { grid-template-columns: var(--sidebar-w) minmax(0, 1fr); }
+
+  .panel__scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 44;
+    background: rgba(20, 24, 35, 0.32);
+    animation: settle var(--clock) var(--ease) both;
+  }
+
+  .panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    width: min(var(--panel-w), calc(100vw - 48px));
+    box-shadow: var(--shadow-modal);
+    animation: drawer-in var(--clock) var(--ease) both;
+  }
+
+  @keyframes drawer-in {
+    from { transform: translateX(12px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+}
+
+/* The sidebar collapses to a slide-over. */
+@media (max-width: 1000px) {
+  .app,
+  .app[data-panel='open'] { grid-template-columns: minmax(0, 1fr); }
+
+  .side {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 41;
+    width: var(--sidebar-w);
+    border-right: 1px solid var(--line);
+    box-shadow: var(--shadow-modal);
+    animation: drawer-left var(--clock) var(--ease) both;
+  }
+
+  @keyframes drawer-left {
+    from { transform: translateX(-12px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+
+  .side[hidden] { display: none; }
+  .side__scrim { display: block; }
+  .side__toggle { display: inline-flex; }
+
+  .main {
+    border-left: 0;
+    border-radius: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .projectbar { height: auto; min-height: 47px; padding: 8px 10px; }
+  .projectbar__title { flex-wrap: wrap; }
+  /* The controls keep their labels and the bar scrolls, rather than dropping
+     to unlabelled icons. The trailing fade is what says so at rest — otherwise
+     the last control simply looks cut off at the edge. */
+  .toolbar {
+    padding-left: 6px;
+    padding-right: 6px;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
+  }
+  .toolbar::-webkit-scrollbar { height: 0; }
+  .toolbar > * { flex: none; }
+  .toolbar__tab { padding: 0 8px; }
+
+  /* Asking the agent is the product's primary action; on a phone it leads the
+     scrolling bar rather than sitting past its right edge. */
+  .toolbar .btn[aria-pressed] { order: -1; }
+  .toolbar .btn[aria-pressed] + .toolbar__rule { display: none; }
+
+  /* The tallies stay — abbreviated so the bar holds one line. */
+  .foot__meta { display: none; }
+  .foot__meta--short { display: inline; }
+  .foot { padding-left: 10px; padding-right: 10px; gap: 8px; }
+  .search input { width: 96px; }
+  .search:focus-within input { width: 130px; }
+  .home { padding: 18px 14px 32px; }
+  .home__grid { grid-template-columns: 1fr; }
+  .rec__field { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .rec__label { padding-top: 0; }
+  .toasts { right: 10px; bottom: 10px; width: calc(100vw - 20px); }
+  .panel { width: 100vw; }
+  .scrim { padding: 10px; }
+  .modal { max-height: calc(100dvh - 20px); }
+}
+
+/* ---------------------------------------------------------------- password gate */
+
+.gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--chrome);
+}
+
+.gate__card {
+  width: min(360px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 28px 24px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-card-up);
+}
+
+.gate__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.gate__lede {
+  margin: -8px 0 0;
+  color: var(--text-2);
+}
+
+.gate__error {
+  margin: -4px 0 0;
+  color: var(--danger);
+}
+
+.gate__card .btn {
+  justify-self: stretch;
+  justify-content: center;
+}

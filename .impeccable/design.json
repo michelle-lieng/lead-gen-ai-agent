@@ -1,0 +1,370 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-26T00:00:00Z",
+  "title": "Design System: AI Lead Generator",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Kiyu Navy",
+        "canonical": "#12305c",
+        "tonalRamp": ["#070f1d", "#0c1c33", "#12305c", "#1c4585", "#2e60ad", "#5b8ad0", "#98b5e2", "#e7edf6"]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Navy Pressed",
+        "canonical": "#0c2244",
+        "tonalRamp": ["#050c18", "#08172e", "#0c2244", "#123365", "#1a4a90", "#3a72c0", "#86a9dc", "#dfe8f4"]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Navy Wash",
+        "canonical": "#e7edf6",
+        "tonalRamp": ["#101b2b", "#1b2f4a", "#2a4770", "#42649a", "#6d8cbc", "#9cb2d4", "#c6d3e8", "#e7edf6"]
+      },
+      "accent-tint": {
+        "role": "primary",
+        "displayName": "Navy Breath",
+        "canonical": "#f3f6fb",
+        "tonalRamp": ["#141c28", "#223046", "#33486a", "#4d6894", "#7a92b6", "#a8bad2", "#d0dbeb", "#f3f6fb"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "White Content",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#1d1d1f", "#3a3a3e", "#57575d", "#74747c", "#9a9aa2", "#c2c2c8", "#e6e6ea", "#ffffff"]
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Strip Grey",
+        "canonical": "#fbfbfc",
+        "tonalRamp": ["#1c1c1f", "#38383d", "#55555c", "#72727a", "#98989f", "#c0c0c6", "#e4e4e8", "#fbfbfc"]
+      },
+      "surface-hover": {
+        "role": "neutral",
+        "displayName": "Row Hover",
+        "canonical": "#f5f5f7",
+        "tonalRamp": ["#1b1b1e", "#363639", "#525256", "#6e6e74", "#949499", "#bcbcc2", "#dedee2", "#f5f5f7"]
+      },
+      "chrome": {
+        "role": "neutral",
+        "displayName": "Chrome",
+        "canonical": "#f7f7f8",
+        "tonalRamp": ["#1b1b1c", "#37373a", "#535356", "#6f6f73", "#95959a", "#bdbdc1", "#e0e0e3", "#f7f7f8"]
+      },
+      "chrome-hover": {
+        "role": "neutral",
+        "displayName": "Chrome Hover",
+        "canonical": "#ececed",
+        "tonalRamp": ["#19191a", "#333335", "#4d4d50", "#69696c", "#8e8e92", "#b5b5b9", "#d5d5d8", "#ececed"]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#e3e3e6",
+        "tonalRamp": ["#181819", "#303033", "#49494d", "#636367", "#87878c", "#ababb1", "#cbcbd0", "#e3e3e6"]
+      },
+      "line-2": {
+        "role": "neutral",
+        "displayName": "Rule Faint",
+        "canonical": "#ededf0",
+        "tonalRamp": ["#191a1b", "#323335", "#4c4d50", "#67686c", "#8c8d92", "#b1b2b8", "#d2d3d8", "#ededf0"]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Rule Firm",
+        "canonical": "#d2d2d8",
+        "tonalRamp": ["#161618", "#2c2c30", "#434348", "#5c5c62", "#7f7f87", "#a2a2ab", "#bcbcc4", "#d2d2d8"]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#1d1d1f",
+        "tonalRamp": ["#0b0b0c", "#1d1d1f", "#38383b", "#545458", "#797980", "#a0a0a8", "#c8c8ce", "#eeeef0"]
+      },
+      "text-2": {
+        "role": "neutral",
+        "displayName": "Ink Secondary",
+        "canonical": "#666670",
+        "tonalRamp": ["#141416", "#28282c", "#3d3d43", "#525259", "#666670", "#8d8d96", "#b6b6bd", "#dedee2"]
+      },
+      "placeholder": {
+        "role": "neutral",
+        "displayName": "Placeholder Ink",
+        "canonical": "#71717a",
+        "tonalRamp": ["#161618", "#2b2b2f", "#404046", "#55555c", "#71717a", "#97979f", "#bdbdc3", "#e2e2e6"]
+      },
+      "text-3": {
+        "role": "neutral",
+        "displayName": "Ink Faint",
+        "canonical": "#a1a1aa",
+        "tonalRamp": ["#171719", "#2c2c31", "#424248", "#585860", "#7c7c85", "#a1a1aa", "#c4c4cb", "#e6e6ea"]
+      },
+      "selection-bg": {
+        "role": "neutral",
+        "displayName": "Text Selection",
+        "canonical": "#c9d7ec",
+        "tonalRamp": ["#111a26", "#1e2f45", "#2e4867", "#456694", "#6f8db6", "#9cb3d1", "#c9d7ec", "#eef3fa"]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Danger Red",
+        "canonical": "#b3261e",
+        "tonalRamp": ["#2a0906", "#4a100c", "#6c1813", "#8f1e18", "#b3261e", "#d9483f", "#eb8980", "#fdeceb"]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Step Complete Green",
+        "canonical": "#1d6b3f",
+        "tonalRamp": ["#06180d", "#0b2b18", "#123f25", "#175534", "#1d6b3f", "#2f9a5e", "#68c28f", "#d6f0e0"]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Blocked Amber",
+        "canonical": "#8a5a12",
+        "tonalRamp": ["#1d1204", "#33200a", "#4c3010", "#6a4211", "#8a5a12", "#b8801f", "#d8ab5b", "#fdf4e5"]
+      },
+      "chip-yes-bg": {
+        "role": "secondary",
+        "displayName": "Select Chip Mint",
+        "canonical": "#d6f5d9",
+        "tonalRamp": ["#0b2410", "#123a1a", "#17501f", "#1f6f2c", "#2f9a41", "#62c072", "#9fdfaa", "#d6f5d9"]
+      },
+      "chip-no-bg": {
+        "role": "secondary",
+        "displayName": "Select Chip Rose",
+        "canonical": "#ffdedb",
+        "tonalRamp": ["#2a0c07", "#46150e", "#661d13", "#8a2318", "#b03526", "#d4665a", "#eda297", "#ffdedb"]
+      },
+      "chip-flat-bg": {
+        "role": "secondary",
+        "displayName": "Select Chip Neutral",
+        "canonical": "#ebebef",
+        "tonalRamp": ["#141418", "#28282e", "#3b3b43", "#45454f", "#6d6d78", "#96969f", "#c2c2c8", "#ebebef"]
+      },
+      "base-icon-teal": {
+        "role": "tertiary",
+        "displayName": "Base Icon Teal",
+        "canonical": "#0f6f62",
+        "tonalRamp": ["#041a17", "#072d28", "#0a453d", "#0d5a50", "#0f6f62", "#169c8a", "#5cc4b6", "#d3efeb"]
+      },
+      "base-icon-violet": {
+        "role": "tertiary",
+        "displayName": "Base Icon Violet",
+        "canonical": "#5b43b8",
+        "tonalRamp": ["#140e2c", "#211848", "#332568", "#46318f", "#5b43b8", "#8272d0", "#aea3e3", "#e4e0f6"]
+      },
+      "base-icon-amber": {
+        "role": "tertiary",
+        "displayName": "Base Icon Amber",
+        "canonical": "#9c5410",
+        "tonalRamp": ["#221105", "#3b1e08", "#562c0b", "#77400d", "#9c5410", "#c9791f", "#e0a563", "#f8e6d1"]
+      },
+      "base-icon-rose": {
+        "role": "tertiary",
+        "displayName": "Base Icon Rose",
+        "canonical": "#a52c50",
+        "tonalRamp": ["#250a13", "#3f1122", "#5c1a31", "#802341", "#a52c50", "#c95778", "#e096ac", "#f8dee6"]
+      },
+      "base-icon-green": {
+        "role": "tertiary",
+        "displayName": "Base Icon Green",
+        "canonical": "#246b39",
+        "tonalRamp": ["#08170d", "#0e2917", "#163e22", "#1d552d", "#246b39", "#369a54", "#6ec287", "#d8efdf"]
+      }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Title", "purpose": "Empty-state headings — the largest type in the product." },
+      "heading": { "displayName": "Heading", "purpose": "Base name, expanded-record title, modal headings." },
+      "body": { "displayName": "Body", "purpose": "Cell values, menu items, inputs, sidebar links. The default." },
+      "body-secondary": { "displayName": "Body Secondary", "purpose": "Notes, hints, run steps, modal descriptions." },
+      "meta": { "displayName": "Meta", "purpose": "Row numbers, record counts, tallies, footer bar." },
+      "label": { "displayName": "Label", "purpose": "Uppercase section labels only — BASES, popover groups, the run request header." },
+      "numeric": { "displayName": "Numeric", "purpose": "Number cells and counts. Tabular figures are scoped here, never global." },
+      "identifier": { "displayName": "Identifier", "purpose": "System mono for machine strings: SQL column names in the field menu and expanded record, and log timestamps. Never in a column head." }
+    },
+    "shadows": [
+      { "name": "card", "value": "0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04)", "purpose": "The barely-there lift under a raised control: buttons, the selected segment, the active base pill, a base card at rest. Removed on :active." },
+      { "name": "card-raised", "value": "0 6px 16px -6px rgba(20,24,35,0.16), 0 2px 4px rgba(20,24,35,0.06)", "purpose": "A base card on hover, paired with a 1px upward translate." },
+      { "name": "popover", "value": "0 6px 20px -6px rgba(20,24,35,0.20), 0 1px 3px rgba(20,24,35,0.10)", "purpose": "Menus, field menus and toasts." },
+      { "name": "cell-editor", "value": "0 6px 16px -4px rgba(20,24,35,0.30), 0 2px 4px rgba(20,24,35,0.12)", "purpose": "The cell being typed into, so it reads as lifted off the sheet rather than merely selected." },
+      { "name": "modal", "value": "0 24px 56px -16px rgba(20,24,35,0.32), 0 2px 8px rgba(20,24,35,0.10)", "purpose": "Dialogs, and the panel and sidebar once they become drawers." },
+      { "name": "frozen-edge", "value": "3px 0 7px -3px rgba(20,24,35,0.12)", "purpose": "Cast rightward from the frozen columns, only once the grid is actually scrolled." }
+    ],
+    "motion": [
+      { "name": "clock", "value": "140ms", "purpose": "The one duration for every transition and authored animation." },
+      { "name": "ease", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "The one easing curve, for every transition and animation." },
+      { "name": "pop-in", "value": "from { opacity: 0; transform: scale(0.97) translateY(-3px); } to { opacity: 1; transform: none; }", "purpose": "Popovers and menus scale-fading from their own top-left origin." },
+      { "name": "settle", "value": "from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; }", "purpose": "An answer arriving. A batch lands together so it fades together; also used for scrims." },
+      { "name": "modal-in", "value": "from { opacity: 0; transform: translateY(6px) scale(0.99); } to { opacity: 1; transform: none; }", "purpose": "Dialog entry." },
+      { "name": "toast-in", "value": "from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; }", "purpose": "Toast entry from the bottom-right." },
+      { "name": "spin", "value": "720ms linear infinite", "purpose": "The one indeterminate device. Slows to 1200ms rather than stopping under prefers-reduced-motion." },
+      { "name": "sweep", "value": "1.5s cubic-bezier(0.16, 1, 0.3, 1) infinite", "purpose": "The 38%-wide bar on the live run's 2px progress strip. Never a percentage." },
+      { "name": "reduced-motion", "value": "all durations 1ms !important", "purpose": "Everything collapses under prefers-reduced-motion; only the spinner keeps looping." }
+    ],
+    "breakpoints": [
+      { "name": "panel-drawer", "value": "1180px" },
+      { "name": "sidebar-slideover", "value": "1000px" },
+      { "name": "phone", "value": "720px" }
+    ],
+    "measures": [
+      { "name": "sidebar-w", "value": "240px" },
+      { "name": "panel-w", "value": "380px" },
+      { "name": "row-h", "value": "32px" },
+      { "name": "head-h", "value": "32px" },
+      { "name": "gutter-w", "value": "66px" },
+      { "name": "addcol-w", "value": "44px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single primary action per region — Find leads, Enrich, Create, Save.",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"7.25\" cy=\"7.25\" r=\"4.25\"/><path d=\"M10.5 10.5 13.5 13.5\"/></svg><span>Find leads</span></button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 11px; border: 1px solid transparent; border-radius: 6px; font-family: Inter, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background 140ms cubic-bezier(0.16,1,0.3,1), border-color 140ms cubic-bezier(0.16,1,0.3,1), color 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-primary { background: #12305c; border-color: #12305c; color: #fff; box-shadow: 0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04); } .ds-btn-primary:hover { background: #0c2244; border-color: #0c2244; } .ds-btn-primary:active { box-shadow: none; } .ds-btn-primary:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; }"
+    },
+    {
+      "name": "Plain Button",
+      "kind": "button",
+      "refersTo": "button-plain",
+      "description": "The default control: white, hairline bordered, faintly raised.",
+      "html": "<button class=\"ds-btn2 ds-btn-plain\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 10.5V2.5\"/><path d=\"M5 7.5 8 10.5l3-3\"/><path d=\"M2.75 11v2.5h10.5V11\"/></svg><span>Import</span></button>",
+      "css": ".ds-btn2 { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 11px; border: 1px solid transparent; border-radius: 6px; font-family: Inter, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 140ms cubic-bezier(0.16,1,0.3,1), border-color 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-plain { background: #ffffff; border-color: #e3e3e6; color: #1d1d1f; box-shadow: 0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04); } .ds-btn-plain:hover { background: #f5f5f7; border-color: #d2d2d8; } .ds-btn-plain:active { box-shadow: none; } .ds-btn-plain:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Every toolbar and chrome control: transparent until hovered.",
+      "html": "<button class=\"ds-btn3 ds-btn-quiet\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M2.75 4.5h10.5M2.75 8h10.5M2.75 11.5h10.5\"/></svg><span>Row height</span></button>",
+      "css": ".ds-btn3 { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border: 1px solid transparent; border-radius: 6px; font-family: Inter, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 140ms cubic-bezier(0.16,1,0.3,1), color 140ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-quiet { background: transparent; color: #666670; } .ds-btn-quiet:hover { background: #ececed; color: #1d1d1f; } .ds-btn-quiet:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Every typed field: white, 6px, firm hairline, navy halo on focus.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-f1\">Base name</label><input class=\"ds-input\" id=\"ds-f1\" placeholder=\"Sydney dental clinics\" /><span class=\"ds-field-hint\">Shown in the sidebar and on the workspace home.</span></div>",
+      "css": ".ds-field-label { display: block; margin-bottom: 5px; font-family: Inter, -apple-system, sans-serif; font-size: 12px; font-weight: 500; color: #666670; } .ds-input { display: block; width: 100%; box-sizing: border-box; min-height: 32px; padding: 6px 9px; border: 1px solid #d2d2d8; border-radius: 6px; background: #fff; color: #1d1d1f; font-family: Inter, -apple-system, sans-serif; font-size: 13px; caret-color: #12305c; transition: border-color 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms cubic-bezier(0.16,1,0.3,1); } .ds-input::placeholder { color: #71717a; } .ds-input:hover { border-color: #b8b8c0; } .ds-input:focus { outline: none; border-color: #12305c; box-shadow: 0 0 0 3px #e7edf6; } .ds-field-hint { display: block; margin-top: 5px; font-family: Inter, sans-serif; font-size: 12px; line-height: 1.5; color: #666670; }"
+    },
+    {
+      "name": "Select Value Chips",
+      "kind": "chip",
+      "refersTo": "chip-yes",
+      "description": "The three tones a single-select cell can show. Rose is a distinct token from danger red so a No never reads as an error.",
+      "html": "<span class=\"ds-chip ds-chip-yes\">Yes</span> <span class=\"ds-chip ds-chip-no\">No</span> <span class=\"ds-chip\">Not established</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; max-width: 100%; padding: 2px 8px; border-radius: 3px; background: #ebebef; color: #45454f; font-family: Inter, -apple-system, sans-serif; font-size: 12px; font-weight: 500; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-chip-yes { background: #d6f5d9; color: #17501f; } .ds-chip-no { background: #ffdedb; color: #8a2318; }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "nav",
+      "refersTo": "segmented-item",
+      "description": "The enquiry panel's two tabs. The selected item is a raised white pill with a navy label.",
+      "html": "<div class=\"ds-seg\"><button class=\"ds-seg-item\" aria-selected=\"true\">Find leads</button><button class=\"ds-seg-item\" aria-selected=\"false\">Enrich leads</button></div>",
+      "css": ".ds-seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: 6px; background: #f7f7f8; border: 1px solid #e3e3e6; } .ds-seg-item { display: inline-flex; align-items: center; justify-content: center; flex: 1; gap: 6px; height: 26px; padding: 0 11px; border: 0; border-radius: 4px; background: transparent; color: #666670; font-family: Inter, -apple-system, sans-serif; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 140ms cubic-bezier(0.16,1,0.3,1), color 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms cubic-bezier(0.16,1,0.3,1); } .ds-seg-item:hover { color: #1d1d1f; } .ds-seg-item[aria-selected=\"true\"] { background: #fff; color: #12305c; box-shadow: 0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04); } .ds-seg-item:focus-visible { outline: 2px solid #12305c; outline-offset: 1px; }"
+    },
+    {
+      "name": "Sidebar Base List",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "The bases list. The active base is a raised white pill with a navy label and count — never an accent bar down its side.",
+      "html": "<div class=\"ds-side\"><span class=\"ds-side-section\">Bases</span><ul class=\"ds-side-list\"><li><button class=\"ds-side-link ds-side-link-active\"><span class=\"ds-side-icon\" style=\"background:#12305c\">SD</span><span class=\"ds-side-name\">Sydney dental clinics</span><span class=\"ds-side-count\">14</span></button></li><li><button class=\"ds-side-link\"><span class=\"ds-side-icon\" style=\"background:#0f6f62\">AM</span><span class=\"ds-side-name\">Australian manufacturers</span><span class=\"ds-side-count\">86</span></button></li><li><button class=\"ds-side-link\"><span class=\"ds-side-icon\" style=\"background:#5b43b8\">RV</span><span class=\"ds-side-name\">Regional Victoria clinics</span><span class=\"ds-side-count\">31</span></button></li></ul></div>",
+      "css": ".ds-side { width: 240px; padding: 0 8px 8px; background: #f7f7f8; font-family: Inter, -apple-system, sans-serif; } .ds-side-section { display: block; padding: 10px 6px 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #666670; } .ds-side-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; } .ds-side-link { display: flex; align-items: center; gap: 9px; width: 100%; box-sizing: border-box; padding: 6px 8px; border: 0; border-radius: 6px; background: none; color: #1d1d1f; font-family: inherit; font-size: 13px; text-align: left; cursor: pointer; transition: background 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms cubic-bezier(0.16,1,0.3,1); } .ds-side-link:hover { background: #ececee; } .ds-side-link-active { background: #fff; font-weight: 500; box-shadow: 0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04); } .ds-side-link-active .ds-side-name, .ds-side-link-active .ds-side-count { color: #12305c; } .ds-side-icon { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 5px; color: #fff; font-size: 10px; font-weight: 600; } .ds-side-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-side-count { margin-left: auto; padding-left: 6px; font-size: 11.5px; color: #666670; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Data Grid",
+      "kind": "custom",
+      "refersTo": "grid-cell",
+      "description": "The signature surface: square cells ruled both ways, a 32px strip-grey header where each field declares its type, a frozen gutter, a selected cell ringed in navy, and a working row tinted navy.",
+      "html": "<div class=\"ds-grid\"><div class=\"ds-grid-head\"><div class=\"ds-cell ds-cell-gut\"></div><div class=\"ds-cell\" style=\"width:200px\"><svg class=\"ds-fi\" width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"><path d=\"M4 4.5h8M8 4.5V12\"/></svg><b>Company</b></div><div class=\"ds-cell ds-cell-num\" style=\"width:100px\"><b>Sources</b></div><div class=\"ds-cell\" style=\"width:150px\"><svg class=\"ds-fi ds-fi-ai\" width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 2.2 9.3 6.1 13.2 7.4 9.3 8.7 8 12.6 6.7 8.7 2.8 7.4 6.7 6.1z\"/></svg><b>More than one doctor</b></div></div><div class=\"ds-row\"><div class=\"ds-cell ds-cell-gut\">1</div><div class=\"ds-cell\" style=\"width:200px\">Bondi Junction Dental Care</div><div class=\"ds-cell ds-cell-num\" style=\"width:100px\">7</div><div class=\"ds-cell\" style=\"width:150px\"><span class=\"ds-chip2 ds-chip2-yes\">Yes</span></div></div><div class=\"ds-row ds-row-sel\"><div class=\"ds-cell ds-cell-gut\">2</div><div class=\"ds-cell ds-cell-selected\" style=\"width:200px\">Surry Hills Smile Studio</div><div class=\"ds-cell ds-cell-num\" style=\"width:100px\">4</div><div class=\"ds-cell\" style=\"width:150px\"><span class=\"ds-chip2 ds-chip2-no\">No</span></div></div><div class=\"ds-row ds-row-work\"><div class=\"ds-cell ds-cell-gut\">3</div><div class=\"ds-cell\" style=\"width:200px\">Newtown Family Dentistry</div><div class=\"ds-cell ds-cell-num\" style=\"width:100px\">9</div><div class=\"ds-cell\" style=\"width:150px\"><span class=\"ds-spin\"></span></div></div></div>",
+      "css": ".ds-grid { font-family: Inter, -apple-system, sans-serif; font-size: 13px; color: #1d1d1f; background: #fbfbfc; border: 1px solid #e3e3e6; border-radius: 6px; overflow: hidden; } .ds-grid-head { display: flex; background: #fbfbfc; border-bottom: 1px solid #d2d2d8; } .ds-grid-head b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-row { display: flex; background: #fff; border-bottom: 1px solid #ededf0; transition: background 140ms cubic-bezier(0.16,1,0.3,1); } .ds-row:hover { background: #f5f5f7; } .ds-row-sel { background: #e7edf6; } .ds-row-work { background: #f3f6fb; } .ds-cell { position: relative; display: flex; align-items: center; gap: 6px; box-sizing: border-box; flex: 0 0 auto; min-height: 32px; padding: 0 8px; border-right: 1px solid #ededf0; overflow: hidden; } .ds-cell-gut { width: 66px; flex: 0 0 66px; justify-content: flex-end; padding-right: 10px; border-right: 1px solid #e3e3e6; font-size: 11.5px; color: #666670; font-variant-numeric: tabular-nums; } .ds-cell-num { justify-content: flex-end; font-variant-numeric: tabular-nums; } .ds-cell-selected { outline: 2px solid #12305c; outline-offset: -2px; z-index: 3; } .ds-fi { flex: none; color: #666670; } .ds-fi-ai { color: #12305c; } .ds-chip2 { display: inline-flex; padding: 2px 8px; border-radius: 3px; background: #ebebef; color: #45454f; font-size: 12px; font-weight: 500; } .ds-chip2-yes { background: #d6f5d9; color: #17501f; } .ds-chip2-no { background: #ffdedb; color: #8a2318; } .ds-spin { display: inline-block; width: 13px; height: 13px; border: 2px solid #12305c; border-top-color: transparent; border-radius: 50%; opacity: 0.85; animation: ds-spin 720ms linear infinite; } @keyframes ds-spin { to { transform: rotate(360deg); } }"
+    },
+    {
+      "name": "Field Menu Popover",
+      "kind": "custom",
+      "refersTo": "popover",
+      "description": "The column head's menu. Scale-fades from its own top-left origin and carries the field's real SQL identifier in system mono at its foot — the only place besides the expanded record where an identifier is shown.",
+      "html": "<div class=\"ds-pop\"><span class=\"ds-pop-label\">Field</span><button class=\"ds-pop-item\">Edit field<span class=\"ds-pop-mark\"></span></button><button class=\"ds-pop-item\" aria-checked=\"true\">Single select<span class=\"ds-pop-mark\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 8.5 6.2 11.7 13 5\"/></svg></span></button><hr class=\"ds-pop-rule\" /><button class=\"ds-pop-item ds-pop-danger\">Delete field</button><code class=\"ds-pop-mono\">more_than_one_doctor</code></div>",
+      "css": ".ds-pop { min-width: 220px; padding: 5px; border: 1px solid #e3e3e6; border-radius: 6px; background: #fff; box-shadow: 0 6px 20px -6px rgba(20,24,35,0.20), 0 1px 3px rgba(20,24,35,0.10); font-family: Inter, -apple-system, sans-serif; transform-origin: top left; animation: ds-pop-in 140ms cubic-bezier(0.16,1,0.3,1) both; } @keyframes ds-pop-in { from { opacity: 0; transform: scale(0.97) translateY(-3px); } to { opacity: 1; transform: none; } } .ds-pop-label { display: block; padding: 7px 9px 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #666670; } .ds-pop-item { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 7px 9px; border: 0; border-radius: 4px; background: none; color: #1d1d1f; font-family: inherit; font-size: 13px; text-align: left; cursor: pointer; transition: background 140ms cubic-bezier(0.16,1,0.3,1); } .ds-pop-item:hover { background: #ececed; } .ds-pop-item[aria-checked=\"true\"] { color: #12305c; font-weight: 500; } .ds-pop-mark { margin-left: auto; display: flex; color: #12305c; } .ds-pop-danger { color: #b3261e; } .ds-pop-danger:hover { background: #fdeceb; } .ds-pop-rule { height: 1px; margin: 5px 0; background: #ededf0; border: 0; } .ds-pop-mono { display: block; padding: 4px 9px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; color: #666670; word-break: break-all; }"
+    },
+    {
+      "name": "Base Card",
+      "kind": "card",
+      "refersTo": "base-card",
+      "description": "The workspace home tile for a base, with its deterministic colour tile.",
+      "html": "<div class=\"ds-base\"><span class=\"ds-base-icon\" style=\"background:#a52c50\">PV</span><span><span class=\"ds-base-name\">Perth veterinary groups</span><span class=\"ds-base-note\">Multi-site veterinary groups across metropolitan Perth.</span></span><span class=\"ds-base-meta\">47 records · 3 researched fields</span></div>",
+      "css": ".ds-base { position: relative; display: flex; flex-direction: column; gap: 10px; width: 232px; padding: 14px; border: 1px solid #e3e3e6; border-radius: 8px; background: #fff; box-shadow: 0 1px 2px rgba(20,24,35,0.06), 0 1px 1px rgba(20,24,35,0.04); font-family: Inter, -apple-system, sans-serif; text-align: left; cursor: pointer; overflow: hidden; transition: box-shadow 140ms cubic-bezier(0.16,1,0.3,1), border-color 140ms cubic-bezier(0.16,1,0.3,1), transform 140ms cubic-bezier(0.16,1,0.3,1); } .ds-base:hover { border-color: #d2d2d8; box-shadow: 0 6px 16px -6px rgba(20,24,35,0.16), 0 2px 4px rgba(20,24,35,0.06); transform: translateY(-1px); } .ds-base-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 6px; color: #fff; font-size: 14px; font-weight: 600; } .ds-base-name { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.4; color: #1d1d1f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-base-note { display: block; margin-top: 2px; font-size: 12px; line-height: 1.5; color: #666670; } .ds-base-meta { margin-top: auto; font-size: 11.5px; color: #666670; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Run Progress Strip",
+      "kind": "custom",
+      "refersTo": "segmented-item-selected",
+      "description": "Live work in the enquiry panel: a 2px indeterminate sweep over a navy-wash track, plus real step boundaries. Never a percentage.",
+      "html": "<div class=\"ds-runwrap\"><div class=\"ds-prog\"></div><ol class=\"ds-steps\"><li data-status=\"done\"><span class=\"ds-mark ds-mark-done\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 8.5 6.2 11.7 13 5\"/></svg></span><span>Wrote 5 search queries</span></li><li data-status=\"running\"><span class=\"ds-mark\"><span class=\"ds-spin2\"></span></span><span>Reading sources <span class=\"ds-detail\">· 63 read</span></span></li><li data-status=\"idle\"><span class=\"ds-mark\"><span class=\"ds-dash\"></span></span><span>Adding records to the table</span></li></ol></div>",
+      "css": ".ds-runwrap { font-family: Inter, -apple-system, sans-serif; } .ds-prog { position: relative; height: 2px; overflow: hidden; background: #e7edf6; } .ds-prog::after { content: ''; position: absolute; inset: 0; width: 38%; background: #12305c; animation: ds-sweep 1.5s cubic-bezier(0.16,1,0.3,1) infinite; } @keyframes ds-sweep { from { transform: translateX(-100%); } to { transform: translateX(340%); } } .ds-steps { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 2px; } .ds-steps li { display: grid; grid-template-columns: 16px minmax(0,1fr); gap: 9px; align-items: start; padding: 5px 0; font-size: 12.5px; line-height: 1.5; color: #666670; } .ds-steps li[data-status=\"running\"] { color: #1d1d1f; font-weight: 500; } .ds-steps li[data-status=\"done\"] { color: #1d1d1f; } .ds-mark { display: grid; place-items: center; width: 16px; height: 18px; color: #a1a1aa; } .ds-mark-done { color: #1d6b3f; } .ds-steps li[data-status=\"running\"] .ds-mark { color: #12305c; } .ds-dash { width: 7px; height: 1px; background: currentColor; } .ds-detail { color: #666670; font-weight: 400; } .ds-spin2 { display: inline-block; width: 11px; height: 11px; border: 1.5px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: ds-spin2 720ms linear infinite; } @keyframes ds-spin2 { to { transform: rotate(360deg); } }"
+    },
+    {
+      "name": "Toast",
+      "kind": "custom",
+      "refersTo": "toast",
+      "description": "Bottom-right notice; the only place an 11px uppercase kind label carries status.",
+      "html": "<div class=\"ds-toast\"><span class=\"ds-toast-icon\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"8\" cy=\"8\" r=\"5.75\"/><path d=\"M5.5 8.2 7.2 9.9 10.6 6.3\"/></svg></span><span class=\"ds-toast-body\"><span class=\"ds-toast-label\">Done</span><span class=\"ds-toast-text\">14 records added to Sydney dental clinics.</span></span></div>",
+      "css": ".ds-toast { display: flex; align-items: flex-start; gap: 10px; width: 340px; padding: 11px 11px 11px 13px; border: 1px solid #e3e3e6; border-radius: 6px; background: #fff; box-shadow: 0 6px 20px -6px rgba(20,24,35,0.20), 0 1px 3px rgba(20,24,35,0.10); font-family: Inter, -apple-system, sans-serif; animation: ds-toast-in 140ms cubic-bezier(0.16,1,0.3,1) both; } @keyframes ds-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } } .ds-toast-icon { flex: none; margin-top: 1px; color: #1d6b3f; } .ds-toast-body { flex: 1 1 auto; min-width: 0; } .ds-toast-label { display: block; margin-bottom: 1px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #1d6b3f; } .ds-toast-text { font-size: 12.5px; line-height: 1.55; color: #1d1d1f; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Straight Base",
+    "overview": "This is a grid database that admits it is a grid database. The shell is the category standard — a sidebar of bases, one content region behind a rounded seam, one table ruled on both axes, cells that select and edit under the keyboard, fields that declare their type with an icon, records that expand. Nothing is stylised, ironised, or given a private twist. Convention is the commitment: a stranger watching a screen share recognises the arrangement before they read a word, and that borrowed literacy is what buys the product the right to be judged on what it actually does.\n\nDensity is the second commitment. Rows are 32px, body type is 13px, chrome type steps down to 12.5, 12, and 11.5, and the neutral palette is nearly all greys within six points of each other. The screen is quiet so the data is loud. Depth is almost absent: one hairline everywhere, one low card shadow, and heavier shadows reserved for things that genuinely float over the sheet — popovers, the cell editor, modals, the frozen-column edge.\n\nAgainst that grey, one accent does all the work. Kiyu navy #12305c takes every place the category would spend its own blue: the 2px cell selection ring, focus rings, the active base pill's label, the primary button, the active view tab's 2px underline, the run progress strip, the checked checkbox, the AI field's sparkle. Two colour sets earn exceptions — a three-tone select-chip set sized to exactly what a boolean enrichment can return, and a six-colour base-icon set keyed deterministically off base id so a base keeps its colour across the sidebar, the home grid, and reloads. Confirmed anti-reference: the retired \"Lead Register\" world — its ruled paper sheet with no boxes, no radius and no vertical rules — and Airtable's own blue, wordmark and logo, which never appear.",
+    "keyCharacteristics": [
+      "Grid-database convention played straight, with no smuggled quirk",
+      "One accent, Kiyu navy, and no second hue competing for it",
+      "13px Inter, 32px rows, hairline rules on both axes",
+      "Near-flat: tonal layering first, shadow only for things that actually float",
+      "Colour only where the data is categorical — chips and base icons — never as decoration",
+      "One 140ms clock and one easing curve for everything that moves"
+    ],
+    "rules": [
+      { "name": "The One Blue Rule", "body": "Kiyu navy is the only accent in the system. Wherever the category would spend its own blue, spend this navy; there is no second accent hue and no decorative use of colour anywhere in the chrome.", "section": "colors" },
+      { "name": "The Reserved Red Rule", "body": "Red means destructive or failed, and nothing else. The rose select chip is a separate token with its own ink precisely so a \"No\" answer never reads as an error.", "section": "colors" },
+      { "name": "The Colour-Is-Data Rule", "body": "Saturated colour appears only where it encodes something: a select value, or a base's identity. A surface, a border, or a piece of chrome never gets colour for interest.", "section": "colors" },
+      { "name": "The Scoped Figures Rule", "body": "Tabular figures are applied to number cells, counts, row numbers and timestamps individually — never globally on body. Prose keeps proportional figures.", "section": "typography" },
+      { "name": "The Mono-Means-Machine Rule", "body": "System mono says \"this string belongs to the database or the machine, not to you.\" It carries SQL identifiers, which live in the field menu and the expanded record, and the log's elapsed timestamps. A mono identifier never appears in a column head — the head carries the human field name.", "section": "typography" },
+      { "name": "The One Face Rule", "body": "Inter carries every human-readable string at every size. There is no display face, no second sans, and no type effect; a size step and a weight step are the only hierarchy devices.", "section": "typography" },
+      { "name": "The Whole-Band Rule", "body": "Sticky and frozen cells carry the row's background explicitly at every state, so a hovered, selected or working row reads as one unbroken band across the freeze line rather than two differently coloured halves.", "section": "layout" },
+      { "name": "The Structural Breakpoint Rule", "body": "At a breakpoint, a region changes what it is — column becomes drawer, bar becomes scroller. Nothing merely shrinks, and no control drops its text label to become an unlabelled icon.", "section": "layout" },
+      { "name": "The Earned Shadow Rule", "body": "A shadow means the element is above the sheet. Flat chrome — bars, rows, cells, the sidebar — never takes one; a pressed button gives its shadow back.", "section": "elevation" },
+      { "name": "The Scrim Rule", "body": "Anything overlaying the whole app sits on rgba(20, 24, 35, 0.32–0.34), never on pure black.", "section": "elevation" },
+      { "name": "The Display-Not-Opacity Rule", "body": "A control that is hidden until hover is removed from the document with display: none, never faded with opacity: 0. A transparent element left in the layer still swallows every click aimed at what is underneath it. Its replacement occupies the same width so nothing shifts.", "section": "components" },
+      { "name": "The One Pending Mark Rule", "body": "A spinner appears only in the one field actually being filled. A blank cell in any other column is a finished empty answer and never borrows the pending mark.", "section": "components" },
+      { "name": "The Honest Progress Rule", "body": "Progress is never a percentage. The pipeline has no percentage to report, so live work is shown as an indeterminate sweep plus real step boundaries, real counts, real elapsed time and named failures.", "section": "components" },
+      { "name": "The One Clock Rule", "body": "Every transition and animation runs at 140ms on cubic-bezier(0.16, 1, 0.3, 1): hover, selection, the popover's scale-fade from its own origin, the settle of an arriving answer, the drawers. The only exceptions are the two loops that must keep looping — the 720ms spinner and the 1.5s progress sweep. Everything collapses to 1ms under prefers-reduced-motion, where the spinner slows rather than stopping.", "section": "components" }
+    ],
+    "dos": [
+      "Do spend Kiyu navy (#12305c) wherever the grid-database convention would spend its own blue, and nowhere else.",
+      "Do cut every button, input, chip and empty state from the shared control vocabulary, so the same action never looks like two different things on two surfaces.",
+      "Do scope tabular figures to number cells, counts, row numbers and timestamps individually.",
+      "Do keep system mono for machine strings — SQL identifiers in the field menu and expanded record, and log timestamps.",
+      "Do repaint the row background explicitly on sticky and frozen cells for every row state, so a band never breaks at the freeze line.",
+      "Do remove hover-revealed controls with display: none and give the replacement the same width.",
+      "Do run every transition at 140ms on cubic-bezier(0.16, 1, 0.3, 1) and let prefers-reduced-motion collapse it.",
+      "Do keep grid cells square; reserve the 12px radius for the content region's top-left seam alone.",
+      "Do let a breakpoint change what a region is — column to drawer, bar to horizontal scroller — rather than shrinking it.",
+      "Do use the 11px uppercase label for section headings only (BASES, popover groups, the run's request header)."
+    ],
+    "donts": [
+      "Don't introduce a second accent hue. The only saturated colour beyond navy is the three-tone select chip set and the six-colour base-icon set, and both encode data.",
+      "Don't use red for anything but destructive actions and failures; the rose \"No\" chip is a separate token for exactly this reason.",
+      "Don't render a percentage, a fake per-item counter, or any progress number the pipeline cannot actually report.",
+      "Don't put a pending spinner in any cell other than the one field being filled.",
+      "Don't hide an interactive control with opacity: 0 while leaving it in the layer.",
+      "Don't put a mono identifier in a column head — the head carries the human field name.",
+      "Don't put an accent bar down the side of a list item; the active item is a raised white pill with a navy label.",
+      "Don't apply tabular figures globally to body.",
+      "Don't give flat chrome a shadow, or use a hard offset shadow anywhere — every shadow in this world is soft-blurred cool black.",
+      "Don't drop a control's text label to an unlabelled icon at a narrow width; let the bar scroll instead.",
+      "Don't ship a control that does nothing to make a bar look fuller."
+    ]
+  }
+}

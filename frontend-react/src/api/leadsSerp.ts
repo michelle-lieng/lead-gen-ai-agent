@@ -1,7 +1,9 @@
 import { http, parseFilename } from './client';
 import {
   DownloadedFile,
+  LeadBrief,
   LeadExtractionResponse,
+  PlacesSearchResult,
   QueryRecord,
   SerpUrl,
   UrlCreate,
@@ -64,6 +66,20 @@ export async function deleteUrl(projectId: number, urlId: number): Promise<void>
   await http.delete(`/api/projects/${projectId}/urls/${urlId}`);
 }
 
+/** Find businesses for a location search on Google Places and add them as leads. */
+export async function searchPlaces(
+  projectId: number,
+  query: string,
+  /** The place the message names; the backend adds it if the query lacks it. */
+  location: string,
+): Promise<PlacesSearchResult> {
+  const { data } = await http.post<PlacesSearchResult>(`/api/projects/${projectId}/places`, {
+    query,
+    location,
+  });
+  return data;
+}
+
 export async function generateLeads(projectId: number): Promise<LeadExtractionResponse> {
   const { data } = await http.post<LeadExtractionResponse>(
     `/api/projects/${projectId}/leads`,
@@ -85,4 +101,20 @@ export async function fetchLatestRunZip(
       `project_${projectId}_leads.zip`,
     ),
   };
+}
+
+/**
+ * Expand one plain-English instruction into the project's search target and
+ * lead criteria, saving both to the project. This is what lets the chat take a
+ * single sentence instead of a configuration form.
+ */
+export async function draftLeadBrief(
+  projectId: number,
+  instruction: string,
+): Promise<LeadBrief> {
+  const { data } = await http.post<LeadBrief>(
+    `/api/projects/${projectId}/lead-brief`,
+    { instruction },
+  );
+  return data;
 }

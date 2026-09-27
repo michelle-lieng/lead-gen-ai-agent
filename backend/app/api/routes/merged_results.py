@@ -1,9 +1,9 @@
 """
 Merged results endpoints
 """
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Query, Response
 from ...services.merged_results_service import merged_results_service
-from ...models.schemas import MergedResultsResponse
+from ...models.schemas import MergedResultsResponse, MergedRowUpdate
 
 router = APIRouter()
 
@@ -38,3 +38,27 @@ async def download_merged_results(project_id: int):
             "Content-Disposition": f"attachment; filename={filename}"
         }
     )
+
+@router.patch("/projects/{project_id}/results/row", response_model=dict)
+async def update_merged_row(project_id: int, request: MergedRowUpdate):
+    """
+    Edit one entry in the merged results table.
+
+    The row is addressed by its current lead name. Editable columns are the
+    lead name itself and the project's enrichment columns; `serp_count` is
+    derived from the SERP aggregation and is read-only.
+    """
+    return merged_results_service.update_merged_row(
+        project_id, request.lead, request.updates
+    )
+
+@router.delete("/projects/{project_id}/results/row", status_code=204)
+async def delete_merged_row(
+    project_id: int,
+    lead: str = Query(..., description="Lead name identifying the row to delete"),
+):
+    """
+    Remove one entry from the merged results table.
+    """
+    merged_results_service.delete_merged_row(project_id, lead)
+    return

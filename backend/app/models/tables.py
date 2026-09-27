@@ -1,7 +1,7 @@
 """
 PostgreSQL table models for the AI Lead Generator
 """
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, JSON
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
 
@@ -22,6 +22,7 @@ class Project(Base):
     leads_collected = Column(Integer, default=0)
     datasets_added = Column(Integer, default=0)
     urls_processed = Column(Integer, default=0)
+    example_prompts = Column(JSON, nullable=True)  # Example first messages for the chat, written for this project
 
     # Relationship to serp_queries, serp_urls, and serp_leads
     serp_queries = relationship("SerpQuery", back_populates="project", cascade="all, delete-orphan")
@@ -31,6 +32,7 @@ class Project(Base):
     project_datasets = relationship("ProjectDataset", back_populates="project", cascade="all, delete-orphan")
     merged_results = relationship("MergedResult", back_populates="project", cascade="all, delete-orphan")
     enrichments = relationship("Enrichment", back_populates="project", cascade="all, delete-orphan")
+    chat_entries = relationship("ChatEntry", back_populates="project", cascade="all, delete-orphan")
 
 class SerpQuery(Base):
     """PostgreSQL table: serp_queries - for generating search questions"""
@@ -123,6 +125,11 @@ class Dataset(Base):
     # Relationships
     project_dataset = relationship("ProjectDataset", back_populates="datasets")
 
+# Columns merged_results always has; no research or imported column may take
+# one of these names.
+BUILT_IN_RESULT_COLUMNS = frozenset({"id", "project_id", "lead", "serp_count"})
+
+
 class MergedResult(Base):
     """PostgreSQL table: merged_results - for storing merged leads from SERP and datasets with enrichment columns"""
     __tablename__ = "merged_results"
@@ -175,3 +182,21 @@ class Jobs(Base):
     status = Column(String(50), default="running")  # Status of the job (e.g., "running", "completed", "failed")
     completed_at = Column(DateTime, nullable=True)  # When the job was completed
     error_message = Column(Text, nullable=True)  # Error message if the job failed
+
+class ChatEntry(Base):
+    """PostgreSQL table: chat_entries - the project's single agent conversation.
+
+    Each project has exactly one thread. User messages, agent replies and run
+    log lines all land here in order, so reopening a project resumes it.
+    """
+    __tablename__ = "chat_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete='CASCADE'), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    role = Column(String(20), nullable=False)  # "user", "agent" or "log"
+    kind = Column(String(30), nullable=False, default="text")  # "text", "step", "result", "error", "breakdown", "definition", "query"
+    text = Column(Text, nullable=False, default="")
+    payload = Column(JSON, nullable=True)  # Structured extras, e.g. breakdown chips or counts
+
+    project = relationship("Project", back_populates="chat_entries")

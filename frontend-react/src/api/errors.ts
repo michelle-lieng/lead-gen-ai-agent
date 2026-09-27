@@ -60,14 +60,19 @@ export const FRIENDLY_TEMPLATES: Record<string, string> = {
   DATABASE_FAILURE:
     'Database error. Please try again. If it keeps happening, the server may be down.',
   API_KEY_NOT_CONFIGURED:
-    'Missing or invalid API key. Please enter your OpenAI and Jina API keys via the "API Keys" button.',
+    "The server is missing an API key. Add it to the backend's environment and restart the backend.",
+  // Access
+  INVALID_PASSWORD: 'That password is not right.',
+  SESSION_REQUIRED: 'Your session has ended. Enter the password again.',
+  AUTH_NOT_CONFIGURED:
+    "This server has no password set. Set APP_PASSWORD and AUTH_SECRET in the backend's environment.",
   // External APIs
   EXTERNAL_SCRAPER_ERROR:
     'Scraper service is having issues right now. Please try again in a moment.',
   SCRAPER_CREDITS_EXHAUSTED:
-    'Your Jina API key has no credits remaining. Top up at jina.ai/api-dashboard or enter a different key via the "API Keys" button.',
+    "The server's Jina API key has no credits remaining. Top up at jina.ai/api-dashboard or change JINA_API_KEY in the backend's environment.",
   SCRAPER_API_KEY_INVALID:
-    'Jina rejected your API key. Please check the key entered via the "API Keys" button.',
+    "Jina rejected the server's API key. Check JINA_API_KEY in the backend's environment.",
   OPENAI_TOKEN_LIMIT_EXCEEDED:
     'This request is too large for the AI to process. Try fewer URLs or smaller content.',
   // Enrichment
@@ -88,6 +93,12 @@ export const FRIENDLY_TEMPLATES: Record<string, string> = {
   // Generic / server fallback
   UNEXPECTED_INTERNAL_ERROR: 'Something went wrong on the server. Please try again.',
 };
+
+/** Codes whose server-side message is already the most useful thing to show. */
+export const PASS_THROUGH_CODES = new Set([
+  'OPENAI_REQUEST_FAILED',
+  'GOOGLE_PLACES_REQUEST_FAILED',
+]);
 
 export const STATUS_FALLBACK_MESSAGES: Record<number, string> = {
   400: 'Bad request. Please check your input and try again.',
@@ -122,6 +133,13 @@ export function errorToMessage(err: unknown): string {
         return `${loc}: ${item.msg || 'Invalid value'}`;
       });
       return `Please fix the highlighted input errors:\n${lines.join('\n')}`;
+    }
+    // Errors whose whole value is what the upstream service said: "temperature
+    // is not supported with this model" and "you exceeded your current quota"
+    // need different things done about them, and a house sentence covering
+    // both would help with neither.
+    if (err.code && PASS_THROUGH_CODES.has(err.code) && typeof err.detail === 'string') {
+      return err.detail;
     }
     if (err.code) {
       const template = FRIENDLY_TEMPLATES[err.code];

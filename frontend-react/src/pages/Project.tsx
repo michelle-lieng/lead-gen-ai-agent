@@ -1,0 +1,833 @@
+/**
+ * One project: the grid, and the enquiry panel that fills it.
+ *
+ * Everything the product does happens on this screen. The page owns the writes
+ * — cell edits, record deletion, field renaming, import and export — and hands
+ * presentation to the grid and the panel.
+ */
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { updateEnrichment } from '../api/enrichments';
+import { deleteMergedRow, fetchMergedResultsZip, updateMergedRow } from '../api/mergedResults';
+import { writeExamplePrompts } from '../api/projects';
+import { DataGrid, ROW_HEIGHT_PX, RowHeight } from '../components/grid/DataGrid';
+import { ExpandedRecord } from '../components/grid/ExpandedRecord';
+import { GridField, buildFields } from '../components/grid/fields';
+import { passesYesFilters, yesCount } from '../components/grid/rowStatus';
+import {
+  NotesState,
+  notesOpen,
+  readNotesState,
+  readColumnWidths,
+  readYesFilters,
+  writeColumnWidths,
+  writeNotesState,
+  writeYesFilters,
+  panelStartsOpen,
+} from '../components/grid/viewState';
+import { ImportSheet } from '../components/imports/ImportSheet';
+import { EnquiryPanel } from '../components/panel/EnquiryPanel';
+import { AppShell, ProjectMenuButton, SidebarToggle } from '../components/shell/AppShell';
+import { Icon } from '../components/ui/Icon';
+import { Confirm, Modal } from '../components/ui/Modal';
+import { PopItem, PopLabel, Popover } from '../components/ui/Popover';
+import { Button, EmptyState, Field, IconButton } from '../components/ui/Primitives';
+import { useNotify } from '../components/ui/Toasts';
+import { useEnrichments } from '../hooks/useEnrichments';
+import { useMergedResults } from '../hooks/useMergedResults';
+import { useProject } from '../hooks/useProjects';
+import { useProjectChat } from '../hooks/useProjectChat';
+import { useServerKeys } from '../hooks/useServerKeys';
+import { useQueryHistory } from '../hooks/useQueries';
+import { queryKeys } from '../hooks/queryKeys';
+import { useRegisterRun } from '../hooks/useRegisterRun';
+import { triggerDownload } from '../utils/download';
+
+const ROW_HEIGHTS: { id: RowHeight; label: string }[] = [
+  { id: 'short', label: 'Short' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'tall', label: 'Tall' },
+];
+
+const ROW_HEIGHT_KEY = 'kiyu.grid.rowHeight';
+
+export function Project() {
+  const { projectId } = useParams();
+  const id = Number(projectId);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { notify, notifyError } = useNotify();
+  // Keys live on the server; a run is blocked, with a note, when it lacks them.
+  const { hasKeys, requireKeys } = useServerKeys();
+
+  const { data: project, isLoading: loadingProject, isError } = useProject(id);
+  const { data: results, isLoading: loadingResults } = useMergedResults(id);
+  const { data: enrichments } = useEnrichments(id);
+  const { data: pastQueries } = useQueryHistory(id);
+
+  const chat = useProjectChat(id);
+  const run = useRegisterRun(id, chat.append);
+
+  // A project made before examples existed, or without a key, gets its own
+  // examples written the first time the chat would show them: an empty chat
+  // with no searches or columns yet. Once, and only with keys to pay for it.
+  const askedForExamples = useRef(false);
+  useEffect(() => {
+    const showsExamples =
+      chat.ready && chat.lines.length === 0 && !pastQueries?.length && !enrichments?.length;
+    if (!project || project.example_prompts?.length || !hasKeys || !showsExamples) return;
+    if (askedForExamples.current) return;
+    askedForExamples.current = true;
+    writeExamplePrompts(id)
+      .then((updated) => queryClient.setQueryData(queryKeys.project(id), updated))
+      .catch(() => {
+        /* the generic examples stay */
+      });
+  }, [project, hasKeys, chat.ready, chat.lines.length, pastQueries, enrichments, id, queryClient]);
+
+  // Below 1181px the panel stops being a column and becomes an overlay, so
+  // opening it by default there would hide the table the visitor came for.
+  // A project just created opens with it closed too.
+  const location = useLocation();
+  const [panelOpen, setPanelOpen] = useState(() =>
+    panelStartsOpen(
+      location.state,
+      typeof window === 'undefined' || window.matchMedia('(min-width: 1181px)').matches,
+    ),
+  );
+  const [focusToken, setFocusToken] = useState(0);
+  const [filter, setFilter] = useState('');
+  const [yesFilters, setYesFilters] = useState<string[]>(() => readYesFilters(id));
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => readColumnWidths(id));
+  const [notes, setNotes] = useState<NotesState>(() => readNotesState(id));
+  const [rowHeight, setRowHeight] = useState<RowHeight>(
+    () => (localStorage.getItem(ROW_HEIGHT_KEY) as RowHeight | null) ?? 'short',
+  );
+  const [heightAnchor, setHeightAnchor] = useState<HTMLElement | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deletingOne, setDeletingOne] = useState<string | null>(null);
+  const [deletingMany, setDeletingMany] = useState(false);
+  const [renamingField, setRenamingField] = useState<GridField | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // A run reports in the panel, so make sure it is on screen while one works.
+  useEffect(() => {
+    if (run.running) setPanelOpen(true);
+  }, [run.running]);
+
+  // Warn before a reload would abandon a run mid-flight.
+  useEffect(() => {
+    if (!run.running) return undefined;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [run.running]);
+
+  const rows = useMemo(() => results?.data ?? [], [results]);
+
+  const fields = useMemo(
+    () => buildFields(results?.columns ?? [], rows, enrichments ?? []),
+    [results?.columns, rows, enrichments],
+  );
+
+  const searchedRows = useMemo(() => {
+    const needle = filter.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter((row) =>
+      Object.values(row).some(
+        (value) => value !== null && String(value).toLowerCase().includes(needle),
+      ),
+    );
+  }, [rows, filter]);
+
+  // Each yes/no column can be switched on as a filter: switched on, only
+  // records that say Yes to it stay in view. Stored keys for columns that no
+  // longer exist are simply ignored.
+  const yesNoFields = useMemo(
+    () => fields.filter((f) => f.ai && !f.note && f.type === 'select'),
+    [fields],
+  );
+  const activeFilters = useMemo(
+    () => yesFilters.filter((key) => yesNoFields.some((f) => f.key === key)),
+    [yesFilters, yesNoFields],
+  );
+  const showFilters = yesNoFields.length > 0;
+
+  const visibleRows = useMemo(
+    () => searchedRows.filter((row) => passesYesFilters(row, activeFilters)),
+    [searchedRows, activeFilters],
+  );
+
+  const toggleYesFilter = (key: string) => {
+    // Built on the latest state, so quick successive clicks all count.
+    setYesFilters((current) => {
+      const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key];
+      writeYesFilters(id, next);
+      return next;
+    });
+  };
+  const clearYesFilters = () => {
+    setYesFilters([]);
+    writeYesFilters(id, []);
+  };
+
+  // The open record is read from the rows in view, so paging stays within the
+  // tab; once an edit moves it out of the tab, it is read from every row, so
+  // the record stays open instead of vanishing mid-edit.
+  const recordRows = useMemo(
+    () =>
+      expanded && !visibleRows.some((row) => String(row.lead ?? '') === expanded)
+        ? rows
+        : visibleRows,
+    [expanded, visibleRows, rows],
+  );
+
+
+  // Why and evidence: folded by default. A folded answer column keeps a
+  // source-count badge; its reasoning and evidence columns leave the grid.
+  const hasNoteColumns = fields.some((field) => field.noteKeys);
+  const collapsedNotes = useMemo(
+    () =>
+      new Set(
+        fields.filter((f) => f.noteKeys && !notesOpen(notes, f.key)).map((f) => f.key),
+      ),
+    [fields, notes],
+  );
+  const gridFields = useMemo(
+    () => fields.filter((f) => !(f.note && f.parentKey && collapsedNotes.has(f.parentKey))),
+    [fields, collapsedNotes],
+  );
+  // Dragged widths override each column's default; saved when a drag ends.
+  const sizedFields = useMemo(
+    () =>
+      gridFields.map((f) => (columnWidths[f.key] ? { ...f, width: columnWidths[f.key] } : f)),
+    [gridFields, columnWidths],
+  );
+  const resizeColumn = (key: string, width: number, done: boolean) => {
+    setColumnWidths((current) => {
+      const next = { ...current, [key]: width };
+      if (done) writeColumnWidths(id, next);
+      return next;
+    });
+  };
+  const resetColumnWidth = (key: string) => {
+    setColumnWidths((current) => {
+      const next = { ...current };
+      delete next[key];
+      writeColumnWidths(id, next);
+      return next;
+    });
+  };
+
+  const saveNotes = (next: NotesState) => {
+    setNotes(next);
+    writeNotesState(id, next);
+  };
+  const toggleAllNotes = (open: boolean) => saveNotes({ all: open, open: [] });
+  const toggleNotes = (answerKey: string) => {
+    if (notesOpen(notes, answerKey)) {
+      // Closing one column while all are open keeps the others open.
+      const others = notes.all
+        ? fields.filter((f) => f.noteKeys && f.key !== answerKey).map((f) => f.key)
+        : notes.open.filter((key) => key !== answerKey);
+      saveNotes({ all: false, open: others });
+    } else {
+      saveNotes({ all: false, open: [...notes.open, answerKey] });
+    }
+  };
+  const allNotesOpen = hasNoteColumns && collapsedNotes.size === 0;
+
+  // Selection is held by company name, so a renamed or deleted record drops out
+  // of it on the next refetch rather than lingering as a phantom.
+  const liveSelection = useMemo(() => {
+    const present = new Set(rows.map((row) => String(row.lead ?? '')));
+    return new Set([...selected].filter((lead) => present.has(lead)));
+  }, [rows, selected]);
+
+  // The answers only: a field's reasoning and evidence are the same field's
+  // working, and counting them would treble the tally the footer reports.
+  const aiFieldCount = fields.filter((field) => field.ai && !field.note).length;
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.mergedResults(id) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.project(id) });
+  };
+
+  const chooseRowHeight = (next: RowHeight) => {
+    setRowHeight(next);
+    localStorage.setItem(ROW_HEIGHT_KEY, next);
+    setHeightAnchor(null);
+  };
+
+  const editMutation = useMutation({
+    mutationFn: ({ lead, key, value }: { lead: string; key: string; value: string }) =>
+      updateMergedRow(id, lead, { [key]: value }),
+    onSuccess: invalidate,
+    onError: (error) => {
+      notifyError(error);
+      invalidate();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (leads: string[]) =>
+      Promise.allSettled(leads.map((lead) => deleteMergedRow(id, lead))).then((outcomes) => ({
+        leads,
+        failed: outcomes.filter((outcome) => outcome.status === 'rejected').length,
+      })),
+    onSuccess: ({ leads, failed }) => {
+      const done = leads.length - failed;
+      if (done > 0) {
+        notify(
+          leads.length === 1
+            ? `“${leads[0]}” deleted.`
+            : `${done} ${done === 1 ? 'record' : 'records'} deleted.`,
+          'success',
+        );
+      }
+      if (failed > 0) {
+        notify(
+          `${failed} ${failed === 1 ? 'record' : 'records'} could not be deleted.`,
+          'error',
+        );
+      }
+      setDeletingOne(null);
+      setDeletingMany(false);
+      setExpanded(null);
+      setSelected(new Set());
+      invalidate();
+    },
+    onError: (error) => {
+      notifyError(error);
+      setDeletingOne(null);
+      setDeletingMany(false);
+    },
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ enrichmentId, name }: { enrichmentId: number; name: string }) =>
+      updateEnrichment(enrichmentId, { enrichment_name: name }),
+    onSuccess: () => {
+      notify('Field renamed.', 'success');
+      setRenamingField(null);
+      queryClient.invalidateQueries({ queryKey: queryKeys.enrichments(id) });
+    },
+    onError: notifyError,
+  });
+
+  const exportMutation = useMutation({
+    mutationFn: () => fetchMergedResultsZip(id),
+    onSuccess: (file) => {
+      if (!file) {
+        notify('Nothing to export yet.', 'info');
+        return;
+      }
+      triggerDownload(file);
+      notify(`Exported ${file.filename}.`, 'success');
+    },
+    onError: notifyError,
+  });
+
+  /* ------------------------------------------------------------ early states */
+
+  if (loadingProject) {
+    return (
+      <AppShell activeId={id}>
+        <main className="main main--plain">
+          <div className="projectbar">
+            <SidebarToggle />
+            <span className="projectbar__title">
+              <h1>Opening…</h1>
+            </span>
+          </div>
+          <p className="quiet">Loading this project…</p>
+        </main>
+      </AppShell>
+    );
+  }
+
+  if (isError || !project) {
+    return (
+      <AppShell activeId={id}>
+        <main className="main main--plain">
+          <div className="projectbar">
+            <SidebarToggle />
+            <span className="projectbar__title">
+              <h1>Project not found</h1>
+            </span>
+          </div>
+          <EmptyState
+            icon="alert"
+            title="This project is not here"
+            body="It may have been deleted, or the link may be wrong."
+            actions={
+              <Button tone="primary" onClick={() => navigate('/')}>
+                Back to home
+              </Button>
+            }
+          />
+        </main>
+      </AppShell>
+    );
+  }
+
+  /* ------------------------------------------------------------------ actions */
+
+  const submit = (instruction: string) => {
+    if (!requireKeys()) return;
+    run.ask(instruction);
+  };
+
+  const askForField = () => {
+    setPanelOpen(true);
+    setFocusToken((token) => token + 1);
+  };
+
+  const selectionCount = liveSelection.size;
+
+  return (
+    <AppShell
+      activeId={id}
+      onClosePanel={() => setPanelOpen(false)}
+      panel={
+        panelOpen ? (
+          <EnquiryPanel
+            running={run.running}
+            steps={run.steps}
+            thread={chat.lines}
+            threadReady={chat.ready}
+            threadError={chat.loadError}
+            hasEarlier={chat.hasMore}
+            loadingEarlier={chat.loadingOlder}
+            onLoadEarlier={chat.loadEarlier}
+            unsaved={chat.unsaved}
+            startedAt={run.startedAt}
+            enrichments={enrichments ?? []}
+            examples={project.example_prompts}
+            pastQueries={pastQueries ?? []}
+            onSubmit={submit}
+            onStart={(plan) => {
+              if (requireKeys()) run.start(plan);
+            }}
+            onCancel={run.cancel}
+            onStop={run.stop}
+            onClear={run.clear}
+            onClose={() => setPanelOpen(false)}
+            focusToken={focusToken}
+          />
+        ) : undefined
+      }
+    >
+      <main className="main">
+        <div className="projectbar">
+          <SidebarToggle />
+          <span className="projectbar__title">
+            <h1 title={project.project_name}>{project.project_name}</h1>
+            <ProjectMenuButton project={project} />
+          </span>
+          <span className="projectbar__spacer" />
+        </div>
+
+        <div className="toolbar">
+          <button type="button" className="toolbar__tab" aria-current="page">
+            <Icon name="field-select" size={13} />
+            Leads
+            <span>{rows.length.toLocaleString()}</span>
+          </button>
+
+          <span className="toolbar__rule" aria-hidden="true" />
+
+          <label className="search">
+            <Icon name="search" size={13} />
+            <input
+              ref={searchRef}
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder="Search records"
+              aria-label="Search records"
+            />
+            {filter && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilter('');
+                  searchRef.current?.focus();
+                }}
+                aria-label="Clear search"
+                style={{
+                  display: 'flex',
+                  border: 0,
+                  background: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  color: 'inherit',
+                }}
+              >
+                <Icon name="close" size={11} />
+              </button>
+            )}
+          </label>
+
+          {filter && (
+            <span className="toolbar__found">
+              {searchedRows.length.toLocaleString()} of {rows.length.toLocaleString()}
+            </span>
+          )}
+
+          <Button
+            icon="rows"
+            compact
+            tone="quiet"
+            aria-haspopup="menu"
+            aria-expanded={heightAnchor !== null}
+            onClick={(event) => setHeightAnchor(event.currentTarget)}
+          >
+            Row height
+          </Button>
+
+          <span className="toolbar__spacer" />
+
+          <Button icon="import" compact tone="quiet" onClick={() => setImporting(true)}>
+            Import
+          </Button>
+          <Button
+            icon="download"
+            compact
+            tone="quiet"
+            loading={exportMutation.isPending}
+            disabled={rows.length === 0}
+            onClick={() => exportMutation.mutate()}
+          >
+            Export
+          </Button>
+
+          <span className="toolbar__rule" aria-hidden="true" />
+
+          {/* Labelled while the panel is hidden, because that is when the
+              product's primary affordance has to be findable; icon-only while
+              it is open, where the panel itself is the label and the view bar
+              has 380px less room to give. */}
+          {panelOpen ? (
+            <IconButton
+              icon="panel"
+              label="Hide the agent panel"
+              compact
+              aria-pressed
+              onClick={() => setPanelOpen(false)}
+            />
+          ) : (
+            <Button
+              icon="panel"
+              compact
+              tone="primary"
+              aria-pressed={false}
+              onClick={() => setPanelOpen(true)}
+            >
+              Ask the agent
+            </Button>
+          )}
+        </div>
+
+        {(hasNoteColumns || showFilters) && (
+          <div className="viewbar">
+            {hasNoteColumns && (
+              <label className="toolbar__notes">
+                <input
+                  type="checkbox"
+                  checked={allNotesOpen}
+                  onChange={(event) => toggleAllNotes(event.target.checked)}
+                />
+                Why and evidence
+              </label>
+            )}
+
+            {showFilters && (
+              <span className="toolbar__views" role="group" aria-label="Show only records that say Yes to">
+                {yesNoFields.map((field) => (
+                  <button
+                    key={field.key}
+                    type="button"
+                    className="toolbar__view"
+                    aria-pressed={activeFilters.includes(field.key)}
+                    title={`Show only records that say Yes to ${field.name}`}
+                    onClick={() => toggleYesFilter(field.key)}
+                  >
+                    {field.name} <span>· {yesCount(searchedRows, field.key).toLocaleString()}</span>
+                  </button>
+                ))}
+              </span>
+            )}
+          </div>
+        )}
+
+        {loadingResults && rows.length === 0 ? (
+          <p className="quiet">Loading records…</p>
+        ) : rows.length === 0 ? (
+          <EmptyState
+            fill
+            icon="sparkle"
+            title="This table is empty"
+            body="Describe the companies you are looking for in the panel on the right. One sentence is enough — everything below happens on its own."
+            actions={
+              <>
+                <Button tone="primary" icon="search" onClick={() => {
+                  setPanelOpen(true);
+                  setFocusToken((token) => token + 1);
+                }}>
+                  Describe the leads you want
+                </Button>
+                <Button icon="import" onClick={() => setImporting(true)}>
+                  Import a spreadsheet
+                </Button>
+              </>
+            }
+            sequence={[
+              {
+                head: 'You describe the companies',
+                body: '“Dental clinics in Sydney”, or whatever you are actually looking for.',
+              },
+              {
+                head: 'Search queries are written and run',
+                body: 'Several angles on your description, searched and collected as sources.',
+              },
+              {
+                head: 'Every source is read',
+                body: 'Company names are extracted into this table, with how many sources each was found in.',
+              },
+              {
+                head: 'You ask for a column',
+                body: 'In the same chat, ask one question about the companies. Every record is researched and the answers are written in.',
+              },
+            ]}
+          />
+        ) : searchedRows.length === 0 ? (
+          <EmptyState
+            icon="search"
+            title="No records match that"
+            body={`Nothing in this table contains “${filter}”.`}
+            actions={<Button onClick={() => setFilter('')}>Clear search</Button>}
+          />
+        ) : visibleRows.length === 0 ? (
+          <EmptyState
+            icon="search"
+            title="No records say Yes to every filter"
+            body="Switch a filter off to see more records."
+            actions={<Button onClick={clearYesFilters}>Clear filters</Button>}
+          />
+        ) : (
+          <DataGrid
+            fields={sizedFields}
+            onResizeColumn={resizeColumn}
+            onResetColumnWidth={resetColumnWidth}
+            collapsedNotes={collapsedNotes}
+            onToggleNotes={toggleNotes}
+            rows={visibleRows}
+            rowHeight={rowHeight}
+            settling={run.settling}
+            workingLeads={run.workingLeads}
+            workingField={run.workingField}
+            busy={editMutation.isPending || deleteMutation.isPending}
+            selected={liveSelection}
+            onSelect={(lead, isSelected) =>
+              setSelected((current) => {
+                const next = new Set(current);
+                if (isSelected) next.add(lead);
+                else next.delete(lead);
+                return next;
+              })
+            }
+            onSelectAll={(isSelected) =>
+              setSelected(
+                isSelected
+                  ? new Set(visibleRows.map((row) => String(row.lead ?? '')))
+                  : new Set(),
+              )
+            }
+            onEdit={(lead, key, value) => editMutation.mutate({ lead, key, value })}
+            onExpand={setExpanded}
+            onRenameField={setRenamingField}
+            onAddField={askForField}
+          />
+        )}
+
+        <div className="foot">
+          {selectionCount > 0 ? (
+            <span className="foot__sel">
+              {selectionCount} {selectionCount === 1 ? 'record' : 'records'} selected
+              <Button
+                tone="danger"
+                compact
+                icon="trash"
+                onClick={() => setDeletingMany(true)}
+              >
+                Delete
+              </Button>
+              <Button tone="quiet" compact onClick={() => setSelected(new Set())}>
+                Clear
+              </Button>
+            </span>
+          ) : (
+            <span>
+              {rows.length.toLocaleString()} {rows.length === 1 ? 'record' : 'records'}
+              {(filter || activeFilters.length > 0) && ` · ${visibleRows.length.toLocaleString()} shown`}
+            </span>
+          )}
+
+          <span className="foot__spacer" />
+
+          {/* The tallies are why the table is believable, so they survive onto a
+              phone — abbreviated to hold one line, never dropped. */}
+          <span className="foot__meta">
+            {aiFieldCount} researched {aiFieldCount === 1 ? 'field' : 'fields'}
+            {project.datasets_added > 0 &&
+              ` · ${project.datasets_added} imported ${
+                project.datasets_added === 1 ? 'dataset' : 'datasets'
+              }`}
+            {project.urls_processed > 0 &&
+              ` · ${project.urls_processed.toLocaleString()} sources read`}
+          </span>
+
+          <span className="foot__meta--short">
+            {aiFieldCount} {aiFieldCount === 1 ? 'field' : 'fields'}
+            {project.urls_processed > 0 &&
+              ` · ${project.urls_processed.toLocaleString()} sources`}
+          </span>
+        </div>
+      </main>
+
+      {heightAnchor && (
+        <Popover
+          anchor={heightAnchor}
+          label="Row height"
+          onClose={() => setHeightAnchor(null)}
+          width={180}
+        >
+          <PopLabel>Row height</PopLabel>
+          {ROW_HEIGHTS.map((option) => (
+            <PopItem
+              key={option.id}
+              checked={rowHeight === option.id}
+              onClick={() => chooseRowHeight(option.id)}
+            >
+              {option.label} · {ROW_HEIGHT_PX[option.id]}px
+            </PopItem>
+          ))}
+        </Popover>
+      )}
+
+      <ExpandedRecord
+        lead={expanded}
+        rows={recordRows}
+        fields={fields}
+        busy={editMutation.isPending}
+        onClose={() => setExpanded(null)}
+        onEdit={(lead, key, value) => editMutation.mutate({ lead, key, value })}
+        onDelete={(lead) => setDeletingOne(lead)}
+        onNavigate={setExpanded}
+      />
+
+      <ImportSheet open={importing} projectId={id} onClose={() => setImporting(false)} />
+
+      <RenameFieldDialog
+        field={renamingField}
+        loading={renameMutation.isPending}
+        onClose={() => setRenamingField(null)}
+        onSave={(name) => {
+          const enrichmentId = renamingField?.enrichment?.id;
+          if (enrichmentId) renameMutation.mutate({ enrichmentId, name });
+        }}
+      />
+
+      <Confirm
+        open={deletingOne !== null}
+        title="Delete this record?"
+        message={`“${deletingOne}” will be removed from this table along with every answer recorded against it.`}
+        confirmLabel="Delete record"
+        destructive
+        loading={deleteMutation.isPending}
+        onConfirm={() => deletingOne && deleteMutation.mutate([deletingOne])}
+        onCancel={() => setDeletingOne(null)}
+      />
+
+      <Confirm
+        open={deletingMany}
+        title={`Delete ${selectionCount} ${selectionCount === 1 ? 'record' : 'records'}?`}
+        message="They will be removed from this table along with every answer recorded against them. This cannot be undone."
+        confirmLabel={`Delete ${selectionCount} ${selectionCount === 1 ? 'record' : 'records'}`}
+        destructive
+        loading={deleteMutation.isPending}
+        onConfirm={() => deleteMutation.mutate([...liveSelection])}
+        onCancel={() => setDeletingMany(false)}
+      />
+    </AppShell>
+  );
+}
+
+/* --------------------------------------------------------------- field rename */
+
+function RenameFieldDialog({
+  field,
+  loading,
+  onClose,
+  onSave,
+}: {
+  field: GridField | null;
+  loading: boolean;
+  onClose: () => void;
+  onSave: (name: string) => void;
+}) {
+  const [name, setName] = useState('');
+
+  useEffect(() => {
+    if (field) setName(field.name);
+  }, [field]);
+
+  return (
+    <Modal
+      open={field !== null}
+      title="Rename field"
+      note="Only the label changes. The underlying column keeps its name, so exports and anything built on them are unaffected."
+      onClose={onClose}
+      width={460}
+      footer={
+        <>
+          <Button onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            tone="primary"
+            icon="check"
+            loading={loading}
+            disabled={!name.trim() || name.trim() === field?.name}
+            onClick={() => onSave(name.trim())}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gap: 14 }}>
+        <Field
+          label="Field name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && name.trim()) onSave(name.trim());
+          }}
+        />
+        {field?.identifier && (
+          <p style={{ fontSize: 12, color: 'var(--text-2)' }}>
+            Column:{' '}
+            <code style={{ fontFamily: 'var(--face-mono)', fontSize: 11.5 }}>
+              {field.identifier}
+            </code>
+          </p>
+        )}
+      </div>
+    </Modal>
+  );
+}

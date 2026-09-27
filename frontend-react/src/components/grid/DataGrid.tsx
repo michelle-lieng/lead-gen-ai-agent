@@ -1,0 +1,757 @@
+/**
+ * The grid.
+ *
+ * Ruled both ways, 32px rows, the row-number gutter and the company field
+ * frozen to the left, and a `+` closing the header row. Cells behave the way a
+ * grid database's cells behave: click selects, arrow keys move, Enter or a
+ * double-click opens, typing replaces, Escape cancels, Delete clears. That
+ * keyboard model is most of the difference between a table of styled divs and
+ * something a category-fluent user can trust on sight.
+ *
+ * A column is never wide enough for every value in it, so no value is only ever
+ * a truncation: a selected cell whose text is cut off says so with a mark, and
+ * opening it shows the whole thing over its neighbours — as an editor where the
+ * field can be written to, and as a reader where it cannot.
+ *
+ * Presentation only: every write is handed back to the caller, which owns the
+ * mutations.
+ */
+
+import {
+  KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { GridField, GridRow, hasNotes, isBlank } from './fields';
+import { countSources } from './rowStatus';
+import { MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, clampColumnWidth, fitColumnWidth } from './viewState';
+import { CellValue } from './CellValue';
+import { FieldMenu } from './FieldMenu';
+import { Icon } from '../ui/Icon';
+
+export type RowHeight = 'short' | 'medium' | 'tall';
+
+export const ROW_HEIGHT_PX: Record<RowHeight, number> = { short: 32, medium: 56, tall: 88 };
+
+/** Matches `--editor-min-w` in the stylesheet. */
+const EDITOR_MIN_W = 232;
+
+interface DataGridProps {
+  fields: GridField[];
+  rows: GridRow[];
+  rowHeight: RowHeight;
+  /** Records whose answers just landed, so their values fade in. */
+  settling?: Set<string>;
+  /** Records the run is working now. */
+  workingLeads?: Set<string>;
+  /** The one field being filled, if any. Nothing else shows a pending mark. */
+  workingField?: string | null;
+  /** A write is in flight; editing is held off until it lands. */
+  busy?: boolean;
+  selected: Set<string>;
+  onSelect: (lead: string, selected: boolean) => void;
+  onSelectAll: (selected: boolean) => void;
+  onEdit: (lead: string, key: string, value: string) => void;
+  onExpand: (lead: string) => void;
+  onRenameField: (field: GridField) => void;
+  onAddField: () => void;
+  /** Answer columns whose reasoning and evidence are folded away. */
+  collapsedNotes?: Set<string>;
+  /** Open or fold one answer column's reasoning and evidence. */
+  onToggleNotes?: (answerKey: string) => void;
+  /** A column's width while dragging its edge; `done` on release. */
+  onResizeColumn?: (key: string, width: number, done: boolean) => void;
+  /** Put a column back to its default width. */
+  onResetColumnWidth?: (key: string) => void;
+}
+
+export function DataGrid({
+  fields,
+  rows,
+  rowHeight,
+  settling,
+  workingLeads,
+  workingField,
+  busy = false,
+  selected,
+  onSelect,
+  onSelectAll,
+  onEdit,
+  onExpand,
+  onRenameField,
+  onAddField,
+  collapsedNotes,
+  onToggleNotes,
+  onResizeColumn,
+  onResetColumnWidth,
+}: DataGridProps) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+
+  const [cursor, setCursor] = useState<{ r: number; c: number } | null>(null);
+  const [editing, setEditing] = useState<{ r: number; c: number; flip: boolean } | null>(
+    null,
+  );
+  const [reading, setReading] = useState<{ r: number; c: number; flip: boolean } | null>(
+    null,
+  );
+  const [draft, setDraft] = useState('');
+  /** Whether the selected cell's value is cut off by its column. */
+  const [clipped, setClipped] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [fieldMenu, setFieldMenu] = useState<{ field: GridField; anchor: HTMLElement } | null>(
+    null,
+  );
+
+  const totalWidth = useMemo(
+    () => fields.reduce((sum, field) => sum + field.width, 0) + 66 + 44,
+    [fields],
+  );
+
+  const frozenWidth = 66 + (fields[0]?.width ?? 0) + 16;
+
+  /* ------------------------------------------------------------ scroll state */
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return undefined;
+    const measure = () => setScrolled(scroller.scrollLeft > 0);
+    measure();
+    scroller.addEventListener('scroll', measure, { passive: true });
+    return () => scroller.removeEventListener('scroll', measure);
+  }, []);
+
+  // A field that has just been created is the thing the visitor asked for, so
+  // the grid scrolls to it rather than filling a column off the right edge.
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || !workingField) return;
+    const index = fields.findIndex((field) => field.key === workingField);
+    if (index < 1) return;
+
+    const left = 66 + fields.slice(0, index).reduce((sum, f) => sum + f.width, 0);
+    const right = left + fields[index].width;
+    const frozen = 66 + (fields[0]?.width ?? 0);
+    const target = right - scroller.clientWidth + 24;
+    if (target <= scroller.scrollLeft && left - frozen >= scroller.scrollLeft) return;
+
+    scroller.scrollTo({
+      left: Math.max(0, target),
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : 'smooth',
+    });
+  }, [workingField, fields]);
+
+  /* --------------------------------------------------------------- the cursor */
+
+  // Keep focus on the selected cell so the arrow keys keep working, and let the
+  // browser scroll it into view rather than computing offsets by hand.
+  useLayoutEffect(() => {
+    if (!cursor || editing) return;
+    const node = scrollerRef.current?.querySelector<HTMLElement>(
+      `[data-r="${cursor.r}"][data-c="${cursor.c}"]`,
+    );
+    node?.focus({ preventScroll: false });
+  }, [cursor, editing]);
+
+  useLayoutEffect(() => {
+    if (!editing) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    editor.setSelectionRange(editor.value.length, editor.value.length);
+    editor.style.height = 'auto';
+    editor.style.height = `${Math.max(editor.scrollHeight, ROW_HEIGHT_PX[rowHeight])}px`;
+  }, [editing, rowHeight]);
+
+  // A cursor left pointing past the end of a shrunken table is not a cursor.
+  useEffect(() => {
+    setCursor((current) => {
+      if (!current) return current;
+      if (current.r < rows.length && current.c < fields.length) return current;
+      return null;
+    });
+  }, [rows.length, fields.length]);
+
+  // The reader belongs to the cell it was opened on: moving off it closes it,
+  // whether the cursor was moved by the keyboard or by a click elsewhere.
+  useEffect(() => {
+    setReading((current) => {
+      if (!current) return null;
+      return cursor && cursor.r === current.r && cursor.c === current.c ? current : null;
+    });
+  }, [cursor]);
+
+  /* Whether the selected cell is cut off has to be measured rather than
+     guessed: it turns on the value, the column's width and the row height at
+     once, and only the browser knows all three. */
+  useLayoutEffect(() => {
+    if (!cursor) {
+      setClipped(false);
+      return;
+    }
+    const node = scrollerRef.current?.querySelector<HTMLElement>(
+      `[data-r="${cursor.r}"][data-c="${cursor.c}"] .cell__value`,
+    );
+    setClipped(
+      node
+        ? node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1
+        : false,
+    );
+  }, [cursor, rowHeight, rows, fields]);
+
+  // An overlay grown past a narrow column would be clipped at the content
+  // region's edge, so on the right-hand columns it opens leftward instead.
+  const overlayFlip = useCallback((r: number, c: number) => {
+    const scroller = scrollerRef.current;
+    const cell = scroller?.querySelector<HTMLElement>(`[data-r="${r}"][data-c="${c}"]`);
+    if (!scroller || !cell) return false;
+    const cellRect = cell.getBoundingClientRect();
+    const width = Math.max(cellRect.width + 2, EDITOR_MIN_W);
+    return cellRect.left + width > scroller.getBoundingClientRect().right - 4;
+  }, []);
+
+  const startEdit = useCallback(
+    (r: number, c: number, initial?: string) => {
+      const field = fields[c];
+      const row = rows[r];
+      if (!field || !row || !field.editable || busy) return;
+      const current = row[field.key];
+
+      setCursor({ r, c });
+      setDraft(initial ?? (current === null || current === undefined ? '' : String(current)));
+      setEditing({ r, c, flip: overlayFlip(r, c) });
+    },
+    [fields, rows, busy, overlayFlip],
+  );
+
+  /* A field that cannot be typed into — the agent's working, a collected count
+     — still has to be readable in full. It opens as a reader: the same overlay
+     the editor uses, without the caret. */
+  const openReader = useCallback(
+    (r: number, c: number) => {
+      if (!fields[c] || !rows[r]) return;
+      setCursor({ r, c });
+      setReading({ r, c, flip: overlayFlip(r, c) });
+    },
+    [fields, rows, overlayFlip],
+  );
+
+  /** Opening a cell shows all of it, whichever of the two it turns out to be. */
+  const openCell = useCallback(
+    (r: number, c: number) => {
+      const field = fields[c];
+      if (!field) return;
+      if (field.editable && !busy) startEdit(r, c);
+      else openReader(r, c);
+    },
+    [fields, busy, startEdit, openReader],
+  );
+
+  const commit = useCallback(() => {
+    if (!editing) return;
+    const field = fields[editing.c];
+    const row = rows[editing.r];
+    setEditing(null);
+    if (!field || !row) return;
+    const before = row[field.key];
+    const was = before === null || before === undefined ? '' : String(before);
+    if (was !== draft) onEdit(String(row.lead ?? ''), field.key, draft);
+  }, [editing, fields, rows, draft, onEdit]);
+
+  const move = useCallback(
+    (dr: number, dc: number) => {
+      setCursor((current) => {
+        const from = current ?? { r: 0, c: 0 };
+        return {
+          r: Math.min(Math.max(0, from.r + dr), rows.length - 1),
+          c: Math.min(Math.max(0, from.c + dc), fields.length - 1),
+        };
+      });
+    },
+    [rows.length, fields.length],
+  );
+
+  const onGridKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (editing) return;
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c' && cursor) {
+        const value = rows[cursor.r]?.[fields[cursor.c].key];
+        navigator.clipboard?.writeText(value === null || value === undefined ? '' : String(value));
+      }
+      return;
+    }
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        move(1, 0);
+        return;
+      case 'ArrowUp':
+        event.preventDefault();
+        move(-1, 0);
+        return;
+      case 'ArrowRight':
+        event.preventDefault();
+        move(0, 1);
+        return;
+      case 'ArrowLeft':
+        event.preventDefault();
+        move(0, -1);
+        return;
+      case 'Home':
+        event.preventDefault();
+        setCursor((current) => ({ r: current?.r ?? 0, c: 0 }));
+        return;
+      case 'End':
+        event.preventDefault();
+        setCursor((current) => ({ r: current?.r ?? 0, c: fields.length - 1 }));
+        return;
+      case 'Enter':
+        if (!cursor) return;
+        event.preventDefault();
+        // Enter on an open reader closes it again, the way it commits an editor.
+        if (reading) setReading(null);
+        else openCell(cursor.r, cursor.c);
+        return;
+      case 'Escape':
+        // The reader is the innermost thing open, so it goes first and the
+        // selection survives — Escape twice clears the cursor.
+        if (reading) setReading(null);
+        else setCursor(null);
+        return;
+      case 'Backspace':
+      case 'Delete': {
+        if (!cursor) return;
+        const field = fields[cursor.c];
+        const row = rows[cursor.r];
+        if (!field.editable || busy) return;
+        event.preventDefault();
+        if (row[field.key] !== null && row[field.key] !== undefined && row[field.key] !== '') {
+          onEdit(String(row.lead ?? ''), field.key, '');
+        }
+        return;
+      }
+      default:
+        break;
+    }
+
+    // Type to replace, the way a grid does.
+    if (cursor && event.key.length === 1 && !event.repeat) {
+      event.preventDefault();
+      startEdit(cursor.r, cursor.c, event.key);
+    }
+  };
+
+  const onEditorKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    event.stopPropagation();
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      commit();
+      move(1, 0);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      setEditing(null);
+    }
+  };
+
+  const allSelected = rows.length > 0 && rows.every((row) => selected.has(String(row.lead ?? '')));
+
+  return (
+    <div
+      className="grid"
+      ref={scrollerRef}
+      data-scrolled={scrolled || undefined}
+      data-rowheight={rowHeight}
+      data-anyselected={selected.size > 0 || undefined}
+      style={
+        {
+          '--row-h': `${ROW_HEIGHT_PX[rowHeight]}px`,
+          '--frozen-w': `${frozenWidth}px`,
+          '--grid-w': `${totalWidth}px`,
+        } as React.CSSProperties
+      }
+      onKeyDown={onGridKeyDown}
+    >
+      <div
+        className="grid__inner"
+        role="grid"
+        aria-label="Records"
+        aria-rowcount={rows.length + 1}
+        aria-colcount={fields.length + 1}
+      >
+        {/* ---------------------------------------------------- column heads */}
+        <div className="grid__head" role="row" aria-rowindex={1}>
+          <div
+            className="cell cell--gutter cell--sticky"
+            role="columnheader"
+            aria-colindex={1}
+          >
+            <span className="gut__check" style={{ display: 'grid' }}>
+              <input
+                type="checkbox"
+                className="gut__box"
+                checked={allSelected}
+                aria-label={allSelected ? 'Clear selection' : 'Select all records'}
+                onChange={(event) => onSelectAll(event.target.checked)}
+              />
+            </span>
+          </div>
+
+          {fields.map((field, index) => (
+            <div
+              key={field.key}
+              className={[
+                'cell',
+                index === 0 ? 'cell--sticky cell--first cell--frozen-edge' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              role="columnheader"
+              aria-colindex={index + 2}
+              data-note={field.note || undefined}
+              style={{ '--cw': `${field.width}px` } as React.CSSProperties}
+              onDoubleClick={(event) => {
+                // Double-clicking the header (not its buttons or edge) widens
+                // the column just enough to show the whole name.
+                if ((event.target as Element).closest('button, .head__resize')) return;
+                const name = event.currentTarget.querySelector<HTMLElement>('.head__name');
+                const width = name && fitColumnWidth(field.width, name.scrollWidth, name.clientWidth);
+                if (width) onResizeColumn?.(field.key, width, true);
+              }}
+              title={onResizeColumn ? 'Double-click to fit the whole name' : undefined}
+            >
+              <span className="head">
+                <span className="head__icon" data-ai={field.ai || undefined}>
+                  <Icon name={field.icon} size={13} />
+                </span>
+                <span className="head__name" title={field.name}>
+                  {field.name}
+                </span>
+                {field.noteKeys && onToggleNotes && (
+                  <button
+                    type="button"
+                    className="head__notes"
+                    aria-pressed={!collapsedNotes?.has(field.key)}
+                    aria-label={`${
+                      collapsedNotes?.has(field.key) ? 'Show' : 'Hide'
+                    } why and evidence for ${field.name}`}
+                    title={collapsedNotes?.has(field.key) ? 'Show why and evidence' : 'Hide why and evidence'}
+                    onClick={() => onToggleNotes(field.key)}
+                  >
+                    <Icon name="expand" size={12} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="head__menu"
+                  aria-label={`${field.name} field options`}
+                  aria-haspopup="menu"
+                  aria-expanded={fieldMenu?.field.key === field.key}
+                  onClick={(event) => setFieldMenu({ field, anchor: event.currentTarget })}
+                >
+                  <Icon name="chevron-down" size={12} />
+                </button>
+              </span>
+              {onResizeColumn && (
+                <ResizeHandle
+                  name={field.name}
+                  width={field.width}
+                  onResize={(width, done) => onResizeColumn(field.key, width, done)}
+                  onReset={() => onResetColumnWidth?.(field.key)}
+                />
+              )}
+            </div>
+          ))}
+
+          <div className="cell cell--add" role="columnheader" aria-colindex={fields.length + 2}>
+            <button
+              type="button"
+              className="head__add"
+              onClick={onAddField}
+              title="Add a field by asking a question"
+              aria-label="Add a field by asking a question"
+            >
+              <Icon name="plus" size={14} />
+            </button>
+          </div>
+
+          <div className="cell cell--pad" role="presentation" />
+        </div>
+
+        {/* --------------------------------------------------------- records */}
+        <div role="rowgroup">
+          {rows.map((row, r) => {
+            const lead = String(row.lead ?? '');
+            const isWorking = workingLeads?.has(lead) ?? false;
+            const isSettling = settling?.has(lead) ?? false;
+            const isChecked = selected.has(lead);
+
+            return (
+              <div
+                key={lead || r}
+                className="grid__row"
+                role="row"
+                aria-rowindex={r + 2}
+                aria-selected={isChecked || undefined}
+                data-working={isWorking || undefined}
+                data-selected={isChecked || undefined}
+              >
+                <div
+                  className="cell cell--gutter cell--sticky"
+                  role="gridcell"
+                  aria-colindex={1}
+                >
+                  <span className="gut__no" aria-hidden="true">
+                    {r + 1}
+                  </span>
+                  <span className="gut__check">
+                    <input
+                      type="checkbox"
+                      className="gut__box"
+                      checked={isChecked}
+                      aria-label={`Select ${lead}`}
+                      onChange={(event) => onSelect(lead, event.target.checked)}
+                    />
+                  </span>
+                  <button
+                    type="button"
+                    className="gut__expand"
+                    onClick={() => onExpand(lead)}
+                    aria-label={`Expand ${lead}`}
+                    title={
+                      hasNotes(row, fields)
+                        ? 'Expand record — including the agent’s working'
+                        : 'Expand record'
+                    }
+                  >
+                    <Icon name="expand" size={11} />
+                  </button>
+                </div>
+
+                {fields.map((field, c) => {
+                  const isCursor = cursor?.r === r && cursor.c === c;
+                  const isEditing = editing?.r === r && editing.c === c;
+                  const isReading = reading?.r === r && reading.c === c;
+                  const value = row[field.key];
+
+                  return (
+                    <div
+                      key={field.key}
+                      className={[
+                        'cell',
+                        'cell--data',
+                        c === 0 ? 'cell--sticky cell--first cell--frozen-edge' : '',
+                        isCursor && !isEditing ? 'cell--selected' : '',
+                        isEditing ? 'cell--editing' : '',
+                        isReading ? 'cell--reading' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      role="gridcell"
+                      aria-colindex={c + 2}
+                      aria-readonly={!field.editable || undefined}
+                      tabIndex={isCursor ? 0 : -1}
+                      data-r={r}
+                      data-c={c}
+                      style={
+                        {
+                          '--cw': `${field.width}px`,
+                          justifyContent: field.align === 'right' ? 'flex-end' : 'flex-start',
+                          cursor: field.editable && !busy ? 'cell' : 'default',
+                        } as React.CSSProperties
+                      }
+                      onMouseDown={() => {
+                        if (!isEditing) setCursor({ r, c });
+                      }}
+                      onDoubleClick={() => openCell(r, c)}
+                    >
+                      {isEditing ? (
+                        <textarea
+                          ref={editorRef}
+                          className="cell__editor"
+                          data-flip={editing.flip || undefined}
+                          value={draft}
+                          rows={1}
+                          spellCheck={false}
+                          style={{ textAlign: field.align }}
+                          aria-label={`${field.name} for ${lead}`}
+                          onChange={(event) => {
+                            setDraft(event.target.value);
+                            const node = event.currentTarget;
+                            node.style.height = 'auto';
+                            node.style.height = `${Math.max(
+                              node.scrollHeight,
+                              ROW_HEIGHT_PX[rowHeight],
+                            )}px`;
+                          }}
+                          onBlur={commit}
+                          onKeyDown={onEditorKeyDown}
+                        />
+                      ) : (
+                        <CellValue
+                          field={field}
+                          value={value}
+                          settling={isSettling}
+                          // A field's working lands with its answer, so those
+                          // columns wait under the same mark.
+                          working={
+                            isWorking &&
+                            (field.key === workingField || field.parentKey === workingField)
+                          }
+                        />
+                      )}
+
+                      {/* With its working folded away, an answer still says how
+                          many sources back it, and opens the record to read them. */}
+                      {!isEditing && field.noteKeys && collapsedNotes?.has(field.key) && (
+                        <SourcesBadge
+                          count={countSources(row[`${field.key}_evidence`])}
+                          onOpen={() => onExpand(lead)}
+                        />
+                      )}
+
+                      {/* Only on the selected cell, and only when there is
+                          actually more to see: a mark on every long value
+                          would be a column of chevrons. */}
+                      {isCursor && !isEditing && !isReading && clipped && (
+                        <button
+                          type="button"
+                          className="cell__peek"
+                          aria-label={`Show all of ${field.name} for ${lead}`}
+                          title="Show the whole value"
+                          /* The keyboard opens a cell with Enter on the cell
+                             itself, so the mark never takes focus off it —
+                             taking it would hand the same Enter to both. */
+                          tabIndex={-1}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => openCell(r, c)}
+                        >
+                          <Icon name="expand" size={10} />
+                        </button>
+                      )}
+
+                      {isReading && (
+                        <div
+                          className="cell__reader"
+                          data-flip={reading.flip || undefined}
+                          role="note"
+                          aria-label={`${field.name} for ${lead}`}
+                        >
+                          {isBlank(value) ? '—' : String(value)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <div className="cell cell--addpad" role="presentation" />
+                <div className="cell cell--pad" role="presentation" />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {fieldMenu && (
+        <FieldMenu
+          field={fieldMenu.field}
+          anchor={fieldMenu.anchor}
+          onClose={() => setFieldMenu(null)}
+          onRename={(field) => {
+            setFieldMenu(null);
+            onRenameField(field);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function SourcesBadge({ count, onOpen }: { count: number; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      className="cell__sources"
+      data-none={count === 0 || undefined}
+      aria-label={`${count} ${count === 1 ? 'source' : 'sources'}, open record`}
+      onMouseDown={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpen();
+      }}
+    >
+      <Icon name="link" size={11} />
+      {count}
+    </button>
+  );
+}
+
+/**
+ * The draggable right edge of a column header. Dragging resizes the column
+ * live and saves on release; double-click puts the default width back; with
+ * the handle focused, the arrow keys resize in steps.
+ */
+function ResizeHandle({
+  name,
+  width,
+  onResize,
+  onReset,
+}: {
+  name: string;
+  width: number;
+  onResize: (width: number, done: boolean) => void;
+  onReset: () => void;
+}) {
+  const drag = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  return (
+    <span
+      className="head__resize"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize ${name}`}
+      aria-valuemin={MIN_COLUMN_WIDTH}
+      aria-valuemax={MAX_COLUMN_WIDTH}
+      aria-valuenow={width}
+      tabIndex={0}
+      title="Drag to resize · double-click to reset"
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        drag.current = { startX: event.clientX, startWidth: width };
+      }}
+      onPointerMove={(event) => {
+        if (!drag.current) return;
+        onResize(clampColumnWidth(drag.current.startWidth + event.clientX - drag.current.startX), false);
+      }}
+      onPointerUp={(event) => {
+        if (!drag.current) return;
+        onResize(clampColumnWidth(drag.current.startWidth + event.clientX - drag.current.startX), true);
+        drag.current = null;
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
+      }}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        onReset();
+      }}
+      onKeyDown={(event) => {
+        const step = event.shiftKey ? 64 : 16;
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault();
+          event.stopPropagation();
+          onResize(clampColumnWidth(width + (event.key === 'ArrowRight' ? step : -step)), true);
+        }
+      }}
+    />
+  );
+}

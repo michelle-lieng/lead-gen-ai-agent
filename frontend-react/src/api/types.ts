@@ -11,6 +11,8 @@ export interface Project {
   leads_collected: number;
   datasets_added: number;
   urls_processed: number;
+  /** Example first messages for the chat, written for this project. */
+  example_prompts?: string[] | null;
 }
 
 export interface ProjectCreate {
@@ -151,8 +153,101 @@ export interface JobStatus {
   error_message: string | null;
 }
 
+/** Who wrote a line of a project's conversation. */
+export type ChatRole = 'user' | 'agent' | 'log';
+
+export type ChatKind =
+  | 'text'
+  | 'step'
+  | 'result'
+  | 'error'
+  | 'breakdown'
+  | 'definition'
+  | 'query';
+
+export interface ChatEntryCreate {
+  role: ChatRole;
+  kind: ChatKind;
+  text: string;
+  payload?: Record<string, unknown> | null;
+}
+
+/** One saved line of a project's conversation. */
+export interface ChatEntry extends ChatEntryCreate {
+  id: number;
+  project_id: number;
+  /** ISO timestamp, UTC. */
+  created_at: string;
+}
+
+export interface ChatHistory {
+  /** Oldest first. */
+  entries: ChatEntry[];
+  /** True when older entries exist before the first one returned. */
+  has_more: boolean;
+}
+
+/** An existing column to finish, with the leads it has no answer for yet. */
+export interface ContinueColumn {
+  enrichment_id: number;
+  name: string;
+  column_name: string;
+  leads: string[];
+}
+
+/** What one Google Places search added to the table. */
+export interface PlacesSearchResult {
+  /** Distinct businesses kept after the AI business check. */
+  found: number;
+  /** Google results the AI check judged to be plain places (landmarks, precincts…). */
+  not_businesses: number;
+  /** Of those, how many were not in the table before. */
+  new: number;
+  existing: number;
+  /** Normalized names of every business found. */
+  leads: string[];
+}
+
+/** What the agent decided one chat message asks for. */
+export interface MessagePlan {
+  /** Search for companies: a new search, or more of the current one. */
+  find: boolean;
+  /** The base search: entity type plus its searchable anchor. */
+  find_instruction: string;
+  /** The place the message names, '' when none; searches Google Places first. */
+  location: string;
+  /** Yes/No questions, one new True/False column each. */
+  criteria: string[];
+  /** One research question per new column. */
+  columns: string[];
+  /** Existing columns to finish for the leads they have no answer for yet. */
+  continue_columns: ContinueColumn[];
+  /** A direct answer, when the message needs one. */
+  reply: string;
+}
+
 /** A downloaded file: raw bytes plus the filename parsed from the response. */
 export interface DownloadedFile {
   blob: Blob;
   filename: string;
+}
+
+/** What the backend drafts from a "find me leads like this" instruction. */
+export interface LeadBrief {
+  query_search_target: string;
+  lead_minimum_criteria: string;
+  num_queries: number;
+}
+
+/** Result of editing one row of the register. */
+export interface MergedRowUpdateResponse {
+  lead: string;
+  updated: string[];
+}
+
+/** Which API keys the server has (GET /api/auth/status); the keys never leave it. */
+export interface ServerKeys {
+  openai: boolean;
+  jina: boolean;
+  google: boolean;
 }

@@ -14,19 +14,47 @@ logger = logging.getLogger(__name__)
 from ...models.schemas import QueryListRequest, QueryGenerationRequest, UrlCreate, UrlUpdate
 from fastapi import APIRouter, Response
 
+from ...services.agent_brief_service import agent_brief_service
+from ...services.business_check import check_businesses
+from ...services.places_service import places_query, save_places, search_places
+from ...services.project_service import project_service
 from ...services.leads_serp_service import leads_serp_service
 from ...models.schemas import (
-    QueryListRequest, 
-    QueryGenerationRequest, 
+    QueryListRequest,
+    QueryGenerationRequest,
     QueryResponse,
-    UrlCreate, 
-    UrlUpdate, 
+    UrlCreate,
+    UrlUpdate,
     UrlResponse,
     UrlGenerationResponse,
-    LeadExtractionResponse
+    LeadExtractionResponse,
+    InstructionRequest,
+    LeadBriefResponse,
+    PlacesSearchRequest,
+    PlacesSearchResponse,
 )
 
 router = APIRouter()
+
+@router.post("/projects/{project_id}/lead-brief", response_model=LeadBriefResponse)
+async def draft_lead_brief(
+    project_id: int,
+    request: InstructionRequest,
+    keys: ApiKeys = Depends(get_api_keys),
+):
+    """
+    Expand one plain-English instruction into the project's search configuration.
+
+    The caller sends something like "dental clinics in Sydney" and gets back
+    the search target, the minimum criteria a name must meet to count as a
+    lead, and how many queries this target deserves. Both fields are saved to
+    the project, so query generation can run immediately afterwards.
+    """
+    return agent_brief_service.draft_lead_brief(
+        project_id,
+        request.instruction,
+        openai_api_key=keys.require_openai(),
+    )
 
 @router.post("/projects/{project_id}/queries", response_model=list[str])
 async def generate_queries(
@@ -138,6 +166,27 @@ async def generate_leads(project_id: int, keys: ApiKeys = Depends(get_api_keys))
         openai_api_key=keys.require_openai(),
         jina_api_key=keys.require_jina(),
     )
+
+@router.post("/projects/{project_id}/places", response_model=PlacesSearchResponse)
+async def search_google_places(
+    project_id: int,
+    request: PlacesSearchRequest,
+    keys: ApiKeys = Depends(get_api_keys),
+):
+    """
+    Find businesses for a location search on Google Places and add them to the
+    table as leads. An AI check drops results that are only places (landmarks,
+    precincts, wharves) before anything is saved. Runs before the web search
+    when a chat message names a place.
+    """
+    google_key = keys.require_google()
+    openai_key = keys.require_openai()
+    project_service.get_project(project_id)  # raises if the project is gone
+    query = places_query(request.query, request.location)
+    places = await search_places(query, google_key)
+    businesses = check_businesses(places, query, openai_api_key=openai_key)
+    result = save_places(project_id, query, businesses)
+    return {**result, "not_businesses": len(places) - len(businesses)}
 
 @router.get("/projects/{project_id}/leads/download")
 async def get_latest_run_results(project_id: int):

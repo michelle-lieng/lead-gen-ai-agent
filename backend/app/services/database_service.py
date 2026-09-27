@@ -78,6 +78,12 @@ class DatabaseService:
         """Create all tables ONLY if they don't exist. Fail fast if error"""
         try:
             Base.metadata.create_all(bind=self.engine)
+            # create_all adds new tables, never new columns, so columns added to
+            # existing tables since they were created are added here.
+            with self.engine.begin() as connection:
+                connection.execute(
+                    text("ALTER TABLE projects ADD COLUMN IF NOT EXISTS example_prompts JSON")
+                )
         except SQLAlchemyError as e:
             logger.exception(f"❌ SQLAlchemy error creating tables: {e}")
             raise DatabaseFailureError("Database initialization failed") from e

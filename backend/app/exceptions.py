@@ -177,6 +177,39 @@ class ApiKeyNotConfiguredError(AppError):
         super().__init__(message, meta=meta)
 
 
+class InvalidPasswordError(AppError):
+    """Raised when the password entered to sign in is wrong"""
+
+    status_code = 401
+    code = "INVALID_PASSWORD"
+
+    def __init__(
+        self,
+        message: str = "That password is not right.",
+        *,
+        meta: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, meta=meta)
+
+
+class AuthNotConfiguredError(AppError):
+    """Raised when the server has no password or signing secret set"""
+
+    status_code = 503
+    code = "AUTH_NOT_CONFIGURED"
+
+    def __init__(
+        self,
+        message: str = (
+            "This server has no password set. Set APP_PASSWORD and AUTH_SECRET "
+            "in the backend's environment."
+        ),
+        *,
+        meta: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, meta=meta)
+
+
 # =========================
 # External API / scraper errors
 # =========================
@@ -221,6 +254,51 @@ class ScraperCreditsExhaustedError(ExternalScraperError):
     def __init__(
         self,
         message: str = "Scraper API key has no credits remaining",
+        *,
+        meta: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, meta=meta)
+
+
+class OpenAIRequestError(AppError):
+    """
+    Raised when an OpenAI call fails for a reason the caller can act on.
+
+    Carries OpenAI's own message rather than a house one: "temperature is not
+    supported with this model" and "you exceeded your current quota" need
+    different things done about them, and a single generic sentence for both
+    tells the user nothing. Without this the error escapes unhandled, and an
+    unhandled error reaches the browser with no CORS headers at all — read as
+    an unreachable server rather than a rejected request.
+    """
+
+    status_code = 502
+    code = "OPENAI_REQUEST_FAILED"
+
+    def __init__(
+        self,
+        message: str = "The AI model rejected the request",
+        *,
+        meta: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, meta=meta)
+
+
+class GooglePlacesRequestError(AppError):
+    """
+    Raised when Google Places rejects a search or can't be reached.
+
+    Carries Google's own message: "API not enabled", "billing not set up" and
+    "key not valid" each need a different fix in Google Cloud, and a house
+    sentence would hide which one it is.
+    """
+
+    status_code = 502
+    code = "GOOGLE_PLACES_REQUEST_FAILED"
+
+    def __init__(
+        self,
+        message: str = "Google Places rejected the request",
         *,
         meta: Optional[Dict[str, Any]] = None,
     ):

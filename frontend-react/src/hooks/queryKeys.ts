@@ -7,4 +7,6 @@ export const queryKeys = {
   enrichments: (projectId: number) => ['projects', projectId, 'enrichments'] as const,
   enrichment: (id: number) => ['enrichments', id] as const,
   mergedResults: (projectId: number) => ['projects', projectId, 'results'] as const,
+  chat: (projectId: number) => ['projects', projectId, 'chat'] as const,
+  serverKeys: ['server-keys'] as const,
 };

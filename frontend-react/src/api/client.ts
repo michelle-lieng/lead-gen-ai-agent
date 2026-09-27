@@ -1,12 +1,14 @@
 /**
  * Axios instance with interceptors:
- *   - request: inject the user's API keys as X-OpenAI-Key / X-Jina-Key headers
- *   - response: normalise backend errors into ApiError / NetworkError
+ *   - request: send the session token as `Authorization: Bearer <token>`
+ *   - response: an ended session (401 SESSION_REQUIRED) clears the token, so
+ *     the password gate shows again, and
+ *     backend errors are normalised into ApiError / NetworkError
  */
 
 import axios, { AxiosError, AxiosResponse } from 'axios';
 import { BACKEND_URL, REQUEST_TIMEOUT_MS } from '../config';
-import { getApiKeys } from '../store/apiKeys';
+import { clearToken, endsSession, getToken } from '../store/session';
 import { ApiError, NetworkError, ValidationDetail } from './errors';
 
 export const http = axios.create({
@@ -15,11 +17,10 @@ export const http = axios.create({
   headers: { Accept: 'application/json' },
 });
 
-// Inject API keys on every request (harmless where the backend ignores them).
+// Every route but login and health needs the session token.
 http.interceptors.request.use((config) => {
-  const { openaiKey, jinaKey } = getApiKeys();
-  if (openaiKey) config.headers.set('X-OpenAI-Key', openaiKey);
-  if (jinaKey) config.headers.set('X-Jina-Key', jinaKey);
+  const token = getToken();
+  if (token) config.headers.set('Authorization', `Bearer ${token}`);
   return config;
 });
 
@@ -43,6 +44,9 @@ http.interceptors.response.use(
       } else if (typeof data === 'string' && data) {
         detail = data;
       }
+
+      // The session is missing, expired or forged: back to the password gate.
+      if (endsSession(status, code)) clearToken();
 
       return Promise.reject(
         new ApiError({ status_code: status, detail, code, meta, url: error.config?.url }),

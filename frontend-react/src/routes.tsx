@@ -1,32 +1,24 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { AppShell } from './components/layout/AppShell';
-import { Dashboard } from './pages/Dashboard';
-import { ProjectOverview } from './pages/ProjectOverview';
-import { CollectLeads } from './pages/CollectLeads';
-import { ReviewLeads } from './pages/ReviewLeads';
-import { Enrichments } from './pages/Enrichments';
-import { ReviewEnrichment } from './pages/ReviewEnrichment';
-import { TestEnrichment } from './pages/TestEnrichment';
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom';
+import { Projects } from './pages/Projects';
+import { Project } from './pages/Project';
 
+/**
+ * Two surfaces, and nothing else: the shelf of registers, and one register.
+ * The old step-by-step routes (collect / enrichments / review) were replaced
+ * by the enquiry desk on the project page.
+ */
 export const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <AppShell />,
-    children: [
-      { index: true, element: <Dashboard /> },
-      { path: 'projects/:projectId', element: <ProjectOverview /> },
-      { path: 'projects/:projectId/collect', element: <CollectLeads /> },
-      { path: 'projects/:projectId/review', element: <ReviewLeads /> },
-      { path: 'projects/:projectId/enrichments', element: <Enrichments /> },
-      {
-        path: 'projects/:projectId/enrichments/:enrichmentId/review',
-        element: <ReviewEnrichment />,
-      },
-      {
-        path: 'projects/:projectId/enrichments/:enrichmentId/test',
-        element: <TestEnrichment />,
-      },
-      { path: '*', element: <Navigate to="/" replace /> },
-    ],
-  },
+  { path: '/', element: <Projects /> },
+  { path: '/projects/:projectId', element: <ProjectRoute /> },
+  { path: '*', element: <Navigate to="/" replace /> },
 ]);
+
+/**
+ * One page instance per project. Without the key, moving between projects
+ * reuses the page, and the previous project's run and conversation stay on
+ * screen under the next project's name.
+ */
+function ProjectRoute() {
+  const { projectId } = useParams();
+  return <Project key={projectId} />;
+}

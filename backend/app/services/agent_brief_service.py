@@ -1,0 +1,518 @@
+"""
+Turns one plain-English instruction from the chat into the structured
+configuration the existing pipeline requires.
+
+Three entry points:
+
+* ``interpret`` reads a message sent to the project's single chat and decides
+  whether it asks for companies, for research columns, both, or just an answer.
+
+* ``draft_lead_brief`` writes a project's ``query_search_target`` and
+  ``lead_minimum_criteria`` from a sentence like "dental clinics in Sydney",
+  so lead collection needs no manual setup.
+* ``draft_enrichment`` creates a fully configured :class:`Enrichment` from a
+  sentence like "does this clinic have more than one doctor?". The column
+  shape is unchanged — only who fills it in.
+"""
+
+import logging
+import re
+from contextlib import contextmanager
+from typing import Literal, Optional
+
+import openai
+from pydantic import BaseModel, Field
+
+from .. import exceptions
+from ..models.tables import BUILT_IN_RESULT_COLUMNS, Enrichment
+from ..prompts.agent_briefs import (
+    ENRICHMENT_DRAFT_PROMPT,
+    EXAMPLE_PROMPTS_PROMPT,
+    INTERPRET_PROMPT,
+    LEAD_BRIEF_PROMPT,
+)
+from ..utils.ai_clients import build_openai_client
+from .chat_service import chat_service
+from .column_gaps import unanswered_leads
+from .enrichment_service import enrichment_service
+from .merged_results_service import merged_results_service
+from .project_service import project_service
+
+logger = logging.getLogger(__name__)
+
+MODEL = "gpt-5-mini"
+
+# No sampling parameters are passed with it. gpt-5-class models reject
+# `temperature` outright — "Unsupported parameter: 'temperature' is not
+# supported with this model" — and a 400 here fails the whole run at its first
+# step. Shape these drafts through the prompts instead.
+
+# Reserved so a drafted column can never collide with the merged_results base
+# columns or the reasoning/evidence siblings the execution service appends.
+RESERVED_COLUMNS = BUILT_IN_RESULT_COLUMNS
+
+
+class LeadBriefDraft(BaseModel):
+    """What the model returns for a 'find me leads like this' instruction."""
+
+    query_search_target: str = Field(
+        description="Expanded description of the organisations to search for"
+    )
+    lead_minimum_criteria: str = Field(
+        description="The minimum test a name must pass to count as a lead"
+    )
+    num_queries: int = Field(
+        default=4, description="How many distinct search queries this target deserves"
+    )
+
+
+class EnrichmentDraft(BaseModel):
+    """What the model returns for an 'answer this about every lead' instruction."""
+
+    enrichment_name: str
+    column_name: str
+    result_format: Literal["True/False", "Number", "Text"]
+    goal: str
+    acceptable_evidence: str
+    result_true_if: str = ""
+    result_false_if: str = ""
+    result_number_value: str = ""
+    result_text_value: str = ""
+
+
+class ExamplePrompts(BaseModel):
+    """What the model returns: example first messages for a new project."""
+
+    prompts: list[str] = Field(default_factory=list)
+
+
+# Examples longer than this read as paragraphs, not something to click and send.
+MAX_EXAMPLE_LENGTH = 120
+
+
+def clean_example_prompts(raw: list[str]) -> list[str]:
+    """
+    Up to three distinct, trimmed, readable searches, in the model's order.
+    Questions are dropped: the examples start a search, and a question about
+    companies already found means nothing in a project that has none yet.
+    """
+    kept: list[str] = []
+    seen: set[str] = set()
+    for prompt in raw:
+        prompt = " ".join(prompt.split())
+        key = prompt.lower()
+        if (
+            prompt
+            and len(prompt) <= MAX_EXAMPLE_LENGTH
+            and not prompt.endswith("?")
+            and key not in seen
+        ):
+            seen.add(key)
+            kept.append(prompt)
+    return kept[:3]
+
+
+def example_prompts_request(title: str, description: Optional[str]) -> str:
+    """The model's instructions for one project's example messages."""
+    return EXAMPLE_PROMPTS_PROMPT.format(
+        title=title.strip(),
+        description=(description or "").strip() or "(no description)",
+    )
+
+
+class MessagePlan(BaseModel):
+    """What the model decides a chat message asks for."""
+
+    find: bool = False
+    find_instruction: str = ""
+    location: str = ""
+    criteria: list[str] = Field(default_factory=list)
+    columns: list[str] = Field(default_factory=list)
+    continue_columns: list[str] = Field(default_factory=list)
+    reply: str = ""
+
+
+ResultFormat = Literal["True/False", "Number", "Text"]
+
+
+def apply_format_override(
+    draft: EnrichmentDraft, result_format: Optional[ResultFormat]
+) -> EnrichmentDraft:
+    """Pin a drafted column's result format; criteria are always True/False."""
+    if result_format is None:
+        return draft
+    return draft.model_copy(update={"result_format": result_format})
+
+
+# The most new columns (criteria + research) one message may add, so a single
+# message can't queue an unbounded research bill.
+MAX_NEW_COLUMNS = 5
+
+
+def _column_key(name: str) -> str:
+    """How two column names are compared: case, spacing and a trailing '?' ignored."""
+    return " ".join(name.strip().rstrip("?").lower().split())
+
+
+def known_column_names(enrichments: list) -> list[str]:
+    """
+    Every name an existing column is known by: its drafted title and the
+    question it was drafted from. The interpreter re-emits criteria as
+    questions, so comparing titles alone would let a column be added twice.
+    """
+    names = [e.enrichment_name for e in enrichments]
+    names += [e.enrichment_description for e in enrichments if e.enrichment_description]
+    return names
+
+
+def build_plan(
+    raw: MessagePlan,
+    *,
+    current_target: Optional[str],
+    existing_columns: list[str],
+    unanswered_by_name: dict[str, list[str]],
+    enrichments: list,
+) -> dict:
+    """
+    Turn the model's raw reading of a message into the plan the chat runs.
+
+    The search runs on the base only; each qualifier becomes a Yes/No criterion
+    column. Nothing here calls the model or the database.
+    """
+    find_instruction = raw.find_instruction.strip()
+    if raw.find and not find_instruction:
+        find_instruction = (current_target or "").strip()
+    find = raw.find and bool(find_instruction)
+
+    taken = {_column_key(name) for name in existing_columns}
+
+    def fresh(names: list[str], room: int) -> list[str]:
+        kept = []
+        for name in names:
+            name = name.strip()
+            key = _column_key(name)
+            if name and key not in taken and len(kept) < room:
+                taken.add(key)
+                kept.append(name)
+        return kept
+
+    criteria = fresh(raw.criteria, MAX_NEW_COLUMNS)
+    columns = fresh(raw.columns, MAX_NEW_COLUMNS - len(criteria))
+
+    wanted = {_column_key(name) for name in raw.continue_columns}
+    continue_columns = [
+        {
+            "enrichment_id": e.id,
+            "name": e.enrichment_name,
+            "column_name": e.column_name,
+            "leads": unanswered_by_name[e.enrichment_name],
+        }
+        for e in enrichments
+        if e.column_name
+        and unanswered_by_name.get(e.enrichment_name)
+        and _column_key(e.enrichment_name) in wanted
+    ]
+
+    return {
+        "find": find,
+        "find_instruction": find_instruction if find else "",
+        "location": raw.location.strip() if find else "",
+        "criteria": criteria,
+        "columns": columns,
+        "continue_columns": continue_columns,
+        "reply": raw.reply.strip(),
+    }
+
+
+# How much of the conversation the interpreter sees, newest last.
+INTERPRET_HISTORY_LINES = 30
+
+
+def _slugify_column(value: str, fallback: str) -> str:
+    """Coerce a model-supplied column name into a valid SQL identifier."""
+    slug = re.sub(r"[^a-z0-9_]+", "_", (value or "").strip().lower())
+    slug = re.sub(r"_+", "_", slug).strip("_")
+    if not slug or slug[0].isdigit():
+        slug = f"col_{slug}" if slug else fallback
+    return slug[:40].rstrip("_") or fallback
+
+
+def _uniquify(value: str, taken: set[str], *, limit: int) -> str:
+    """Append _2, _3 ... until `value` is free, respecting a length limit."""
+    if value not in taken:
+        return value
+    for suffix in range(2, 100):
+        tail = f"_{suffix}"
+        candidate = f"{value[: limit - len(tail)].rstrip('_')}{tail}"
+        if candidate not in taken:
+            return candidate
+    raise ValueError(f"Could not find a free name based on '{value}'")
+
+
+@contextmanager
+def _openai_errors(step: str):
+    """
+    Turn an OpenAI failure into an AppError the API can answer with.
+
+    Every other service that calls the model does this; this one did not, so a
+    rejected key or an unsupported parameter escaped as an unhandled exception.
+    That is worse than it sounds: unhandled exceptions are answered outside the
+    CORS layer, so the browser discards the response and the SPA reports a
+    server that is answering perfectly well as unreachable.
+    """
+    try:
+        yield
+    except openai.AuthenticationError as exc:
+        raise exceptions.ApiKeyNotConfiguredError(
+            "OpenAI rejected your API key. Check the key entered via the “API keys” button."
+        ) from exc
+    except openai.PermissionDeniedError as exc:
+        raise exceptions.OpenAIRequestError(
+            f"OpenAI refused this request ({step}): {exc}. "
+            "Your key may not have access to the model this app uses."
+        ) from exc
+    except openai.RateLimitError as exc:
+        raise exceptions.OpenAIRequestError(
+            f"OpenAI is rate-limiting or out of quota ({step}): {exc}"
+        ) from exc
+    except openai.BadRequestError as exc:
+        message = str(exc).lower()
+        if "token" in message and ("limit" in message or "reduce" in message or "maximum" in message):
+            raise exceptions.OpenAITokenLimitExceededError() from exc
+        raise exceptions.OpenAIRequestError(f"OpenAI rejected the request ({step}): {exc}") from exc
+    except openai.APIConnectionError as exc:
+        raise exceptions.OpenAIRequestError(
+            f"Could not reach OpenAI ({step}): {exc}"
+        ) from exc
+    except openai.OpenAIError as exc:
+        raise exceptions.OpenAIRequestError(f"OpenAI call failed ({step}): {exc}") from exc
+
+
+class AgentBriefService:
+    """Drafts pipeline configuration from natural-language instructions."""
+
+    def interpret(self, project_id: int, message: str, *, openai_api_key: str) -> dict:
+        """
+        Decide what one chat message asks for, using the project's current
+        search, its columns, and the recent conversation as context, so that
+        "get me 10 more" or "also check their staff count" make sense.
+        """
+        project = project_service.get_project(project_id)  # raises if the project is gone
+        enrichments = enrichment_service.get_enrichments(project_id)
+        columns = [e.enrichment_name for e in enrichments]
+        results = merged_results_service.get_merged_results(project_id)
+        unanswered_by_name = {
+            e.enrichment_name: unanswered_leads(results["data"], e.column_name)
+            for e in enrichments
+            if e.column_name
+        }
+        unanswered = {name: len(leads) for name, leads in unanswered_by_name.items()}
+        history, _ = chat_service.get_history(project_id, limit=INTERPRET_HISTORY_LINES)
+        # The newest message is usually saved already; don't show it twice.
+        if history and history[-1].role == "user" and history[-1].text.strip() == message.strip():
+            history = history[:-1]
+        transcript = "\n".join(
+            f"[{entry.role}] {entry.text}" for entry in history if entry.text
+        ) or "(none yet)"
+
+        client = build_openai_client(openai_api_key)
+        with _openai_errors("reading your message"):
+            response = client.responses.parse(
+                model=MODEL,
+                input=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You route messages in a lead-generation chat. You decide "
+                            "what the user wants done; you never do it yourself and never "
+                            "invent companies or facts."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": INTERPRET_PROMPT.format(
+                            search_target=project.query_search_target or "(no search yet)",
+                            lead_criteria=project.lead_minimum_criteria or "(no search yet)",
+                            lead_count=project.leads_collected or 0,
+                            columns=", ".join(
+                                f"{name} ({unanswered.get(name, 0)} unanswered)"
+                                for name in columns
+                            ) or "(none)",
+                            history=transcript,
+                            message=message,
+                        ),
+                    },
+                ],
+                text_format=MessagePlan,
+            )
+        return build_plan(
+            response.output_parsed,
+            current_target=project.query_search_target,
+            existing_columns=known_column_names(enrichments),
+            unanswered_by_name=unanswered_by_name,
+            enrichments=enrichments,
+        )
+
+    def draft_example_prompts(
+        self, title: str, description: Optional[str], *, openai_api_key: str
+    ) -> list[str]:
+        """Three example first messages for a project, from its title and description."""
+        client = build_openai_client(openai_api_key)
+        with _openai_errors("writing example prompts"):
+            response = client.responses.parse(
+                model=MODEL,
+                input=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You write short example messages a user could send to a "
+                            "lead-generation chat. You write only the messages."
+                        ),
+                    },
+                    {"role": "user", "content": example_prompts_request(title, description)},
+                ],
+                text_format=ExamplePrompts,
+            )
+        return clean_example_prompts(response.output_parsed.prompts)
+
+    def draft_lead_brief(
+        self, project_id: int, instruction: str, *, openai_api_key: str
+    ) -> dict:
+        """
+        Expand a one-line instruction into the project's search configuration
+        and persist it, so query generation can run immediately afterwards.
+
+        Returns the drafted fields plus the recommended query count.
+        """
+        project_service.get_project(project_id)  # raises if the project is gone
+
+        client = build_openai_client(openai_api_key)
+        with _openai_errors("drafting the lead brief"):
+            response = client.responses.parse(
+                model=MODEL,
+                input=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You configure a lead-generation pipeline. You translate a "
+                            "user's short instruction into a precise search target and a "
+                            "strict test for what counts as a lead. You never broaden or "
+                            "narrow what the user asked for."
+                        ),
+                    },
+                    {"role": "user", "content": LEAD_BRIEF_PROMPT.format(instruction=instruction)},
+                ],
+                text_format=LeadBriefDraft,
+            )
+        draft = response.output_parsed
+
+        num_queries = max(3, min(8, draft.num_queries or 4))
+        project_service.update_project(
+            project_id,
+            query_search_target=draft.query_search_target.strip(),
+            lead_minimum_criteria=draft.lead_minimum_criteria.strip(),
+        )
+        logger.info(f"✅ Drafted lead brief for project {project_id}")
+
+        return {
+            "query_search_target": draft.query_search_target.strip(),
+            "lead_minimum_criteria": draft.lead_minimum_criteria.strip(),
+            "num_queries": num_queries,
+        }
+
+    def draft_enrichment(
+        self,
+        project_id: int,
+        instruction: str,
+        *,
+        openai_api_key: str,
+        result_format: Optional[ResultFormat] = None,
+    ) -> Enrichment:
+        """
+        Create a fully configured enrichment from a one-line instruction.
+
+        The enrichment is created and then completed in a second call because
+        ``create_enrichment`` only accepts a name; the update path is where the
+        service validates that a configuration is complete.
+        """
+        project_service.get_project(project_id)  # raises if the project is gone
+
+        client = build_openai_client(openai_api_key)
+        with _openai_errors("drafting the field"):
+            response = client.responses.parse(
+                model=MODEL,
+                input=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You configure research tasks for an AI agent that can search "
+                            "the web and read pages. You write precise goals and evidence "
+                            "standards, and you never ask for evidence that could not "
+                            "plausibly exist on the public web."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": ENRICHMENT_DRAFT_PROMPT.format(instruction=instruction),
+                    },
+                ],
+                text_format=EnrichmentDraft,
+            )
+        draft = apply_format_override(response.output_parsed, result_format)
+
+        existing = enrichment_service.get_enrichments(project_id)
+        taken_names = {e.enrichment_name for e in existing}
+        taken_columns = {e.column_name for e in existing if e.column_name} | RESERVED_COLUMNS
+
+        name = _uniquify(
+            (draft.enrichment_name or instruction).strip()[:50] or "Enrichment",
+            taken_names,
+            limit=50,
+        )
+        column = _uniquify(
+            _slugify_column(draft.column_name, fallback="enrichment"),
+            taken_columns,
+            limit=40,
+        )
+
+        config = {
+            "column_name": column,
+            "goal": draft.goal.strip(),
+            "acceptable_evidence": draft.acceptable_evidence.strip(),
+            "result_format": draft.result_format,
+        }
+        if draft.result_format == "True/False":
+            config["result_true_if"] = draft.result_true_if.strip() or (
+                "The evidence shows the condition in the goal is met."
+            )
+            config["result_false_if"] = draft.result_false_if.strip() or (
+                "The evidence shows the condition in the goal is not met, or no "
+                "supporting evidence could be found."
+            )
+        elif draft.result_format == "Number":
+            config["result_number_value"] = draft.result_number_value.strip() or (
+                "The figure described in the goal. Return nothing if it cannot be "
+                "established from the sources."
+            )
+        else:
+            config["result_text_value"] = draft.result_text_value.strip() or (
+                "A short plain-text answer to the goal. Return nothing if it cannot "
+                "be established from the sources."
+            )
+
+        enrichment = enrichment_service.create_enrichment(
+            project_id=project_id,
+            enrichment_name=name,
+            enrichment_description=instruction.strip(),
+        )
+        try:
+            return enrichment_service.update_enrichment(enrichment.id, **config)
+        except Exception:
+            # A half-configured enrichment would show as a permanently empty
+            # column in the register, so remove it rather than leave it behind.
+            logger.exception("❌ Drafted enrichment failed validation; rolling back")
+            enrichment_service.delete_enrichment(enrichment.id)
+            raise
+
+
+agent_brief_service = AgentBriefService()

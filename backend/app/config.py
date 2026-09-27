@@ -18,13 +18,18 @@ class Settings(BaseSettings):
     postgresql_password: Optional[str] = None
     postgresql_database: Optional[str] = None
     
-    # API Keys
-    # Optional: keys are now supplied per-request by the frontend (via the
-    # X-OpenAI-Key / X-Jina-Key headers) instead of being required server-side.
-    # They remain here only as an optional fallback so the server still boots
-    # without them.
+    # Access: one shared password guards the whole API. Sessions are signed
+    # with AUTH_SECRET; changing either value signs everyone out. With either
+    # unset, every guarded route answers 503 rather than running open.
+    app_password: Optional[str] = None
+    auth_secret: Optional[str] = None
+
+    # API Keys, read from the environment. The server boots without them, but
+    # searches and columns need OpenAI and Jina; Google Places is optional
+    # (location searches fall back to the web without it).
     openai_api_key: Optional[str] = None
     jina_api_key: Optional[str] = None
+    google_places_api_key: Optional[str] = None
 
     debug: bool = Field(default=False)
 
