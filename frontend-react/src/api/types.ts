@@ -151,6 +151,62 @@ export interface JobStatus {
   error_message: string | null;
 }
 
+/** Who wrote a line of a project's conversation. */
+export type ChatRole = 'user' | 'agent' | 'log';
+
+export type ChatKind =
+  | 'text'
+  | 'step'
+  | 'result'
+  | 'error'
+  | 'breakdown'
+  | 'definition'
+  | 'query';
+
+export interface ChatEntryCreate {
+  role: ChatRole;
+  kind: ChatKind;
+  text: string;
+  payload?: Record<string, unknown> | null;
+}
+
+/** One saved line of a project's conversation. */
+export interface ChatEntry extends ChatEntryCreate {
+  id: number;
+  project_id: number;
+  /** ISO timestamp, UTC. */
+  created_at: string;
+}
+
+export interface ChatHistory {
+  /** Oldest first. */
+  entries: ChatEntry[];
+  /** True when older entries exist before the first one returned. */
+  has_more: boolean;
+}
+
+/** An existing column to finish, with the leads it has no answer for yet. */
+export interface ContinueColumn {
+  enrichment_id: number;
+  name: string;
+  column_name: string;
+  leads: string[];
+}
+
+/** What the agent decided one chat message asks for. */
+export interface MessagePlan {
+  /** Search for companies: a new search, or more of the current one. */
+  find: boolean;
+  /** Standalone description of the companies to find. */
+  find_instruction: string;
+  /** One research question per new column. */
+  columns: string[];
+  /** Existing columns to finish for the leads they have no answer for yet. */
+  continue_columns: ContinueColumn[];
+  /** A direct answer, when the message needs one. */
+  reply: string;
+}
+
 /** A downloaded file: raw bytes plus the filename parsed from the response. */
 export interface DownloadedFile {
   blob: Blob;

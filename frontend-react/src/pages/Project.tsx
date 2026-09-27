@@ -16,7 +16,7 @@ import { DataGrid, ROW_HEIGHT_PX, RowHeight } from '../components/grid/DataGrid'
 import { ExpandedRecord } from '../components/grid/ExpandedRecord';
 import { GridField, buildFields } from '../components/grid/fields';
 import { ImportSheet } from '../components/imports/ImportSheet';
-import { EnquiryPanel, PanelTab } from '../components/panel/EnquiryPanel';
+import { EnquiryPanel } from '../components/panel/EnquiryPanel';
 import { AppShell, ProjectMenuButton, SidebarToggle } from '../components/shell/AppShell';
 import { Icon } from '../components/ui/Icon';
 import { Confirm, Modal } from '../components/ui/Modal';
@@ -26,6 +26,7 @@ import { useNotify } from '../components/ui/Toasts';
 import { useEnrichments } from '../hooks/useEnrichments';
 import { useMergedResults } from '../hooks/useMergedResults';
 import { useProject } from '../hooks/useProjects';
+import { useProjectChat } from '../hooks/useProjectChat';
 import { useQueryHistory } from '../hooks/useQueries';
 import { queryKeys } from '../hooks/queryKeys';
 import { useRegisterRun } from '../hooks/useRegisterRun';
@@ -54,9 +55,9 @@ export function Project() {
   const { data: enrichments } = useEnrichments(id);
   const { data: pastQueries } = useQueryHistory(id);
 
-  const run = useRegisterRun(id);
+  const chat = useProjectChat(id);
+  const run = useRegisterRun(id, chat.append);
 
-  const [tab, setTab] = useState<PanelTab>('find');
   // Below 1181px the panel stops being a column and becomes an overlay, so
   // opening it by default there would hide the table the visitor came for.
   const [panelOpen, setPanelOpen] = useState(
@@ -76,14 +77,10 @@ export function Project() {
   const [renamingField, setRenamingField] = useState<GridField | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // A run reports on the tab it belongs to, so follow it there and make sure
-  // the panel it reports in is actually on screen.
+  // A run reports in the panel, so make sure it is on screen while one works.
   useEffect(() => {
-    if (run.kind) {
-      setTab(run.kind);
-      setPanelOpen(true);
-    }
-  }, [run.kind]);
+    if (run.running) setPanelOpen(true);
+  }, [run.running]);
 
   // Warn before a reload would abandon a run mid-flight.
   useEffect(() => {
@@ -248,19 +245,11 @@ export function Project() {
 
   const submit = (instruction: string) => {
     if (!requireKeys()) return;
-    if (tab === 'find') {
-      run.findLeads(instruction);
-    } else {
-      run.enrichRegister(
-        instruction,
-        rows.map((row) => String(row.lead ?? '')).filter(Boolean),
-      );
-    }
+    run.ask(instruction);
   };
 
   const askForField = () => {
     setPanelOpen(true);
-    setTab('enrich');
     setFocusToken((token) => token + 1);
   };
 
@@ -273,15 +262,16 @@ export function Project() {
       panel={
         panelOpen ? (
           <EnquiryPanel
-            tab={tab}
-            onTabChange={setTab}
-            kind={run.kind}
             running={run.running}
             steps={run.steps}
-            log={run.log}
+            thread={chat.lines}
+            threadReady={chat.ready}
+            threadError={chat.loadError}
+            hasEarlier={chat.hasMore}
+            loadingEarlier={chat.loadingOlder}
+            onLoadEarlier={chat.loadEarlier}
+            unsaved={chat.unsaved}
             startedAt={run.startedAt}
-            instruction={run.instruction}
-            recordCount={rows.length}
             enrichments={enrichments ?? []}
             pastQueries={pastQueries ?? []}
             onSubmit={submit}
@@ -415,7 +405,6 @@ export function Project() {
               <>
                 <Button tone="primary" icon="search" onClick={() => {
                   setPanelOpen(true);
-                  setTab('find');
                   setFocusToken((token) => token + 1);
                 }}>
                   Describe the leads you want
@@ -439,8 +428,8 @@ export function Project() {
                 body: 'Company names are extracted into this table, with how many sources each was found in.',
               },
               {
-                head: 'You ask for a field',
-                body: 'Switch to Enrich leads and ask one question. Every record is researched and the answers are written in.',
+                head: 'You ask for a column',
+                body: 'In the same chat, ask one question about the companies. Every record is researched and the answers are written in.',
               },
             ]}
           />

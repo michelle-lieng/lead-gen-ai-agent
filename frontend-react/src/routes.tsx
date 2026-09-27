@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom';
 import { Projects } from './pages/Projects';
 import { Project } from './pages/Project';
 
@@ -9,6 +9,16 @@ import { Project } from './pages/Project';
  */
 export const router = createBrowserRouter([
   { path: '/', element: <Projects /> },
-  { path: '/projects/:projectId', element: <Project /> },
+  { path: '/projects/:projectId', element: <ProjectRoute /> },
   { path: '*', element: <Navigate to="/" replace /> },
 ]);
+
+/**
+ * One page instance per project. Without the key, moving between projects
+ * reuses the page, and the previous project's run and conversation stay on
+ * screen under the next project's name.
+ */
+function ProjectRoute() {
+  const { projectId } = useParams();
+  return <Project key={projectId} />;
+}

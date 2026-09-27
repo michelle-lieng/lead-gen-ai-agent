@@ -1,26 +1,31 @@
 /**
  * The clerk.
  *
- * Runs the two jobs the register supports — finding leads and enriching them —
- * from one plain-English instruction, and reports what is actually happening
- * while it works.
+ * Takes each message sent to the project's one chat, lets the agent decide
+ * whether it asks for companies, research columns or both, runs that work,
+ * and reports what is actually happening while it works.
  *
  * Everything reported here is measured, never simulated. Steps advance at real
  * call boundaries, counts come from real responses, and enrichment is sent in
  * small batches specifically so the progress reported is the progress made.
  * Nothing invents a per-item counter for work the backend runs as one call.
+ *
+ * Its account is written into the project's saved conversation (see
+ * useProjectChat), not kept here, so it outlives the visit.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { interpretMessage } from '../api/chat';
 import { draftEnrichment, enrichLeads } from '../api/enrichments';
+import { getMergedResults } from '../api/mergedResults';
 import {
   draftLeadBrief,
   generateLeads,
   generateQueries,
   generateUrls,
 } from '../api/leadsSerp';
-import { Enrichment, LeadRow } from '../api/types';
+import { ChatEntryCreate, ContinueColumn, LeadRow, MessagePlan } from '../api/types';
 import { errorToMessage } from '../api/errors';
 import { queryKeys } from './queryKeys';
 
@@ -41,12 +46,7 @@ export interface RunStep {
   detail?: string;
 }
 
-export interface LogLine {
-  id: number;
-  at: Date;
-  text: string;
-  tone: 'step' | 'result' | 'error';
-}
+export type LogTone = 'step' | 'result' | 'error';
 
 export type RunKind = 'find' | 'enrich';
 
@@ -55,7 +55,6 @@ export interface RunState {
   instruction: string;
   running: boolean;
   steps: RunStep[];
-  log: LogLine[];
   startedAt: number | null;
   /** Entries currently being worked, marked by the setting rule. */
   workingLeads: Set<string>;
@@ -78,34 +77,49 @@ const EMPTY: RunState = {
   instruction: '',
   running: false,
   steps: [],
-  log: [],
   startedAt: null,
   workingLeads: new Set(),
   settling: new Set(),
   workingField: null,
 };
 
-export function useRegisterRun(projectId: number) {
+export function useRegisterRun(
+  projectId: number,
+  record: (entry: ChatEntryCreate) => void,
+) {
   const queryClient = useQueryClient();
   const [state, setState] = useState<RunState>(EMPTY);
   const abortRef = useRef(false);
-  const logId = useRef(1);
+  const runningRef = useRef(false);
+  const recordRef = useRef(record);
+  recordRef.current = record;
   const settleTimer = useRef<number>();
 
-  useEffect(
-    () => () => {
+  runningRef.current = state.running;
+
+  const leftRef = useRef(false);
+
+  const write = useCallback((text: string, tone: LogTone = 'step') => {
+    // A call still in flight when the project closed may answer afterwards;
+    // the thread already says the run stopped, so it stays quiet from here.
+    if (leftRef.current) return;
+    recordRef.current({ role: 'log', kind: tone, text });
+  }, []);
+
+  useEffect(() => {
+    // Reset on (re)mount: StrictMode mounts twice in development.
+    leftRef.current = false;
+    return () => {
+      // Runs are driven from this page, so leaving the project ends one. Say
+      // so in the thread, or it would read as though the run just went quiet.
+      if (runningRef.current) {
+        write('Run stopped: left the project.', 'error');
+      }
+      leftRef.current = true;
       abortRef.current = true;
       window.clearTimeout(settleTimer.current);
-    },
-    [],
-  );
-
-  const write = useCallback((text: string, tone: LogLine['tone'] = 'step') => {
-    setState((current) => ({
-      ...current,
-      log: [...current.log, { id: logId.current++, at: new Date(), text, tone }],
-    }));
-  }, []);
+    };
+  }, [write]);
 
   const setStep = useCallback((id: string, patch: Partial<RunStep>) => {
     setState((current) => ({
@@ -158,68 +172,57 @@ export function useRegisterRun(projectId: number) {
 
   /* ------------------------------------------------------------- find leads */
 
-  const findLeads = useCallback(
-    async (instruction: string) => {
-      abortRef.current = false;
-      setState({
-        ...EMPTY,
-        kind: 'find',
-        instruction,
-        running: true,
-        startedAt: Date.now(),
-        steps: [
-          { id: 'brief', label: 'Read the request', status: 'pending' },
-          { id: 'queries', label: 'Write search queries', status: 'pending' },
-          { id: 'urls', label: 'Locate sources', status: 'pending' },
-          { id: 'extract', label: 'Read sources and extract companies', status: 'pending' },
-        ],
-      });
-      write(`Request: ${instruction}`, 'result');
-
-      let stepId = 'brief';
+  /**
+   * Search for companies and add them to the table. Reports into steps whose
+   * ids start with `find-`. Returns false when it failed, so the caller stops.
+   */
+  const runFind = useCallback(
+    async (instruction: string): Promise<boolean> => {
+      let stepId = 'find-brief';
       try {
-        setStep('brief', { status: 'running' });
+        setStep('find-brief', { status: 'running' });
         const brief = await draftLeadBrief(projectId, instruction);
-        setStep('brief', {
+        setStep('find-brief', {
           status: 'done',
           detail: `${brief.num_queries} queries planned`,
         });
         write(`Target set: ${brief.query_search_target}`);
         write(`Counts as a lead: ${brief.lead_minimum_criteria}`);
-        if (abortRef.current) return finish();
+        if (abortRef.current) return true;
 
-        stepId = 'queries';
-        setStep('queries', { status: 'running' });
+        stepId = 'find-queries';
+        setStep('find-queries', { status: 'running' });
         const queries = await generateQueries(projectId, brief.num_queries);
-        setStep('queries', {
+        setStep('find-queries', {
           status: 'done',
           detail: `${queries.length} ${queries.length === 1 ? 'query' : 'queries'}`,
         });
         queries.forEach((query) => write(`Query · ${query}`));
-        if (abortRef.current) return finish();
+        if (abortRef.current) return true;
 
-        stepId = 'urls';
-        setStep('urls', { status: 'running' });
+        stepId = 'find-urls';
+        setStep('find-urls', { status: 'running' });
         const urls = await generateUrls(projectId, queries);
-        setStep('urls', {
+        setStep('find-urls', {
           status: 'done',
           detail: `${urls.urls_added} sources from ${urls.queries_processed} queries`,
         });
         write(`${urls.urls_added} sources located.`, 'result');
         if (urls.urls_added === 0) {
+          setStep('find-extract', { status: 'skipped' });
           write('No sources to read. Try a broader request.', 'error');
-          return finish();
+          return true;
         }
-        if (abortRef.current) return finish();
+        if (abortRef.current) return true;
 
-        stepId = 'extract';
-        setStep('extract', {
+        stepId = 'find-extract';
+        setStep('find-extract', {
           status: 'running',
           detail: `reading ${urls.urls_added} sources`,
         });
         write(`Reading ${urls.urls_added} sources. This takes a few minutes.`);
         const extraction = await generateLeads(projectId);
-        setStep('extract', {
+        setStep('find-extract', {
           status: 'done',
           detail: `${extraction.new_leads_extracted} new ${
             extraction.new_leads_extracted === 1 ? 'entry' : 'entries'
@@ -240,80 +243,91 @@ export function useRegisterRun(projectId: number) {
         const found = extraction.extracted_leads.flatMap((row) => row.leads);
         markSettled(found);
         refreshRegister();
-        finish();
+        return true;
       } catch (error) {
         const message = errorToMessage(error);
         write(message, 'error');
         refreshRegister();
         finish(stepId, message);
+        return false;
       }
     },
     [projectId, write, setStep, finish, markSettled, refreshRegister],
   );
 
-  /* ----------------------------------------------------------- enrich leads */
+  /* ---------------------------------------------------------- add a column */
 
-  const enrichRegister = useCallback(
-    async (instruction: string, leads: string[]) => {
-      abortRef.current = false;
+  /**
+   * Fill one research column: either a new one drafted from a question, or an
+   * existing one being finished for the leads it has no answer for yet.
+   * Reports into the steps `<prefix>-draft` (new columns only) and
+   * `<prefix>-research`. Returns false when it failed.
+   */
+  const runColumn = useCallback(
+    async (
+      prefix: string,
+      source: { question: string } | { existing: ContinueColumn },
+      leads: string[],
+    ): Promise<boolean> => {
+      const draftId = `${prefix}-draft`;
+      const researchId = `${prefix}-research`;
       const batches = Math.ceil(leads.length / ENRICH_BATCH);
-
-      setState({
-        ...EMPTY,
-        kind: 'enrich',
-        instruction,
-        running: true,
-        startedAt: Date.now(),
-        steps: [
-          { id: 'draft', label: 'Define the column', status: 'pending' },
-          {
-            id: 'research',
-            label: `Research ${leads.length} ${leads.length === 1 ? 'entry' : 'entries'}`,
-            status: 'pending',
-          },
-        ],
-      });
-      write(`Request: ${instruction}`, 'result');
-
-      let stepId = 'draft';
-      let enrichment: Enrichment | null = null;
+      let stepId = draftId;
+      let enrichment: { id: number; enrichment_name: string };
       let answered = 0;
 
       try {
-        setStep('draft', { status: 'running' });
-        enrichment = await draftEnrichment(projectId, instruction);
-        setStep('draft', { status: 'done', detail: enrichment.column_name ?? undefined });
-        setState((current) => ({ ...current, workingField: enrichment?.column_name ?? null }));
-        write(`Column “${enrichment.enrichment_name}” · ${enrichment.result_format}`, 'result');
-        if (enrichment.goal) write(`Looking for: ${enrichment.goal}`);
-        queryClient.invalidateQueries({ queryKey: queryKeys.enrichments(projectId) });
-        // Pull the results too: the new column should appear in the table as
-        // soon as it exists, not only once its first answers land.
-        queryClient.invalidateQueries({ queryKey: queryKeys.mergedResults(projectId) });
-        if (abortRef.current) return finish();
+        if ('question' in source) {
+          setStep(draftId, { status: 'running' });
+          const drafted = await draftEnrichment(projectId, source.question);
+          enrichment = drafted;
+          setStep(draftId, { status: 'done', detail: drafted.column_name ?? undefined });
+          setState((current) => ({ ...current, workingField: drafted.column_name ?? null }));
+          write(`Column “${drafted.enrichment_name}” · ${drafted.result_format}`, 'result');
+          if (drafted.goal) write(`Looking for: ${drafted.goal}`);
+          queryClient.invalidateQueries({ queryKey: queryKeys.enrichments(projectId) });
+          // Pull the results too: the new column should appear in the table as
+          // soon as it exists, not only once its first answers land.
+          queryClient.invalidateQueries({ queryKey: queryKeys.mergedResults(projectId) });
+          if (abortRef.current) return true;
+        } else {
+          const { existing } = source;
+          enrichment = { id: existing.enrichment_id, enrichment_name: existing.name };
+          setState((current) => ({ ...current, workingField: existing.column_name }));
+          write(
+            `Continuing column “${existing.name}” for the ${leads.length} ${
+              leads.length === 1 ? 'entry' : 'entries'
+            } without an answer yet.`,
+            'result',
+          );
+        }
 
-        stepId = 'research';
-        setStep('research', { status: 'running', detail: `0 of ${leads.length}` });
+        stepId = researchId;
+        setStep(researchId, {
+          label: `Research ${leads.length} ${leads.length === 1 ? 'entry' : 'entries'}`,
+          status: 'running',
+          detail: `0 of ${leads.length}`,
+        });
 
-        for (let index = 0; index < leads.length; index += ENRICH_BATCH) {
+        for (let start = 0; start < leads.length; start += ENRICH_BATCH) {
           if (abortRef.current) {
             write(`Stopped after ${answered} of ${leads.length}.`, 'result');
             break;
           }
 
-          const batch = leads.slice(index, index + ENRICH_BATCH);
+          const batch = leads.slice(start, start + ENRICH_BATCH);
           setState((current) => ({ ...current, workingLeads: new Set(batch) }));
 
           const payload: LeadRow[] = batch.map((lead) => ({ lead }));
           const result = await enrichLeads(projectId, enrichment.id, payload);
 
           answered += result.leads_processed;
-          setStep('research', {
+          setStep(researchId, {
             status: 'running',
             detail: `${answered} of ${leads.length}`,
           });
           write(
-            `Batch ${Math.floor(index / ENRICH_BATCH) + 1} of ${batches} · ${result.leads_processed} answered.`,
+            `Batch ${Math.floor(start / ENRICH_BATCH) + 1} of ${batches} · ${result.leads_processed} answered.`,
           );
           markSettled(batch);
           queryClient.invalidateQueries({
@@ -321,7 +335,7 @@ export function useRegisterRun(projectId: number) {
           });
         }
 
-        setStep('research', {
+        setStep(researchId, {
           status: abortRef.current ? 'stopped' : 'done',
           detail: abortRef.current
             ? `stopped after ${answered} of ${leads.length}`
@@ -337,8 +351,9 @@ export function useRegisterRun(projectId: number) {
               }.`,
           'result',
         );
+        setState((current) => ({ ...current, workingLeads: new Set(), workingField: null }));
         refreshRegister();
-        finish();
+        return true;
       } catch (error) {
         const message = errorToMessage(error);
         write(message, 'error');
@@ -347,12 +362,155 @@ export function useRegisterRun(projectId: number) {
         }
         refreshRegister();
         finish(stepId, message);
+        return false;
       }
     },
     [projectId, write, setStep, finish, markSettled, refreshRegister, queryClient],
   );
 
-  return { ...state, findLeads, enrichRegister, stop, clear };
+  /* ------------------------------------------------------------ one message */
+
+  /**
+   * Handle one message sent to the project's chat. The agent decides what it
+   * asks for (companies, research columns, both, or just an answer) and the
+   * matching work runs in order: companies first, so new columns are
+   * researched for the new rows as well.
+   */
+  const ask = useCallback(
+    async (message: string) => {
+      abortRef.current = false;
+      setState({
+        ...EMPTY,
+        instruction: message,
+        running: true,
+        startedAt: Date.now(),
+        steps: [{ id: 'understand', label: 'Read the request', status: 'pending' }],
+      });
+      recordRef.current({ role: 'user', kind: 'text', text: message });
+
+      let plan: MessagePlan;
+      try {
+        setStep('understand', { status: 'running' });
+        plan = await interpretMessage(projectId, message);
+      } catch (error) {
+        const text = errorToMessage(error);
+        write(text, 'error');
+        finish('understand', text);
+        return;
+      }
+
+      const planned: RunStep[] = [];
+      if (plan.find) {
+        planned.push(
+          { id: 'find-brief', label: 'Define the search', status: 'pending' },
+          { id: 'find-queries', label: 'Write search queries', status: 'pending' },
+          { id: 'find-urls', label: 'Locate sources', status: 'pending' },
+          { id: 'find-extract', label: 'Read sources and extract companies', status: 'pending' },
+        );
+      }
+      plan.columns.forEach((column, index) => {
+        planned.push(
+          { id: `col-${index}-draft`, label: `Define column: ${column}`, status: 'pending' },
+          { id: `col-${index}-research`, label: 'Research every entry', status: 'pending' },
+        );
+      });
+      plan.continue_columns.forEach((column, index) => {
+        planned.push({
+          id: `cont-${index}-research`,
+          label: `Continue column: ${column.name}`,
+          status: 'pending',
+        });
+      });
+
+      const summary = [
+        plan.find ? 'find companies' : null,
+        plan.columns.length === 1
+          ? 'add 1 column'
+          : plan.columns.length > 1
+            ? `add ${plan.columns.length} columns`
+            : null,
+        plan.continue_columns.length === 1
+          ? 'continue 1 column'
+          : plan.continue_columns.length > 1
+            ? `continue ${plan.continue_columns.length} columns`
+            : null,
+      ].filter(Boolean);
+      setState((current) => ({
+        ...current,
+        steps: [
+          ...current.steps.map((step) =>
+            step.id === 'understand'
+              ? {
+                  ...step,
+                  status: 'done' as const,
+                  detail: summary.length ? summary.join(' and ') : 'answered',
+                }
+              : step,
+          ),
+          ...planned,
+        ],
+      }));
+
+      if (plan.reply) recordRef.current({ role: 'agent', kind: 'text', text: plan.reply });
+      if (!plan.find && plan.columns.length === 0 && plan.continue_columns.length === 0) {
+        if (!plan.reply) {
+          write(
+            'Nothing to do for that message. Describe the companies you want, or a question to answer about each one.',
+            'result',
+          );
+        }
+        return finish();
+      }
+
+      if (plan.find) {
+        setState((current) => ({ ...current, kind: 'find' }));
+        if (!(await runFind(plan.find_instruction))) return;
+        if (abortRef.current) return finish();
+      }
+
+      if (plan.columns.length > 0) {
+        setState((current) => ({ ...current, kind: 'enrich' }));
+        let leads: string[];
+        try {
+          // Read the table fresh: a search that just ran has added rows.
+          const results = await queryClient.fetchQuery({
+            queryKey: queryKeys.mergedResults(projectId),
+            queryFn: () => getMergedResults(projectId),
+            staleTime: 0,
+          });
+          leads = results.data.map((row) => String(row.lead ?? '')).filter(Boolean);
+        } catch (error) {
+          const text = errorToMessage(error);
+          write(text, 'error');
+          return finish('col-0-draft', text);
+        }
+        if (leads.length === 0) {
+          write(
+            'There are no companies in the table to research yet. Ask me to find some first.',
+            'error',
+          );
+          return finish('col-0-draft', 'no companies yet');
+        }
+        for (const [index, column] of plan.columns.entries()) {
+          if (abortRef.current) break;
+          if (!(await runColumn(`col-${index}`, { question: column }, leads))) return;
+        }
+      }
+
+      // Finishing a column only touches the leads it has no answer for, as
+      // they stood when the message was read.
+      for (const [index, column] of plan.continue_columns.entries()) {
+        if (abortRef.current) break;
+        setState((current) => ({ ...current, kind: 'enrich' }));
+        if (!(await runColumn(`cont-${index}`, { existing: column }, column.leads))) return;
+      }
+
+      finish();
+    },
+    [projectId, write, setStep, finish, runFind, runColumn, queryClient],
+  );
+
+  return { ...state, ask, stop, clear };
 }
 
 /** Format a duration as the register prints it: 1m 04s. */

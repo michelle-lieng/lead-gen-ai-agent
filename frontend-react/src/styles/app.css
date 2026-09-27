@@ -818,13 +818,6 @@
   color: var(--text);
 }
 
-.panel__tabs {
-  display: flex;
-  flex: none;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
-}
-
 /* The live progress strip: real elapsed work, never a fake percentage. */
 .panel__progress {
   position: relative;
@@ -1007,6 +1000,53 @@
 
 .log__line[data-tone='result'] { color: var(--text); }
 .log__line[data-tone='error'] { color: var(--danger); }
+
+/* --- The saved conversation ------------------------------------------------ */
+
+.thread { margin-top: 0; border-top: 0; padding-top: 0; }
+
+.thread__earlier { display: flex; justify-content: center; margin-bottom: 8px; }
+
+.thread__day {
+  margin: 12px 0 6px;
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.thread__day::before,
+.thread__day::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.thread__day:first-child { margin-top: 0; }
+
+.thread__request {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.thread__request time {
+  padding-top: 7px;
+  font-family: var(--face-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.thread__request p {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.log__line[data-role='agent'] { color: var(--text); }
+
+.thread + .steps { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 
 /* --- Composer -------------------------------------------------------------- */
 
