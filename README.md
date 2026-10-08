@@ -16,19 +16,21 @@ View demo here: https://www.youtube.com/watch?v=GLnULm-Nle4
 - **Visible working**: each answer keeps the agent's reasoning and the source it came from, readable per entry.
 - **Honest progress**: long runs report real step boundaries, real counts, and real elapsed time. Enrichment is sent in small batches so the progress shown is the progress made.
 - **Dataset import**: merge a CSV or Excel list into the same register, matched on company name.
-- **Bring-your-own API keys**: enter your OpenAI and Jina keys in the UI — no server-side `.env` keys required.
+- **One shared password**: the whole app opens only with the password set on the server.
 
-## 🔑 API Keys
+## 🔑 Keys and password
 
-You supply your **own** OpenAI and Jina API keys directly in the app (the "API Keys" button, top-right). They are:
+Everything secret lives in the backend's environment (`backend/.env` locally, env vars on Render):
 
-- stored **only in your browser** (`localStorage`),
-- sent with each request that needs them (as `X-OpenAI-Key` / `X-Jina-Key` headers),
-- used by the backend to call OpenAI and Jina **on your behalf**.
+| Variable | Purpose |
+|----------|---------|
+| `APP_PASSWORD` | The shared password that opens the app. |
+| `AUTH_SECRET` | Signs sessions. Changing it, or the password, signs everyone out. |
+| `OPENAI_API_KEY` | Needed for searches and columns. |
+| `JINA_API_KEY` | Needed for searches and columns (raw key, no `jina_` prefix). |
+| `GOOGLE_PLACES_API_KEY` | Optional: location searches also search Google Maps. |
 
-The backend no longer requires `OPENAI_API_KEY` / `JINA_API_KEY` in its `.env`.
-
-> **Security note:** keys in `localStorage` are readable by any JavaScript running on the page (an XSS risk) and are transmitted to the backend — always serve the app over HTTPS in production. Use the "Clear keys" button to remove them.
+Opening the app asks for the password. A session lasts until the browser tab closes (at most 12 hours), and **Sign out** in the sidebar ends it early. Every `/api` route except `/api/health` and the login answers 401 without a session, and 503 if the server has no password set. Nobody enters API keys in the browser.
 
 ## 📋 Prerequisites
 
@@ -36,11 +38,11 @@ The backend no longer requires `OPENAI_API_KEY` / `JINA_API_KEY` in its `.env`.
 - Python 3.9+
 - Node.js 18+ and npm (for the frontend)
 - PostgreSQL 12+ (installed locally)
-- An OpenAI API key and a Jina API key (entered in the UI, not in `.env`)
+- An OpenAI API key and a Jina API key (set in `backend/.env`)
 
 **For Docker (Alternative):**
 - Docker Desktop (or Docker Engine + Docker Compose)
-- An OpenAI API key and a Jina API key (entered in the UI, not in `.env`)
+- An OpenAI API key and a Jina API key (set in `backend/.env`)
 
 ## 🛠️ Installation
 
@@ -80,8 +82,8 @@ npm install
 ```bash
 cd ../backend
 cp env.example .env
-# Edit .env with your database credentials.
-# NOTE: OpenAI/Jina API keys are NOT needed here — you enter them in the UI.
+# Edit .env with your database credentials, APP_PASSWORD, AUTH_SECRET and
+# your OpenAI and Jina keys (GOOGLE_PLACES_API_KEY is optional).
 # Make sure your PostgreSQL database exists and is configured in .env
 ```
 
@@ -214,7 +216,7 @@ npm run dev
 - Backend API: `http://localhost:8000` (docs at `/docs`)
 - Frontend Dashboard: `http://localhost:5173` (Vite dev server)
 
-Then click **API Keys** (top-right) and enter your OpenAI and Jina keys.
+Then enter the password you set as `APP_PASSWORD`.
 
 ### Docker Development
 
